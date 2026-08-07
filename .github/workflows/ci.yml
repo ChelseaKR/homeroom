@@ -1,0 +1,73 @@
+# CI/CD-STANDARD-conformant pipeline: least-privilege GITHUB_TOKEN, SHA-pinned
+# actions, and the merge-blocking gates from SECURITY-AND-SUPPLY-CHAIN-STANDARD
+# §§4-5 (SAST, secret scan, SCA) plus CODE-QUALITY-STANDARD §2 (`make verify`).
+#
+# Replace the `TODO_SHA_*` placeholders with the real 40-char commit SHA for
+# the pinned tag before first push — `git ls-remote --tags <action repo url>`
+# resolves it. Actions stay `@<sha> # vX.Y.Z` so the version is human-readable
+# next to the pin, per SECURITY-AND-SUPPLY-CHAIN-STANDARD §6.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@TODO_SHA_actions_checkout # v4.x
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@TODO_SHA_setup_uv # v5.x
+        with:
+          version: ">=0.11.0"
+          python-version: "3.12"
+
+      - name: make verify (byte-for-byte the local target)
+        run: make verify
+
+      - uses: codecov/codecov-action@TODO_SHA_codecov_action # v5.x
+        if: always()
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@TODO_SHA_actions_checkout # v4.x
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@TODO_SHA_gitleaks_action # v2.x
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sast:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@TODO_SHA_actions_checkout # v4.x
+        with:
+          persist-credentials: false
+      - uses: semgrep/semgrep-action@TODO_SHA_semgrep_action # v1.x
+        with:
+          publishToken: ""
+      - run: semgrep ci --sarif --output=semgrep.sarif --severity=ERROR --severity=WARNING
+        continue-on-error: false
+

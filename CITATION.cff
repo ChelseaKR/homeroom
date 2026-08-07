@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+title: homeroom
+message: "If you use this work, please cite it."
+authors:
+  - family-names: Kelly-Reif
+    given-names: Chelsea
+version: 0.1.0
+date-released: "1970-01-01"  # TODO: set to today's date now, bump on every tagged release
+license: Apache-2.0

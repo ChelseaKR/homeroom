@@ -34,7 +34,9 @@ def test_reported_numbers_read_back_including_commas() -> None:
 
 
 def test_none_is_not_reported() -> None:
-    assert parse_cell(None, field="x", where="test").status is MeasureStatus.NOT_REPORTED
+    assert (
+        parse_cell(None, field="x", where="test").status is MeasureStatus.NOT_REPORTED
+    )
 
 
 def test_unknown_sentinel_refuses_rather_than_guesses() -> None:

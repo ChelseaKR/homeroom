@@ -16,9 +16,9 @@ cannot classify is a hard error, never a guess.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable
 
 SUPPRESSION_MARK = "*"
 """CDE's published mask for cells withheld under its small-cell rule."""
@@ -44,15 +44,15 @@ class Measure:
     _value: float | None = None
 
     @classmethod
-    def reported(cls, value: float) -> "Measure":
+    def reported(cls, value: float) -> Measure:
         return cls(MeasureStatus.REPORTED, float(value))
 
     @classmethod
-    def suppressed(cls) -> "Measure":
+    def suppressed(cls) -> Measure:
         return cls(MeasureStatus.SUPPRESSED)
 
     @classmethod
-    def not_reported(cls) -> "Measure":
+    def not_reported(cls) -> Measure:
         return cls(MeasureStatus.NOT_REPORTED)
 
     def number(self) -> float:

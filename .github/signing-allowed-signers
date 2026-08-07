@@ -1,0 +1,3 @@
+# Replace this line before the first release with the maintainer's verified
+# SSH signing principal and public key. Never commit a private key.
+TODO_SIGNER_PRINCIPAL ssh-ed25519 TODO_PUBLIC_KEY

@@ -1,25 +1,72 @@
-[project]
-name = "homeroom"
-version = "0.0.1"
-description = "California public school data, readable by the families it describes"
-requires-python = ">=3.12"
-license = { text = "Apache-2.0" }
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[project]
+name = "homeroom"
+version = "0.1.0"
+description = "California public school data, readable by the families it describes"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [
+  { name = "Chelsea Kelly-Reif" },
+]
+readme = "README.md"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "ruff>=0.15.0",
+  "mypy>=1.18",
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "pytest-xdist>=3.6",
+  "pip-audit>=2.7",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/homeroom"]
 
-[dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11"]
-
-[tool.pytest.ini_options]
-pythonpath = ["src"]
+# --- CODE-QUALITY-STANDARD §2 single-source ruff/mypy/pytest config ---
+# Portfolio default: repos change values, not keys. Do not fork this block;
+# edit STANDARDS/CODE-QUALITY-STANDARD.md upstream if the floor itself moves.
 
 [tool.ruff]
-line-length = 100
+# automation/ is vendored from portfolio-standards standards-init and tracked there;
+# it is excluded here rather than diverging from the template.
+extend-exclude = ["automation"]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "S", "C90", "RUF"]
+ignore = ["E501"]            # line length owned by the formatter
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]        # assert is expected in tests
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+[tool.ruff.format]
+quote-style = "double"
 
 [tool.mypy]
 strict = true
+warn_return_any = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
+markers = [
+  "slow: > 2s",
+  "integration: requires an external service",
+  "smoke: critical path",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+[tool.coverage.report]
+fail_under = 85   # apps/services/CLIs: >=85% — CODE-QUALITY-STANDARD §2
+show_missing = true

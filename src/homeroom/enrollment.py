@@ -16,20 +16,38 @@ being disguised as schools.
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 from homeroom.measures import Measure, parse_cell
 
 GRADE_COLUMNS = (
-    "GR_TK", "GR_KN", "GR_01", "GR_02", "GR_03", "GR_04", "GR_05", "GR_06",
-    "GR_07", "GR_08", "GR_09", "GR_10", "GR_11", "GR_12",
+    "GR_TK",
+    "GR_KN",
+    "GR_01",
+    "GR_02",
+    "GR_03",
+    "GR_04",
+    "GR_05",
+    "GR_06",
+    "GR_07",
+    "GR_08",
+    "GR_09",
+    "GR_10",
+    "GR_11",
+    "GR_12",
 )
 
 REQUIRED_COLUMNS = (
-    "AcademicYear", "AggregateLevel", "CountyCode", "DistrictCode", "SchoolCode",
-    "ReportingCategory", "TOTAL_ENR", *GRADE_COLUMNS,
+    "AcademicYear",
+    "AggregateLevel",
+    "CountyCode",
+    "DistrictCode",
+    "SchoolCode",
+    "ReportingCategory",
+    "TOTAL_ENR",
+    *GRADE_COLUMNS,
 )
 
 TOTAL_CATEGORY = "TA"
@@ -55,10 +73,16 @@ class EnrollmentRow:
 
 def _cds(county: str, district: str, school: str, *, where: str) -> str:
     county, district, school = county.strip(), district.strip(), school.strip()
-    code = f"{county:0>2}{district:0>5}{school:0>7}" if school else f"{county:0>2}{district:0>5}0000000"
+    code = (
+        f"{county:0>2}{district:0>5}{school:0>7}"
+        if school
+        else f"{county:0>2}{district:0>5}0000000"
+    )
     if len(code) != 14 or not code.isdigit():
-        raise EnrollmentDriftError(f"{where}: cannot assemble a 14-digit CDS from "
-                                   f"county={county!r} district={district!r} school={school!r}")
+        raise EnrollmentDriftError(
+            f"{where}: cannot assemble a 14-digit CDS from "
+            f"county={county!r} district={district!r} school={school!r}"
+        )
     return code
 
 
@@ -81,15 +105,23 @@ def parse_enrollment(path: Path) -> Iterator[EnrollmentRow]:
             district = (row.get("DistrictCode") or "").strip()
             county = (row.get("CountyCode") or "").strip()
             school = (row.get("SchoolCode") or "").strip()
-            cds = _cds(county, district, school, where=where) if level == SCHOOL_LEVEL else \
-                f"{county:0>2}{district:0>5}{school:0>7}".ljust(14, "0")[:14] if (county or district) else "0" * 14
+            cds = (
+                _cds(county, district, school, where=where)
+                if level == SCHOOL_LEVEL
+                else f"{county:0>2}{district:0>5}{school:0>7}".ljust(14, "0")[:14]
+                if (county or district)
+                else "0" * 14
+            )
             yield EnrollmentRow(
                 academic_year=(row.get("AcademicYear") or "").strip(),
                 level=level,
                 cds_code=cds,
                 category=(row.get("ReportingCategory") or "").strip(),
                 total=parse_cell(row.get("TOTAL_ENR"), field="TOTAL_ENR", where=where),
-                grades={g: parse_cell(row.get(g), field=g, where=where) for g in GRADE_COLUMNS},
+                grades={
+                    g: parse_cell(row.get(g), field=g, where=where)
+                    for g in GRADE_COLUMNS
+                },
             )
 
 
