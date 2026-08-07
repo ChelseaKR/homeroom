@@ -1,0 +1,395 @@
+# Trusted-main signed-tag release with deterministic package evidence.
+# The provisional mode is an explicit fail-closed contract: it never rebuilds
+# a historical commit and never represents synthetic evidence as production.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing signed release tag (vX.Y.Z)
+        required: true
+        type: string
+      release_mode:
+        description: Only normal releases are implemented by this scaffold
+        required: true
+        default: normal
+        type: choice
+        options: [normal, provisional]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  COSIGN_VERSION: v3.0.6
+  UV_VERSION: 0.11.28
+  CHECK_JSONSCHEMA_VERSION: 0.37.4
+  CYCLONEDX_SCHEMA: https://raw.githubusercontent.com/CycloneDX/specification/4b3f59453366e27c8073fd24e98bf21ef8892c8e/schema/bom-1.7.schema.json
+
+jobs:
+  provisional-contract:
+    name: Provisional releases are not implemented
+    if: inputs.release_mode == 'provisional'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Fail closed
+        run: |
+          echo "::error::This scaffold cannot publish provisional/synthetic release artifacts."
+          echo "Use a separately reviewed workflow that promotes an already checksummed artifact without rebuilding it."
+          exit 1
+
+  verify-build:
+    name: Verify tag and build deterministic package evidence
+    if: inputs.release_mode == 'normal'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+      source_commit: ${{ steps.metadata.outputs.source_commit }}
+      tag_object_sha: ${{ steps.metadata.outputs.tag_object_sha }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+          enable-cache: false
+
+      - name: Verify trusted main, signed tag, and hosted tag protection
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(git rev-parse origin/main)" = "${GITHUB_SHA}"
+          printf '%s\n' "${TAG}" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          git show-ref --verify --quiet "refs/tags/${TAG}"
+          test "$(git cat-file -t "refs/tags/${TAG}")" = tag
+          git merge-base --is-ancestor "${TAG}^{commit}" origin/main
+          cp .github/signing-allowed-signers "${RUNNER_TEMP}/release-signers"
+          git config gpg.format ssh
+          git config gpg.ssh.allowedSignersFile "${RUNNER_TEMP}/release-signers"
+          git verify-tag "${TAG}"
+          python3 automation/check_release_ruleset.py \
+            --hosted --repository "${REPOSITORY}" --repo-root . \
+            --tag "${TAG}" --verify-tag-message \
+            .github/rulesets/tags.json
+          {
+            printf 'tag=%s\n' "${TAG}"
+            printf 'source_commit=%s\n' "$(git rev-parse "${TAG}^{commit}")"
+            printf 'tag_object_sha=%s\n' "$(git rev-parse "refs/tags/${TAG}")"
+          } >> "${GITHUB_OUTPUT}"
+          git checkout --detach "${TAG}^{commit}"
+
+      - name: Test, build twice, and verify package metadata/runtime
+        env:
+          IMPORT_NAME: "homeroom"
+          PROJECT_NAME: "homeroom"
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          test "$(uv version --short)" = "${version}"
+          make verify
+          SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH
+          export PYTHONHASHSEED=0
+          first="${RUNNER_TEMP}/build-a"
+          second="${RUNNER_TEMP}/build-b"
+          rm -rf "${first}" "${second}" dist
+          mkdir -p "${first}" "${second}"
+          uv build --no-sources --out-dir "${first}"
+          uv build --no-sources --out-dir "${second}"
+          python3 automation/release_evidence.py compare-builds \
+            --first "${first}" --second "${second}" --output dist
+          python3 automation/release_evidence.py verify-dist \
+            --directory dist --project-name "${PROJECT_NAME}" --version "${version}"
+
+          release_env="${RUNNER_TEMP}/release-venv"
+          UV_PROJECT_ENVIRONMENT="${release_env}" \
+            uv sync --frozen --no-dev --no-editable
+          wheel="$(find dist -maxdepth 1 -type f -name '*.whl')"
+          test -f "${wheel}"
+          uv pip install --python "${release_env}/bin/python" \
+            --reinstall --no-deps "${wheel}"
+          runtime_version="$("${release_env}/bin/python" \
+            automation/release_evidence.py runtime-version \
+            --import-name "${IMPORT_NAME}")"
+          test "${runtime_version}" = "${version}"
+
+      - name: Generate locked-production CycloneDX SBOMs and custom provenance
+        env:
+          INVOCATION_ID: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          PROJECT_NAME: "homeroom"
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ steps.metadata.outputs.source_commit }}
+          TAG: ${{ inputs.tag }}
+          TAG_OBJECT_SHA: ${{ steps.metadata.outputs.tag_object_sha }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          timestamp="$(git show -s --format=%cI HEAD)"
+          release_env="${RUNNER_TEMP}/release-venv"
+          mkdir unsigned
+          cp dist/*.whl dist/*.tar.gz unsigned/
+          for artifact in unsigned/*.whl unsigned/*.tar.gz; do
+            "${release_env}/bin/python" automation/release_evidence.py runtime-sbom \
+              --artifact "${artifact}" --project-name "${PROJECT_NAME}" \
+              --version "${version}" --timestamp "${timestamp}" \
+              --output "${artifact}.cdx.json"
+            python3 automation/release_evidence.py validate-sbom \
+              "${artifact}.cdx.json"
+            uvx --from "check-jsonschema==${CHECK_JSONSCHEMA_VERSION}" \
+              check-jsonschema --schemafile "${CYCLONEDX_SCHEMA}" \
+              "${artifact}.cdx.json"
+          done
+          builder_id="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
+          python3 automation/release_evidence.py provenance-predicate \
+            --repository "${REPOSITORY}" --source-commit "${SOURCE_COMMIT}" \
+            --tag "${TAG}" --tag-object-sha "${TAG_OBJECT_SHA}" \
+            --builder-id "${builder_id}" --invocation-id "${INVOCATION_ID}" \
+            --output unsigned/build.provenance.json
+
+      - name: Extract an exact non-empty dated CHANGELOG section
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 - "${TAG#v}" <<'PY'
+          import datetime as dt
+          import re
+          import sys
+          from pathlib import Path
+
+          version = sys.argv[1]
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = re.compile(
+              rf"^## \[{re.escape(version)}\] - (\d4-\d2-\d2)\s*$",
+              re.MULTILINE,
+          )
+          match = pattern.search(text)
+          if match is None:
+              raise SystemExit("matching dated CHANGELOG section is missing")
+          dt.date.fromisoformat(match.group(1))
+          start = match.end()
+          following = re.search(r"^## \[", text[start:], re.MULTILINE)
+          body = text[start : start + following.start() if following else None].strip()
+          semantic = re.sub(r"<!--.*?(?:-->|$)", "", body, flags=re.DOTALL)
+          semantic = "\n".join(
+              line
+              for line in semantic.splitlines()
+              if line.strip()
+              and not re.fullmatch(r"\s{0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})", line)
+              and not re.match(r"^#{3,6}\s+", line.strip())
+              and not re.match(r"^\[[^\]]+\]:\s+\S+\s*$", line)
+          )
+          if not semantic.strip():
+              raise SystemExit("matching CHANGELOG section has no semantic content")
+          Path("unsigned/release-body.md").write_text(body + "\n", encoding="utf-8")
+          PY
+          (cd unsigned && sha256sum \
+            ./*.whl ./*.tar.gz ./*.cdx.json \
+            build.provenance.json release-body.md > UNSIGNED_SHA256SUMS)
+
+      - name: Retain checksummed unsigned assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unsigned-release-assets
+          path: unsigned
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  sign-attest:
+    name: Checkout-free keyless signer
+    needs: verify-build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: unsigned-release-assets
+          path: release-assets
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: ${{ env.COSIGN_VERSION }}
+
+      - name: Verify checksums, sign packages, and attest exact predicates
+        env:
+          COSIGN_YES: "true"
+        working-directory: release-assets
+        run: |
+          set -euo pipefail
+          sha256sum --check UNSIGNED_SHA256SUMS
+          rm UNSIGNED_SHA256SUMS
+          test "$(find . -maxdepth 1 -type f -name '*.whl' | wc -l)" -eq 1
+          test "$(find . -maxdepth 1 -type f -name '*.tar.gz' | wc -l)" -eq 1
+          for path in ./*.whl ./*.tar.gz; do
+            artifact="$(basename "${path}")"
+            test -f "${artifact}.cdx.json"
+            cosign sign-blob --yes \
+              --bundle "${artifact}.sigstore.json" "${artifact}" >/dev/null
+            cosign attest-blob --yes --type slsaprovenance1 \
+              --predicate build.provenance.json \
+              --bundle "${artifact}.provenance.sigstore.json" \
+              "${artifact}" >/dev/null
+            cosign attest-blob --yes --type cyclonedx \
+              --predicate "${artifact}.cdx.json" \
+              --bundle "${artifact}.sbom.sigstore.json" \
+              "${artifact}" >/dev/null
+          done
+
+      - name: Cryptographically verify every newly created bundle
+        working-directory: release-assets
+        run: |
+          set -euo pipefail
+          builder_id="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
+          cert_flags=(
+            --certificate-identity "${builder_id}"
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+            --certificate-github-workflow-repository "${GITHUB_REPOSITORY}"
+            --certificate-github-workflow-ref "${GITHUB_REF}"
+            --certificate-github-workflow-sha "${GITHUB_SHA}"
+            --certificate-github-workflow-trigger workflow_dispatch
+          )
+          for path in ./*.whl ./*.tar.gz; do
+            artifact="$(basename "${path}")"
+            cosign verify-blob --bundle "${artifact}.sigstore.json" \
+              "${cert_flags[@]}" "${artifact}"
+            cosign verify-blob-attestation --type slsaprovenance1 \
+              --bundle "${artifact}.provenance.sigstore.json" \
+              "${cert_flags[@]}" "${artifact}"
+            cosign verify-blob-attestation --type cyclonedx \
+              --bundle "${artifact}.sbom.sigstore.json" \
+              "${cert_flags[@]}" "${artifact}"
+          done
+          manifest="${RUNNER_TEMP}/release-SHA256SUMS"
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | \
+            sort -z | xargs -0 sha256sum > "${manifest}"
+          mv "${manifest}" SHA256SUMS
+
+      - name: Retain exact signed release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-release-assets
+          path: release-assets
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Publish verified release
+    needs: [verify-build, sign-attest]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-release-assets
+          path: release-assets
+
+      - name: Recheck tag object and publish without checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.verify-build.outputs.tag }}
+          TAG_OBJECT_SHA: ${{ needs.verify-build.outputs.tag_object_sha }}
+        run: |
+          set -euo pipefail
+          (cd release-assets && sha256sum --check SHA256SUMS)
+          remote_tag_object="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" --jq .object.sha)"
+          test "${remote_tag_object}" = "${TAG_OBJECT_SHA}"
+          gh release create "${TAG}" release-assets/* \
+            --repo "${GITHUB_REPOSITORY}" --title "${TAG}" \
+            --notes-file release-assets/release-body.md --verify-tag
+
+  verify-published:
+    name: Verify published bytes, signatures, and predicates
+    needs: [verify-build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-release-assets
+          path: expected
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: ${{ env.COSIGN_VERSION }}
+
+      - name: Byte-compare and reverify every published artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INVOCATION_ID: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ needs.verify-build.outputs.source_commit }}
+          TAG: ${{ needs.verify-build.outputs.tag }}
+          TAG_OBJECT_SHA: ${{ needs.verify-build.outputs.tag_object_sha }}
+        run: |
+          set -euo pipefail
+          mkdir published
+          gh release download "${TAG}" --repo "${REPOSITORY}" --dir published
+          diff \
+            <(find expected -maxdepth 1 -type f -printf '%f\n' | sort) \
+            <(find published -maxdepth 1 -type f -printf '%f\n' | sort)
+          for file in expected/*; do
+            cmp "${file}" "published/$(basename "${file}")"
+          done
+          (cd published && sha256sum --check SHA256SUMS)
+
+          cd published
+          builder_id="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
+          cert_flags=(
+            --certificate-identity "${builder_id}"
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+            --certificate-github-workflow-repository "${GITHUB_REPOSITORY}"
+            --certificate-github-workflow-ref "${GITHUB_REF}"
+            --certificate-github-workflow-sha "${GITHUB_SHA}"
+            --certificate-github-workflow-trigger workflow_dispatch
+          )
+          for path in ./*.whl ./*.tar.gz; do
+            artifact="$(basename "${path}")"
+            cosign verify-blob --bundle "${artifact}.sigstore.json" \
+              "${cert_flags[@]}" "${artifact}"
+            cosign verify-blob-attestation --type slsaprovenance1 \
+              --bundle "${artifact}.provenance.sigstore.json" \
+              "${cert_flags[@]}" "${artifact}"
+            cosign verify-blob-attestation --type cyclonedx \
+              --bundle "${artifact}.sbom.sigstore.json" \
+              "${cert_flags[@]}" "${artifact}"
+            python3 "${GITHUB_WORKSPACE}/automation/release_evidence.py" verify-bundle \
+              --bundle "${artifact}.provenance.sigstore.json" \
+              --artifact "${artifact}" --kind provenance \
+              --expected-predicate build.provenance.json \
+              --repository "${REPOSITORY}" --source-commit "${SOURCE_COMMIT}" \
+              --tag "${TAG}" --tag-object-sha "${TAG_OBJECT_SHA}" \
+              --builder-id "${builder_id}" --invocation-id "${INVOCATION_ID}"
+            python3 "${GITHUB_WORKSPACE}/automation/release_evidence.py" verify-bundle \
+              --bundle "${artifact}.sbom.sigstore.json" \
+              --artifact "${artifact}" --kind sbom \
+              --expected-predicate "${artifact}.cdx.json"
+          done
