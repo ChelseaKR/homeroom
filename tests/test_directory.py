@@ -40,10 +40,10 @@ def test_missing_required_column_is_a_hard_failure(tmp_path: Path) -> None:
 
 
 def test_malformed_cds_code_refuses_rather_than_joins(tmp_path: Path) -> None:
-    header = (
-        "CDSCode\tStatusType\tCounty\tDistrict\tSchool\tCity\tCharter\tVirtual\tGSserved\n"
-    )
+    header = "CDSCode\tStatusType\tCounty\tDistrict\tSchool\tCity\tCharter\tVirtual\tGSserved\n"
     bad = tmp_path / "pubschls.txt"
-    bad.write_text(header + "12345\tActive\tYolo\tD\tS\tDavis\tN\tN\tK-6\n", encoding="utf-8")
+    bad.write_text(
+        header + "12345\tActive\tYolo\tD\tS\tDavis\tN\tN\tK-6\n", encoding="utf-8"
+    )
     with pytest.raises(DirectoryDriftError, match="not 14 digits"):
         list(parse_directory(bad))

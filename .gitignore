@@ -2,3 +2,5 @@ data/raw/
 __pycache__/
 .venv/
 *.egg-info/
+.coverage
+coverage.xml

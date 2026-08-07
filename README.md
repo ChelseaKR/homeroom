@@ -48,6 +48,30 @@ CDS codes) is built, tested against a fixture, and verified against the live fil
 10,534 active schools across 1,048 districts and all 58 counties, 1,238 of them
 charters. Everything else is a plan recorded in PROVENANCE.md.
 
+## Development disclosure
+
+Built AI-assisted (Claude Code), with every claim, parser, and number verified against
+acquired source files and enforced by the test suite. The honesty rules above bind the
+tooling as much as the author: nothing ships that the data does not support.
+
+## Standards conformance
+
+Governed by [portfolio-standards](https://github.com/ChelseaKR/portfolio-standards) (private).
+
+| Standard | State |
+|----------|-------|
+| Responsible-Tech Framework | Applies (see `docs/RESPONSIBLE-TECH-AUDITS.md`) |
+| Code Quality | Applies |
+| Security & Supply-Chain | Applies |
+| CI/CD | Applies |
+| Observability | Applies (Tier C, library/CLI; declared in `docs/ROADMAP.md`) |
+| Accessibility | N/A at day one (no HTML surface); applies from the first school page (ROADMAP M4) |
+| Internationalization | Applies (EN/ES is a launch requirement; parity gate wired at ROADMAP M4) |
+| AI Evaluation | N/A (no prompt, retrieval, or model-version surface) |
+| Documentation | Applies |
+| Quality & Metrics | Applies (see `docs/ROADMAP.md` metrics ledger) |
+| Release & Versioning | Applies |
+
 ## License
 
 Apache 2.0. Source data is California open data; per-source terms in PROVENANCE.md.

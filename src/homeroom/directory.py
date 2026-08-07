@@ -10,9 +10,9 @@ guess. Source: PROVENANCE.md D1.
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 REQUIRED_COLUMNS = (
     "CDSCode",
