@@ -1,0 +1,20 @@
+AcademicYear	AggregateLevel	CountyCode	DistrictCode	SchoolCode	CountyName	DistrictName	SchoolName	Charter	ReportingCategory	TOTAL_ENR	GR_TK	GR_KN	GR_01	GR_02	GR_03	GR_04	GR_05	GR_06	GR_07	GR_08	GR_09	GR_10	GR_11	GR_12
+2025-26	T	00			00 STATE			ALL	TA	1000	80	90	100	100	100	100	100	100	80	50	30	30	20	20
+2025-26	T	00			00 STATE			ALL	AR_0418	990	80	90	100	100	100	100	100	100	80	50	30	25	20	15
+2025-26	D	01	10017		Yolo	Davis Joint Unified		ALL	TA	600	40	50	60	60	60	60	60	60	40	30	20	20	20	20
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	TA	100	12	14	16	18	20	9	6	5	0	0	0	0	0	
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	AR_0418	98	12	14	16	18	20	9	6	3	0	0	0	0	0	0
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	RE_H	63	8	9	10	11	12	6	4	3	0	0	0	0	0	0
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	RE_W	30	3	4	5	6	6	2	2	2	0	0	0	0	0	0
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	RE_B	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	GN_F	52	6	8	8	9	10	5	3	3	0	0	0	0	0	0
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	GN_M	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	ELAS_EO	71	8	10	11	13	14	6	5	4	0	0	0	0	0	0
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	ELAS_EL	22	3	3	4	4	4	2	1	1	0	0	0	0	0	0
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	SG_SD	44	5	6	6	8	8	5	3	3	0	0	0	0	0	0
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	SG_DS	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+2025-26	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	SG_HM	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*
+2025-26	S	01	10017	0154321	Yolo	Davis Joint Unified	Ejemplo Charter Academy	Y	TA	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*
+2025-26	S	01	10017	0154321	Yolo	Davis Joint Unified	Ejemplo Charter Academy	Y	SG_SD	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*
+2025-26	S	57	72678	6056246	Yolo	Davis Joint Unified	Birch Lane Elementary	N	TA	441	28	55	60	58	62	59	61	58	0	0	0	0	0	0
+2025-26	S	01	10017	0167890	Yolo	Davis Joint Unified	Shuttered School	N	TA	250	15	25	35	35	35	35	35	35	0	0	0	0	0	0

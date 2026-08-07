@@ -74,9 +74,12 @@ this framework to a repo", step 2).
 - Enforcement:
   - AUTO (in place): `Measure.number()` raises on suppressed/not-reported cells;
     parser tests; gitleaks in pre-commit and CI.
-  - REVIEW (open): no committed rule yet forbids derived-value arithmetic that
-    could reconstruct masked cells; it must be written down (test or ADR) before
-    M3, the first masked-heavy dataset.
+  - AUTO (in place, closed 2026-08-07 at M3a): the derived-value rule owed
+    before M3 is now written down and enforced. Profile assembly copies
+    CDE-published cells and never computes one (`src/homeroom/profiles.py`
+    module contract); tests assert no profile or artifact value equals the
+    complement of a masked cell and that every reported value appears verbatim
+    in the source file (`tests/test_profiles.py`, `tests/test_artifacts.py`).
   - A formal DPIA artifact is not maintained: the repo processes no personal data.
     PROVENANCE.md is the data inventory. This becomes wrong, and a DPIA becomes
     owed, if any non-public or individual-level data ever enters scope.
@@ -91,8 +94,10 @@ this framework to a repo", step 2).
 - Enforcement:
   - AUTO (in place): drift errors stop the build when upstream layouts change, so
     a page can never silently render from a file the parser no longer understands.
-  - AUTO (designed): the pipeline stamps acquisition dates into coverage output
-    (PROVENANCE.md); becomes testable when the rendering layer exists.
+  - AUTO (in place since M3a, 2026-08-07): the pipeline stamps PROVENANCE.md
+    acquisition dates into `coverage.json`, with an `is_fixture` flag and null
+    dates for fixture builds; tested for sync with the provenance record
+    (`tests/test_artifacts.py`).
   - REVIEW (not yet audited): honesty-of-framing pass on page copy, due at M4.
   - Model card: N/A, no model. PROVENANCE.md serves as the dataset record; a
     fuller datasheet is considered at M5 when all six sources are joined.

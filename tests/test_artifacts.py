@@ -1,0 +1,173 @@
+"""Artifacts: byte-identical re-runs, null-never-zero serialization, coverage first."""
+
+import json
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from homeroom.artifacts import (
+    DIRECTORY_ACCESS_DATE,
+    ENROLLMENT_ACCESS_DATE,
+    build_artifacts,
+    main,
+    measure_json,
+)
+from homeroom.measures import Measure
+
+ROOT = Path(__file__).resolve().parent.parent
+FIXTURES = ROOT / "fixtures"
+DIRECTORY = FIXTURES / "pubschls.sample.txt"
+ENROLLMENT = FIXTURES / "cdenroll.sample.txt"
+
+
+def build(tmp_path: Path, *, is_fixture: bool = True) -> tuple[Path, Path]:
+    result = build_artifacts(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=tmp_path / "out",
+        is_fixture=is_fixture,
+    )
+    return result.schools_path, result.coverage_path
+
+
+def load(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def all_measure_dicts(school: dict[str, Any]) -> list[dict[str, Any]]:
+    measures = [school["total_enrollment"], *school["grades"].values()]
+    for family in school["subgroups"].values():
+        measures.extend(family.values())
+    return measures
+
+
+def test_reruns_are_byte_identical(tmp_path: Path) -> None:
+    schools_path, coverage_path = build(tmp_path)
+    first = (schools_path.read_bytes(), coverage_path.read_bytes())
+    build(tmp_path)
+    again = (schools_path.read_bytes(), coverage_path.read_bytes())
+    assert first == again
+
+
+def test_measure_serialization_has_value_only_when_reported() -> None:
+    assert measure_json(Measure.reported(441)) == {"status": "reported", "value": 441}
+    assert measure_json(Measure.reported(42.5)) == {"status": "reported", "value": 42.5}
+    assert measure_json(Measure.reported(0)) == {"status": "reported", "value": 0}
+    assert measure_json(Measure.suppressed()) == {"status": "suppressed"}
+    assert measure_json(Measure.not_reported()) == {"status": "not_reported"}
+
+
+def test_no_serialized_measure_smuggles_a_number_for_unpublished_cells(
+    tmp_path: Path,
+) -> None:
+    schools_path, _ = build(tmp_path)
+    for school in load(schools_path)["schools"]:
+        for measure in all_measure_dicts(school):
+            if measure["status"] == "reported":
+                assert isinstance(measure["value"], int | float)
+            else:
+                assert "value" not in measure
+
+
+def test_schools_artifact_shape_and_order(tmp_path: Path) -> None:
+    schools_path, _ = build(tmp_path)
+    payload = load(schools_path)
+    assert payload["academic_year"] == "2025-26"
+    codes = [s["cds_code"] for s in payload["schools"]]
+    assert codes == sorted(codes)
+    assert payload["reporting_categories"]["TA"] == "All students"
+    assert payload["reporting_categories"]["RE_H"] == "Hispanic or Latino"
+    example = next(s for s in payload["schools"] if s["name"] == "Example Elementary")
+    assert example["total_enrollment"] == {"status": "reported", "value": 100}
+    assert example["subgroups"]["gender"]["GN_M"] == {"status": "suppressed"}
+    assert example["grades"]["GR_12"] == {"status": "not_reported"}
+    assert example["subgroups"]["student_groups"]["SG_DS"] == {
+        "status": "reported",
+        "value": 0,
+    }
+
+
+def test_artifact_exposes_no_complement_of_a_masked_cell(tmp_path: Path) -> None:
+    """Suppression fidelity at the artifact boundary: the masked RE_B and GN_M
+    complements (7 and 48; see the fixture) must not appear as any value."""
+    schools_path, _ = build(tmp_path)
+    values = [
+        measure["value"]
+        for school in load(schools_path)["schools"]
+        for measure in all_measure_dicts(school)
+        if "value" in measure
+    ]
+    assert 7 not in values
+    assert 48 not in values
+
+
+def test_coverage_is_first_class(tmp_path: Path) -> None:
+    _, coverage_path = build(tmp_path)
+    payload = load(coverage_path)
+    assert payload["is_fixture"] is True
+    assert payload["profiles"] == 3
+    assert payload["join_gaps"] == {
+        "school_totals_without_directory_match": 2,
+        "active_schools_without_enrollment_rows": 1,
+    }
+    assert payload["measures"]["total_enrollment"] == {
+        "reported": 1,
+        "suppressed": 1,
+        "not_reported": 1,
+    }
+    for counts in (
+        payload["measures"]["total_enrollment"],
+        *payload["measures"]["grades"].values(),
+        *payload["measures"]["subgroups"].values(),
+    ):
+        assert sum(counts.values()) == payload["profiles"]
+    assert payload["measures"]["subgroups"]["SG_HM"]["suppressed"] == 1
+    assert payload["measures"]["grades"]["GR_12"]["not_reported"] == 2
+
+
+def test_fixture_builds_stamp_no_acquisition_dates(tmp_path: Path) -> None:
+    _, coverage_path = build(tmp_path)
+    sources = load(coverage_path)["sources"]
+    assert sources["D1_directory"]["access_date"] is None
+    assert sources["D2_enrollment"]["access_date"] is None
+    assert sources["D2_enrollment"]["academic_year"] == "2025-26"
+
+
+def test_real_builds_stamp_provenance_access_dates(tmp_path: Path) -> None:
+    _, coverage_path = build(tmp_path, is_fixture=False)
+    payload = load(coverage_path)
+    assert payload["is_fixture"] is False
+    assert payload["sources"]["D1_directory"]["access_date"] == DIRECTORY_ACCESS_DATE
+    assert payload["sources"]["D2_enrollment"]["access_date"] == ENROLLMENT_ACCESS_DATE
+
+
+def test_access_date_constants_match_provenance_record() -> None:
+    provenance = (ROOT / "PROVENANCE.md").read_text(encoding="utf-8")
+    d1_row = next(line for line in provenance.splitlines() if line.startswith("| D1 |"))
+    d2_row = next(line for line in provenance.splitlines() if line.startswith("| D2 |"))
+    assert DIRECTORY_ACCESS_DATE in d1_row
+    assert ENROLLMENT_ACCESS_DATE in d2_row
+
+
+def test_cli_builds_artifacts_and_reports(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out_dir = tmp_path / "out"
+    code = main(
+        [
+            "--directory",
+            str(DIRECTORY),
+            "--enrollment",
+            str(ENROLLMENT),
+            "--out",
+            str(out_dir),
+            "--fixture",
+        ]
+    )
+    assert code == 0
+    assert (out_dir / "schools.json").exists()
+    assert (out_dir / "coverage.json").exists()
+    printed = capsys.readouterr().out
+    assert "profiles: 3 (2025-26)" in printed
+    assert "join gaps: 2 school totals" in printed

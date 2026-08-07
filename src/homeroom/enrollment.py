@@ -3,7 +3,9 @@
 Layout verified against the acquired 2025-26 file (269,090 rows, header read
 2026-08-07), not remembered: one row per (aggregate level, entity, reporting
 category), grade columns TK through 12 plus a total, with CDE's ``*`` masking
-in force (88,207 rows in the 2025-26 file carry at least one masked cell).
+in force (117,946 rows in the 2025-26 file carry at least one masked cell,
+re-measured 2026-08-07; every one is a school-level row masked in grade
+columns, and TOTAL_ENR is never masked in this file).
 Every cell passes through :func:`homeroom.measures.parse_cell`, so a masked
 count can never surface as a zero.
 
@@ -11,6 +13,14 @@ The CDS join key is assembled from the file's split county/district/school
 codes, zero-padded to the directory's 14-digit form. Aggregate rows (state,
 county, district) carry partial codes and are exposed separately rather than
 being disguised as schools.
+
+ReportingCategory values observed in the acquired 2025-26 file (33 codes, counted
+2026-08-07): ``TA``; race/ethnicity ``RE_A RE_B RE_D RE_F RE_H RE_I RE_P RE_T
+RE_W``; gender ``GN_F GN_M GN_X``; English language acquisition ``ELAS_ADEL
+ELAS_EL ELAS_EO ELAS_IFEP ELAS_MISS ELAS_RFEP ELAS_TBD``; student groups ``SG_DS
+SG_EL SG_FS SG_HM SG_MG SG_SD``; age ranges ``AR_03 AR_0418 AR_1922 AR_2329
+AR_3039 AR_4049 AR_50P``. Their reviewed display names live in
+:data:`homeroom.profiles.CATEGORY_NAMES`; a code outside that set is drift.
 """
 
 from __future__ import annotations

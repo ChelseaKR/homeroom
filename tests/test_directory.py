@@ -15,14 +15,18 @@ FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "pubschls.sample
 
 def test_fixture_parses_and_joins_on_cds() -> None:
     schools = list(parse_directory(FIXTURE))
-    assert len(schools) == 4
+    assert len(schools) == 5
     assert all(len(s.cds_code) == 14 for s in schools)
 
 
 def test_active_schools_excludes_closed_and_offices() -> None:
     active = active_schools(FIXTURE)
     names = {s.name for s in active}
-    assert names == {"Example Elementary", "Ejemplo Charter Academy"}
+    assert names == {
+        "Example Elementary",
+        "Ejemplo Charter Academy",
+        "Sin Datos Middle",
+    }
     charter = next(s for s in active if s.name == "Ejemplo Charter Academy")
     assert charter.charter is True
 

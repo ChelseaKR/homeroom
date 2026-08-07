@@ -53,6 +53,7 @@ gate, byte-for-byte identical locally and in CI.
 | M0 | Scaffold conformant with `STANDARDS/` | `make verify` green; README conformance table has zero blank/unjustified rows |
 | M1 (done 2026-08-07) | D1 directory spine parser | Verified against the live file: 18,396 rows parsed with no drift errors |
 | M2 (done 2026-08-07) | D2 Census Day enrollment parser and spine join | 2025-26 file parses end to end; school totals join the spine; statewide sum reconciles with the state's own row |
+| M3a (done 2026-08-07) | School profiles, subgroup measures, deterministic artifacts | One profile per active school (10,534 emitted from acquired data); every reporting category carries a reviewed display name, unreviewed codes fail the build; artifacts are byte-identical across re-runs; coverage (per-measure statuses, join gaps both ways, access dates, `is_fixture`) published beside the data; no published value is ever derived from complements, enforced by test |
 | M3 | D3 chronic absenteeism | First masked-heavy measure end to end; every masked cell null, counted in coverage output |
 | M3 | Suppression showcase | A committed artifact demonstrating null-never-zero rendering: masked cells shown as "not published", coverage stats published beside the data |
 | M4 | First bilingual school page | One real school rendered EN/ES from acquired data; a11y and EN/ES parity gates wired from this milestone |
@@ -87,11 +88,34 @@ Access dates and acquisition rules live in PROVENANCE.md.
 | Enrollment rows parsed (2025-26 Census Day) | 269,090 | D2 |
 | School-level all-students totals | 10,558 | D2 |
 | School totals joined to the directory spine | 9,860 | D1 + D2 join on CDS code |
-| Rows carrying at least one `*` masked cell | 88,207 | D2 |
-| Statewide enrollment (state's own row) | 5,692,490 | D2 |
+| Rows carrying at least one `*` masked cell | 117,946 (corrected; first recorded as 88,207) | D2 |
+| Statewide enrollment (state's own row) | 5,731,260 (corrected; 5,692,490 was recorded here but is the joined-schools sum) | D2 |
 
 The join gap (10,558 school totals vs 9,860 joined) is a finding, not a defect to
 hide: it is published as coverage, and understanding it is part of M3.
+
+### M3a measured values (2026-08-07)
+
+Measured by running `make data` against the acquired files; the artifacts are
+reproducible byte for byte (identical SHA-256 across re-runs). Two day-one D2
+values above were corrected during this re-measurement, as marked.
+
+| Value | Measured | Source |
+|-------|----------|--------|
+| School profiles emitted (one per active school) | 10,534 | `make data`, D1 + D2 |
+| Subgroup measures reported / suppressed / not reported | 182,362 / 0 / 80,988 | `make data`, 25 subgroup codes x 10,534 profiles |
+| Total-enrollment measures reported / suppressed / not reported | 9,860 / 0 / 674 | `make data` |
+| Join gap: school totals without a directory match | 698 (68 closed in D1, 153 match nameless D1 rows, 477 absent from D1) | D1 + D2 |
+| Join gap: active schools without enrollment rows | 674 | D1 + D2 |
+| ReportingCategory codes observed, all with reviewed names | 33 | D2; names checked against CDE's file structure page |
+| Masked cells in the 2025-26 file | 1,329,558, all in grade columns of school-level rows; `TOTAL_ENR` is never masked | D2 |
+| School-level all-students totals, summed | 5,731,260, reconciling exactly with the state's own row | D2 |
+
+Suppressed counts are zero in this table because CDE does not mask any cell M3a
+publishes (subgroup totals and all-students grade spans) in this file. The
+masking lives in subgroup-by-grade cells, which profiles do not carry. The
+suppressed path is exercised by the committed fixtures and stays load-bearing
+for M3, the first masked-heavy dataset.
 
 ## Scoping: N/A declarations
 
