@@ -42,11 +42,17 @@ answer to the same problem with federal endpoints.
 
 ## Status
 
-Day one. The school-directory parser (the spine every other dataset joins against, via
-CDS codes) is built, tested against a fixture, and verified against the live file
+The school-directory parser (the spine every other dataset joins against, via CDS
+codes) is built, tested against a fixture, and verified against the live file
 (acquired 2026-08-07): 18,396 directory rows parsed with no drift errors, yielding
 10,534 active schools across 1,048 districts and all 58 counties, 1,238 of them
-charters. Everything else is a plan recorded in PROVENANCE.md.
+charters. The 2025-26 Census Day enrollment file (269,090 rows, acquired the same
+day) parses end to end and joins that spine, and `make data` now assembles one
+profile per active school, with total, grade-span, and subgroup enrollment as
+three-status measures, and emits deterministic JSON artifacts: 10,534 profiles,
+byte-identical across re-runs, coverage published beside the data (9,860 school
+totals joined, the 698-plus-674 join gap counted in both directions, masks kept
+as nulls). The remaining datasets are a plan recorded in PROVENANCE.md.
 
 ## Development disclosure
 
