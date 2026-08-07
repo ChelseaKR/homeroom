@@ -1,0 +1,5 @@
+CDSCode	StatusType	County	District	School	City	Charter	Virtual	GSserved
+01100170112345	Active	Yolo	Davis Joint Unified	Example Elementary	Davis	N	N	K-6
+01100170154321	Active	Yolo	Davis Joint Unified	Ejemplo Charter Academy	Davis	Y	P	6-8
+01100170167890	Closed	Yolo	Davis Joint Unified	Shuttered School	Davis	N	N	K-6
+01100170000000	Active	Yolo	Davis Joint Unified		Davis	N	N	No Data
