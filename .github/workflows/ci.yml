@@ -2,10 +2,10 @@
 # actions, and the merge-blocking gates from SECURITY-AND-SUPPLY-CHAIN-STANDARD
 # §§4-5 (SAST, secret scan, SCA) plus CODE-QUALITY-STANDARD §2 (`make verify`).
 #
-# Replace the `TODO_SHA_*` placeholders with the real 40-char commit SHA for
-# the pinned tag before first push — `git ls-remote --tags <action repo url>`
-# resolves it. Actions stay `@<sha> # vX.Y.Z` so the version is human-readable
-# next to the pin, per SECURITY-AND-SUPPLY-CHAIN-STANDARD §6.
+# Every action is pinned to the full 40-char commit SHA of its tag, resolved
+# 2026-08-07 via `gh api repos/OWNER/REPO/commits/TAG`. Actions stay
+# `@<sha> # vX.Y.Z` so the version is human-readable next to the pin, per
+# SECURITY-AND-SUPPLY-CHAIN-STANDARD §6.
 name: ci
 
 on:
@@ -26,11 +26,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@TODO_SHA_actions_checkout # v4.x
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@TODO_SHA_setup_uv # v5.x
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           version: ">=0.11.0"
           python-version: "3.12"
@@ -38,7 +38,7 @@ jobs:
       - name: make verify (byte-for-byte the local target)
         run: make verify
 
-      - uses: codecov/codecov-action@TODO_SHA_codecov_action # v5.x
+      - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         if: always()
         with:
           files: coverage.xml
@@ -49,11 +49,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@TODO_SHA_actions_checkout # v4.x
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@TODO_SHA_gitleaks_action # v2.x
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -62,10 +62,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@TODO_SHA_actions_checkout # v4.x
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: semgrep/semgrep-action@TODO_SHA_semgrep_action # v1.x
+      - uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           publishToken: ""
       - run: semgrep ci --sarif --output=semgrep.sarif --severity=ERROR --severity=WARNING

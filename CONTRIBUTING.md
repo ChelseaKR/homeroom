@@ -8,7 +8,7 @@ make verify
 ```
 
 `make verify` is the single local gate and is byte-for-byte identical to the
-`verify` job in `.github/workflows/ci.yml` — if it's green locally, CI is
+`verify` job in `.github/workflows/ci.yml`; if it is green locally, CI is
 green (`STANDARDS/CODE-QUALITY-STANDARD.md` §2).
 
 ## Review

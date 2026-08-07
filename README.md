@@ -60,16 +60,16 @@ Governed by [portfolio-standards](https://github.com/ChelseaKR/portfolio-standar
 
 | Standard | State |
 |----------|-------|
-| Responsible-Tech Framework | Applies — see `docs/RESPONSIBLE-TECH-AUDITS.md` |
+| Responsible-Tech Framework | Applies (see `docs/RESPONSIBLE-TECH-AUDITS.md`) |
 | Code Quality | Applies |
 | Security & Supply-Chain | Applies |
 | CI/CD | Applies |
-| Observability | Applies — tier TBD, record in `docs/ROADMAP.md` |
-| Accessibility | N/A — no HTML/UI surface (headless cli) |
-| Internationalization | N/A — English-only; entry point: wrap user strings in `_()` to add a catalog |
-| AI Evaluation | N/A — no prompt/retrieval/model-version surface |
+| Observability | Applies (Tier C, library/CLI; declared in `docs/ROADMAP.md`) |
+| Accessibility | N/A at day one (no HTML surface); applies from the first school page (ROADMAP M4) |
+| Internationalization | Applies (EN/ES is a launch requirement; parity gate wired at ROADMAP M4) |
+| AI Evaluation | N/A (no prompt, retrieval, or model-version surface) |
 | Documentation | Applies |
-| Quality & Metrics | Applies — see `docs/ROADMAP.md` Metrics ledger |
+| Quality & Metrics | Applies (see `docs/ROADMAP.md` metrics ledger) |
 | Release & Versioning | Applies |
 
 ## License

@@ -1,4 +1,4 @@
-# CI-CD-STANDARD §6 — security-critical paths require a code-owner review.
+# CI-CD-STANDARD §6: security-critical paths require a code-owner review.
 /.github/workflows/  @ChelseaKR
 /.github/CODEOWNERS  @ChelseaKR
 /STANDARDS/          @ChelseaKR
