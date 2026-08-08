@@ -158,7 +158,12 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
   - REVIEW (not yet done): a keyboard and screen-reader walkthrough of a built
     page in each language, and a look at reflow on a narrow screen. No headless
     gate settles those, README.md says so, and this line stays open until the
-    walkthrough happens. Accountable owner: Chelsea Kelly-Reif.
+    walkthrough happens. Accountable owner: Chelsea Kelly-Reif. Registered as
+    RR-05 in `docs/audits/residual-risk-register.md`. The measure tables grew
+    from five columns to seven at M4 when district and statewide context landed,
+    which makes the reflow half of this walkthrough more pressing, not less: the
+    tables scroll inside a focusable region rather than reflowing, and whether
+    that is comfortable on a phone is exactly what a headless gate cannot say.
 
 ## F. Security
 
@@ -176,12 +181,18 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     allowed-signers file, reproducible double build with byte comparison,
     CycloneDX SBOM validated against schema, cosign keyless signing, provenance
     attestation, and byte-recheck of published assets (`.github/workflows/release.yml`).
-  - REVIEW (open, not yet audited): STRIDE threat model and residual-risk
-    register (`STANDARDS/templates/stride-threat-model.md`,
-    `residual-risk-register.md`) are not yet written; both are owed before the
-    first tagged release. `.github/signing-allowed-signers` still holds the
-    scaffold placeholder and must carry the maintainer's real signing key before
-    the first release; release.yml fails closed until it does.
+  - REVIEW (done 2026-08-08): STRIDE threat model written to
+    `docs/audits/threat-model.md` and the residual-risk register to
+    `docs/audits/residual-risk-register.md`, both owed before the first tagged
+    release. The threat model names the primary risk for this archetype as a
+    figure that is wrong and looks right rather than unauthorised access, and
+    treats the drift refusals and the three-state measure type as security
+    controls on that basis. Six residual risks carry an owner and a decision;
+    RR-04, RR-05 and RR-06 are tracked rather than accepted.
+  - REVIEW (open, needs the maintainer): `.github/signing-allowed-signers` still
+    holds the scaffold placeholder and must carry the maintainer's real signing
+    principal and public key before the first release; release.yml fails closed
+    until it does, so no unsigned release can escape in the meantime (RR-04).
 
 ## Governance (AI repos only)
 

@@ -26,6 +26,10 @@ that cannot be shown honestly is not shown at all.
 - A suppressed or masked measure (CDE masks small cells to protect students) renders as
   *not published*, never as zero, never interpolated.
 - "Not reported" and "reported as zero" are different facts and stay visually different.
+- District and statewide context comes from the state's own aggregate rows, never from
+  adding schools together. A sum over a column containing masked cells is wrong, and a
+  sum that skips them is wrong and looks clean, because it drops exactly the students
+  the mask protects.
 - Every figure traces to a named public file with an access date (see PROVENANCE.md).
 - Coverage is a first-class output: how many schools publish each measure is itself
   published, so absence reads as absence rather than as a clean dataset.

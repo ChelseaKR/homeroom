@@ -52,6 +52,7 @@ GRADE_COLUMNS = (
 REQUIRED_COLUMNS = (
     "AcademicYear",
     "AggregateLevel",
+    "Charter",
     "CountyCode",
     "DistrictCode",
     "SchoolCode",
@@ -64,7 +65,26 @@ TOTAL_CATEGORY = "TA"
 """The all-students reporting category, per the acquired file's own rows."""
 
 SCHOOL_LEVEL = "S"
+DISTRICT_LEVEL = "D"
+STATE_LEVEL = "T"
 KNOWN_LEVELS = {"T", "C", "D", "S"}
+
+ALL_CHARTER = "ALL"
+"""The charter value meaning "every school at this level, charter or not".
+
+This distinction is load-bearing, not bookkeeping. Each aggregate entity is
+published three times over: once for its charter schools, once for its
+non-charter schools, and once for both together. In the acquired 2025-26 file
+Davis Joint Unified's three district rows read 561, 7,682 and 8,243 students for
+the same reporting category, so a reader that takes whichever row it meets first
+can publish a district figure fifteen times too small and never notice. Only
+``ALL`` answers "how big is the district".
+
+School-level rows carry ``Y`` or ``N`` and never ``ALL``, because a school either
+is a charter or is not.
+"""
+
+KNOWN_CHARTERS = {"Y", "N", ALL_CHARTER}
 
 
 class EnrollmentDriftError(ValueError):
@@ -75,6 +95,7 @@ class EnrollmentDriftError(ValueError):
 class EnrollmentRow:
     academic_year: str
     level: str
+    charter: str
     cds_code: str
     category: str
     total: Measure
@@ -111,6 +132,12 @@ def parse_enrollment(path: Path) -> Iterator[EnrollmentRow]:
                 raise EnrollmentDriftError(
                     f"{path.name}:{n}: AggregateLevel {level!r} is not one this parser reviewed"
                 )
+            charter = (row.get("Charter") or "").strip()
+            if charter not in KNOWN_CHARTERS:
+                raise EnrollmentDriftError(
+                    f"{path.name}:{n}: Charter {charter!r} is not one this parser "
+                    f"reviewed; aggregate rows cannot be told apart without it"
+                )
             where = f"{path.name}:{n}"
             district = (row.get("DistrictCode") or "").strip()
             county = (row.get("CountyCode") or "").strip()
@@ -125,6 +152,7 @@ def parse_enrollment(path: Path) -> Iterator[EnrollmentRow]:
             yield EnrollmentRow(
                 academic_year=(row.get("AcademicYear") or "").strip(),
                 level=level,
+                charter=charter,
                 cds_code=cds,
                 category=(row.get("ReportingCategory") or "").strip(),
                 total=parse_cell(row.get("TOTAL_ENR"), field="TOTAL_ENR", where=where),
@@ -136,9 +164,20 @@ def parse_enrollment(path: Path) -> Iterator[EnrollmentRow]:
 
 
 def school_totals(path: Path) -> dict[str, Measure]:
-    """CDS code -> all-students total enrollment, school-level rows only."""
+    """CDS code -> all-students total enrollment, school-level rows only.
+
+    One school publishes one all-students total. A second row for the same CDS
+    code would mean the file no longer says what this parser was verified
+    against, and silently keeping the last one would pick a number by file order,
+    so it is drift and it stops the build.
+    """
     totals: dict[str, Measure] = {}
     for row in parse_enrollment(path):
         if row.level == SCHOOL_LEVEL and row.category == TOTAL_CATEGORY:
+            if row.cds_code in totals:
+                raise EnrollmentDriftError(
+                    f"{path.name}: CDS {row.cds_code} has more than one school-level "
+                    f"{TOTAL_CATEGORY} row; the file's grain is not what was verified"
+                )
             totals[row.cds_code] = row.total
     return totals
