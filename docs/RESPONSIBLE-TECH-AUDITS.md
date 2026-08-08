@@ -1,7 +1,7 @@
 # Responsible-Tech Audits: homeroom
 
 Instantiates `STANDARDS/RESPONSIBLE-TECH-FRAMEWORK.md`.
-Last regenerated: 2026-08-07 (day one).
+Last regenerated: 2026-08-07 (M4, first pages; sections B and E re-audited).
 
 This record is honest about its age: the repo is one day old. Each section states
 what is designed and enforced today versus what has not yet been audited. Nothing
@@ -13,10 +13,10 @@ below claims an audit that did not happen.
 - B Bias:          applies (the product exists to refuse a biased ranking practice; EN/ES is a first-class segment)
 - C Privacy:       applies, narrowly (no PII collected; the duty is suppression fidelity for the students inside CDE's aggregates)
 - D Transparency:  applies
-- E Accessibility: N/A at day one (no HTML surface); applies from the first school page (ROADMAP M4), gates wired before it ships
+- E Accessibility: applies as of M4; gates wired and merge-blocking (see E)
 - F Security:      applies (threat model not yet written; see F)
 - AI-EVAL:         N/A. No LLM, prompt, retrieval, or model surface. AI-assisted development is disclosed in the README; it is a build-time practice, not a product surface
-- I18N:            applies from M4. EN/ES is a launch requirement; no user-facing strings exist yet
+- I18N:            applies. EN/ES is a launch requirement; every user-visible string exists in both, parity gated (see B)
 
 Every `N/A` line above carries a reason. A missing audit section is a defect;
 a justified `N/A` is conformance (RESPONSIBLE-TECH-FRAMEWORK.md, "How to apply
@@ -55,9 +55,20 @@ this framework to a repo", step 2).
 - Enforcement:
   - AUTO (in place): `coverage()` counts every measure status; masked cells cannot
     leak into computed values.
-  - AUTO (from M4): EN/ES key parity per `STANDARDS/INTERNATIONALIZATION-STANDARD.md`.
-  - REVIEW (not yet audited): representational-harm pass on page copy and measure
-    framing, due at M4 when copy exists. No rendering exists yet to audit.
+  - AUTO (in place as of M4): EN/ES key parity per
+    `STANDARDS/INTERNATIONALIZATION-STANDARD.md`, enforced over every catalog by
+    `tests/test_i18n.py`, which also fails on a Spanish string left identical to
+    its English original and on a translated template that lost a placeholder.
+  - AUTO (in place as of M4): coverage is rendered beside every measure on every
+    page, so a school whose data is sparse reads as sparsely published rather
+    than as a school with nothing to show.
+  - REVIEW (first pass done 2026-08-07, M4): page copy and measure framing were
+    written and read against this risk. CDE's "Not Reported" and "Missing"
+    category labels are expanded in both languages so neither reads as a
+    judgment; a withheld figure is explained as protection for a student rather
+    than as something the school failed to supply; and no page compares one
+    school with another. Not yet reviewed by a Spanish-speaking reader who is
+    not the author, which is what CONTRIBUTING.md asks for.
 
 ## C. Privacy
 
@@ -122,12 +133,32 @@ this framework to a repo", step 2).
 
 ## E. Accessibility
 
-N/A at day one: there is no HTML or UI surface. This is a deferral, not an
-exemption. The product's whole point is family-readable pages, so from M4 the
-audit applies in full: axe/Lighthouse gates wired before the first page ships,
-manual keyboard and screen-reader walkthroughs per release, in both languages.
-An inaccessible or English-only-accessible page would fail the project's own
-thesis.
+Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
+
+- What could go wrong: the family this is written for cannot read it. A screen
+  reader announces a withheld figure as a bare number with no row header; a table
+  scrolls sideways on a phone with no way to reach it from a keyboard; a cell's
+  state is carried by colour alone, so the difference between a withheld figure
+  and a zero is invisible to a colour-blind reader; the English page is good and
+  the Spanish page is an afterthought.
+- Commitments: WCAG 2.2 AA on every page in both languages, semantic HTML with
+  real landmarks and real table headers, no reliance on colour alone, no script
+  and no external asset, and equal capability in both languages.
+- Enforcement:
+  - AUTO (in place): `make pages`, inside `make verify` and merge-blocking in CI,
+    builds the pages from committed fixtures and runs `html-validate` (with
+    `scope` required on every table header) and `axe-core` in a headless jsdom DOM
+    over the WCAG 2.0/2.1/2.2 A and AA rule sets plus best-practice, on every page
+    in both languages. Zero violations at M4.
+  - AUTO (in place): `tests/test_pages.py` checks what axe cannot in a DOM that
+    paints nothing: colour contrast for every pair the pages use, in light and in
+    dark, and the document structure a screen reader depends on. It also asserts
+    each cell state carries its own words, so colour is never the only signal
+    (SC 1.4.1).
+  - REVIEW (not yet done): a keyboard and screen-reader walkthrough of a built
+    page in each language, and a look at reflow on a narrow screen. No headless
+    gate settles those, README.md says so, and this line stays open until the
+    walkthrough happens. Accountable owner: Chelsea Kelly-Reif.
 
 ## F. Security
 

@@ -7,6 +7,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- First bilingual school pages (M4): `src/homeroom/render.py` renders one static
+  HTML page per school per language from the existing profiles, and `make site` /
+  `make site-offline` build them. Birch Lane Elementary in Davis Joint Unified
+  renders from the acquired files in English and Spanish; the fixture build
+  renders every committed school in both languages and says on the page that the
+  data is not real. Pages carry no script, no external asset, no account, and no
+  tracking, and nothing is deployed or hosted.
+- Four cell states that never collapse into each other: a published figure prints
+  as published, a published zero prints as `0` and says it is one, a figure CDE
+  withheld prints the words "withheld to protect privacy" with no digit anywhere,
+  and a figure the state never published prints "no figure published". Withheld
+  and missing cells are tested to contain no digit at all, so nothing on a page
+  can be skimmed or scraped as a zero.
+- Coverage published beside the data, row by row: every measure table carries how
+  many active schools publish that figure, withhold it, and publish nothing,
+  counted across all 10,534 active schools on the acquired build (9,860 publish a
+  total enrollment figure, 674 publish none).
+- English and Spanish as peers (`src/homeroom/i18n.py`): 120 keys per locale, 240
+  strings, covering every reporting category, grade span, and subgroup family
+  name. A missing key raises rather than falling back to English, and CDE's
+  English-only school and district names are marked `lang="en"` on Spanish pages
+  (WCAG 2.2 SC 3.1.2).
+- The accessibility gate the README promised from the first page, inside
+  `make verify` and merge-blocking in CI: `html-validate` (conformance, document,
+  and a11y presets, with `scope` required on every table header) and `axe-core` in
+  a headless jsdom DOM over the WCAG 2.0/2.1/2.2 A and AA rule sets plus
+  best-practice, on every built page in both languages. Zero violations.
+- The EN/ES parity gate the roadmap wired at M4 (`tests/test_i18n.py`): fails on a
+  key present in one language and absent in the other, on a Spanish string left
+  identical to its English original outside a short reviewed list, and on a
+  translated template that lost a `{placeholder}`.
+- Page checks that need no browser (`tests/test_pages.py`): one `h1`, no skipped
+  heading level, a caption and scoped headers on every table, landmarks, unique
+  ids, a focusable named region around every scrollable table, WCAG 2.2 contrast
+  measured off both palettes in light and dark, and every number in a data cell
+  checked against the values the pipeline actually counted.
+- Every page states, in both languages, that teacher assignment data has not been
+  acquired and that no figure about this school's teachers is shown. The page
+  build takes only the D1 and D2 files, so it has no argument by which a D5 figure
+  could arrive, and a test renders a profile that does carry parsed assignment
+  outcomes to prove none of them reaches the markup.
+- Deterministic pages: re-rendering is byte-identical, asserted in the test suite
+  and again in CI by building the offline site twice and diffing the hashes.
+- ADR 0001 records the page toolchain chosen at M4: stdlib Python rendering, typed
+  per-locale string dictionaries, and node checkers that never ship in a page.
 - Teacher assignment monitoring (D5), parser only: `src/homeroom/assignments.py`
   reads CDE's Teacher Assignment Monitoring Outcome files, published from the
   Commission on Teacher Credentialing's CalSAAS system, and carries five

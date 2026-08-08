@@ -35,8 +35,25 @@ jobs:
           version: ">=0.11.0"
           python-version: "3.12"
 
+      # `make verify` ends in `make pages`, which runs html-validate and axe-core
+      # over the school pages built from committed fixtures, in both languages.
+      # Nothing is served and nothing is deployed: both checkers read files off
+      # disk. Publication is a separate, deliberate decision and has no workflow.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+
       - name: make verify (byte-for-byte the local target)
         run: make verify
+
+      - name: the offline page build must produce byte-identical output twice
+        run: |
+          make site-offline
+          find build/site-offline -type f | sort | xargs shasum -a 256 > "${RUNNER_TEMP}/first.txt"
+          make site-offline
+          find build/site-offline -type f | sort | xargs shasum -a 256 > "${RUNNER_TEMP}/second.txt"
+          diff "${RUNNER_TEMP}/first.txt" "${RUNNER_TEMP}/second.txt"
 
       - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         if: always()

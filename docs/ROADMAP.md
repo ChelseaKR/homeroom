@@ -29,8 +29,12 @@ stated. No composite score, no ranking, ever (ADR 0000). No account, no tracking
   rendering case, including suppression.
 - The `Measure` type carries three statuses (reported, suppressed, not reported)
   and makes masked cells unreadable as numbers (ADR 0000).
-- Rendering target is static bilingual pages; the page toolchain is chosen at M4,
-  with accessibility and i18n gates wired in the same milestone.
+- Rendering target is static bilingual pages. The toolchain was chosen at M4 (ADR
+  0001): stdlib Python renders the markup, strings live in typed per-locale
+  dictionaries with a parity gate, and the node checkers (html-validate, axe-core
+  in jsdom) run over pages built from committed fixtures and never ship in one.
+  Rejected: a static site generator and a template engine, both of which put a
+  silent empty cell between a withheld figure and the reader.
 
 ## Observability
 
@@ -56,7 +60,7 @@ gate, byte-for-byte identical locally and in CI.
 | M3a (done 2026-08-07) | School profiles, subgroup measures, deterministic artifacts | One profile per active school (10,534 emitted from acquired data); every reporting category carries a reviewed display name, unreviewed codes fail the build; artifacts are byte-identical across re-runs; coverage (per-measure statuses, join gaps both ways, access dates, `is_fixture`) published beside the data; no published value is ever derived from complements, enforced by test |
 | M3 | D3 chronic absenteeism | First masked-heavy measure end to end; every masked cell null, counted in coverage output |
 | M3 | Suppression showcase | A committed artifact demonstrating null-never-zero rendering: masked cells shown as "not published", coverage stats published beside the data |
-| M4 | First bilingual school page | One real school rendered EN/ES from acquired data; a11y and EN/ES parity gates wired from this milestone |
+| M4 (done 2026-08-07) | First bilingual school page | One real school rendered EN/ES from acquired data (Birch Lane Elementary, Davis Joint Unified, CDS 57726786056246); a11y and EN/ES parity gates wired and merge-blocking from this milestone |
 | D5a (parser built 2026-08-07, awaiting acquisition) | D5 teacher assignment monitoring parser | Parser, spine join, artifact and coverage output built and tested against a synthetic fixture matching the documented file structure; every rendering case and the drift refusals covered; no D5 number published and PROVENANCE says why |
 | M5 | D4-D6 | Dashboard indicators, teacher assignment (CalSAAS) with a file in hand, and per-pupil spending joined where published |
 
@@ -74,6 +78,10 @@ owning standard.
 | Masked cells readable as numbers | 0 (type-enforced) | `Measure` raises on read; `tests/test_measures.py` | AUTO | Chelsea Kelly-Reif |
 | Unrecognized source sentinels | build fails | `parse_cell` hard error; parser drift tests | AUTO | Chelsea Kelly-Reif |
 | Sources publishing a number without a recorded acquisition | 0 | access-date constants tested against PROVENANCE.md; `tests/test_artifacts.py` | AUTO | Chelsea Kelly-Reif |
+| WCAG 2.2 A/AA violations on built pages | 0 | axe-core in jsdom plus html-validate, every page in both languages (`make pages`) | AUTO | Chelsea Kelly-Reif |
+| Keys present in one locale and not the other | 0 | `tests/test_i18n.py` over every catalog | AUTO | Chelsea Kelly-Reif |
+| Withheld or unpublished figures rendering a digit | 0 | `tests/test_pages.py` | AUTO | Chelsea Kelly-Reif |
+| Numbers on a page that nothing counted | 0 | `tests/test_pages.py` checks every data cell against the pipeline's own values | AUTO | Chelsea Kelly-Reif |
 
 ### Day-one measured values (2026-08-07)
 
@@ -135,14 +143,50 @@ the parser was built against.
 | Rendering cases covered by the fixture | 4 (reported, genuine zero, masked, missing) plus a wholly-withheld school | `fixtures/tamo.sample.txt` |
 | Drift refusals covered | 8 (missing column, renamed column, unreviewed aggregate level, non-numeric CDS, overlong CDS, unknown sentinel, percent-sign format, duplicate school row) | `tests/test_assignments.py` |
 
+### M4 measured values (2026-08-07)
+
+Measured by running `make site` against the acquired files and `make pages`
+against the committed fixtures. The page build reads D1 and D2 and nothing else,
+so no D5 figure can reach a page; the pages say that in words instead.
+
+| Value | Measured | Source |
+|-------|----------|--------|
+| Real school rendered EN and ES from acquired data | 1 school, 2 pages | `make site`, Birch Lane Elementary (CDS 57726786056246) |
+| Figures published on that school's English page | 30 numbers, 6 of them genuine published zeros | D2, 2025-26 |
+| Figures on that page the state withheld / never published | 0 withheld, 4 never published | D2, 2025-26 |
+| Measure cells per page | 40 (1 total, 14 grade spans, 25 subgroups) | `src/homeroom/render.py` |
+| Coverage published beside each figure | 3 columns per row (publishing, withholding, publishing nothing), counted across 10,534 active schools | D1 + D2 |
+| Total-enrollment coverage stated on every page | 9,860 publishing, 0 withheld, 674 publishing nothing | D1 + D2 |
+| Pages the accessibility gate checks | 6 (3 fixture schools x 2 languages) | `make pages` |
+| WCAG violations, axe-core A/AA plus best-practice | 0 across 6 rule sets, both languages | `tools/a11y.mjs` |
+| html-validate errors, conformance plus a11y presets | 0 | `make htmlvalidate` |
+| User-visible strings carried in both languages | 120 keys per locale, 240 strings (69 interface, 33 reporting categories, 14 grade spans, 4 subgroup families) | `src/homeroom/i18n.py` |
+| Keys present in one locale and not the other | 0 | `tests/test_i18n.py` |
+| Spanish strings left identical to their English original | 2, both reviewed and named (the project's own name; CDE's Filipino category, the same word in Spanish) | `tests/test_i18n.py` |
+| D5 numbers on any page, including when the parsed file is loaded into the renderer | 0 | `tests/test_pages.py` |
+| Page re-runs producing different bytes | 0 | `tests/test_pages.py`, plus a double build compared by hash in CI |
+| Branch coverage after M4 | 99% (floor is 85%) | `make test` |
+
+The withheld count on the real page is zero for the same reason the M3a table
+records: CDE does not mask the cells M4 publishes in this file. The withheld
+rendering path is load-bearing anyway, and the fixture pages exercise it, because
+D3 is a masked-heavy dataset and these are the pages it will land on.
+
 ## Scoping: N/A declarations
 
 Mirrors the README Standards Conformance table; never a silent skip.
 
-- Accessibility: N/A at day one (no HTML surface); applies from M4, gates wired
-  before the first page ships.
-- Internationalization: applies. EN/ES is a launch requirement for the pages; no
-  user-facing strings exist yet, and the parity gate is wired at M4.
+- Accessibility: applies as of M4, gates wired and merge-blocking (html-validate
+  and axe-core over every built page in both languages, plus structure and
+  contrast checks in `make test`). What no headless gate settles is named in
+  README.md: layout, reflow, focus visibility in practice, and a screen-reader
+  walkthrough in both languages still need a person, and that walkthrough is not
+  yet done.
+- Internationalization: applies, and the parity gate is wired as of M4. Every
+  user-visible string exists in English and Spanish, a missing key raises instead
+  of falling back, and CDE's English-only school and district names are marked
+  `lang="en"` on Spanish pages. What the gate cannot check is whether the Spanish
+  is good; CONTRIBUTING.md asks for review.
 - AI Evaluation: N/A. No LLM, prompt, retrieval, or model-version surface.
   AI-assisted development is disclosed in the README; it is a build-time practice,
   not a product surface.
