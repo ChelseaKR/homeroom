@@ -5,3 +5,4 @@ __pycache__/
 *.egg-info/
 .coverage
 coverage.xml
+.DS_Store
