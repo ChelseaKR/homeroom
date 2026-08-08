@@ -1,14 +1,15 @@
 # Provenance
 
-Every source is a California Department of Education public file. CDE's site challenges
-non-browser HTTP clients (Radware-style bot manager, observed 2026-08-07), so acquisition
-is a documented browser step, not an automated fetch. Record the access date beside each
-file when acquired; the pipeline stamps it into coverage output.
+Every source is a California Department of Education public file, downloaded from CDE's
+public data pages in a browser, the way the pages are meant to be used. The pipeline
+therefore treats source files as locally acquired inputs rather than fetching them at
+build time: record the access date beside each file when acquired, and the pipeline
+stamps it into coverage output. CI never touches the network.
 
 | # | Source | What it provides | Acquisition | Status |
 |---|---|---|---|---|
 | D1 | Public Schools and Districts directory (`pubschls.txt`), https://www.cde.ca.gov/schooldirectory/ (download: text report) | Canonical school list: CDS codes, names, districts, status, type, grades, coordinates, charter/virtual flags | Browser download, ~8.8 MB tab-delimited | Endpoint verified live 2026-08-07 (HEAD 200, text/csv, 8,788,547 bytes); parser built |
-| D2 | Census Day Enrollment Data, https://www.cde.ca.gov/ds/ad/filesenrcensus.asp (file structure: https://www.cde.ca.gov/ds/ad/fsenrcensus.asp; the pre-2026 URL filesenr.asp now 404s, renamed upstream, observed 2026-08-07) | Enrollment by school, grade, demographic group | Browser download, annual. Note 2026-08-07: direct www3.cde.ca.gov/demo-downloads URLs return 303 to an HTML page for non-browser clients; acquire from the browser page and record which school year's file was taken | 2025-26 file acquired 2026-08-07, saved as `cdenroll2526.txt` (32,041,859 bytes, 269,090 data rows); parser built; ReportingCategory names reviewed against the file structure page 2026-08-07 |
+| D2 | Census Day Enrollment Data, https://www.cde.ca.gov/ds/ad/filesenrcensus.asp (file structure: https://www.cde.ca.gov/ds/ad/fsenrcensus.asp; the pre-2026 URL filesenr.asp now 404s, renamed upstream, observed 2026-08-07) | Enrollment by school, grade, demographic group | Browser download, annual. Acquire from the browser page and record which school year's file was taken | 2025-26 file acquired 2026-08-07, saved as `cdenroll2526.txt` (32,041,859 bytes, 269,090 data rows); parser built; ReportingCategory names reviewed against the file structure page 2026-08-07 |
 | D3 | Chronic absenteeism files, https://www.cde.ca.gov/ds/ad/filesabd.asp (verify URL at acquisition; CDE renamed sibling pages in 2026) | Chronic absenteeism rate by school and group, with CDE small-cell masking | Browser download, annual | Planned |
 | D4 | CA School Dashboard research files, https://www.cde.ca.gov/ta/ac/cm/ | Dashboard indicator data behind the color bands | Browser download, annual | Planned |
 | D5 | Teacher Assignment Monitoring (CalSAAS) outcomes | Clear/appropriately-assigned teaching share by school | Browser download, annual | Planned |
