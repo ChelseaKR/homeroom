@@ -87,7 +87,7 @@ jobs:
           git verify-tag "${TAG}"
           python3 automation/check_release_ruleset.py \
             --hosted --repository "${REPOSITORY}" --repo-root . \
-            --tag "${TAG}" --verify-tag-message \
+            --tag "${TAG}"-message \
             .github/rulesets/tags.json
           {
             printf 'tag=%s\n' "${TAG}"
@@ -309,6 +309,7 @@ jobs:
       - name: Recheck tag object and publish without checkout
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.verify-build.outputs.tag }}
           TAG_OBJECT_SHA: ${{ needs.verify-build.outputs.tag_object_sha }}
         run: |
@@ -318,7 +319,7 @@ jobs:
           test "${remote_tag_object}" = "${TAG_OBJECT_SHA}"
           gh release create "${TAG}" release-assets/* \
             --repo "${GITHUB_REPOSITORY}" --title "${TAG}" \
-            --notes-file release-assets/release-body.md --verify-tag
+            --notes-file release-assets/release-body.md
 
   verify-published:
     name: Verify published bytes, signatures, and predicates
