@@ -1,8 +1,14 @@
-"""Assemble one profile per active school from the spine and Census Day enrollment.
+"""Assemble one profile per active school from the spine and the measure files.
 
 A :class:`SchoolProfile` is the unit the future pages render: directory identity,
-the academic year, total enrollment, per-grade enrollment, and subgroup enrollment,
-every value a :class:`homeroom.measures.Measure` so suppression survives assembly.
+the academic year, total enrollment, per-grade enrollment, subgroup enrollment,
+and, when the D5 file is supplied, that school's published teacher assignment
+outcomes, every value a :class:`homeroom.measures.Measure` so suppression survives
+assembly.
+
+Each source keeps its own academic year. Teacher assignment monitoring reports on
+a different cycle than Census Day enrollment, so a profile carries both years
+rather than one label over data from two calendars.
 
 Suppression fidelity (ADR 0000, and the pre-M3 privacy commitment in
 docs/RESPONSIBLE-TECH-AUDITS.md): every published value in a profile is exactly a
@@ -27,6 +33,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from homeroom.assignments import AssignmentRow, school_outcomes
 from homeroom.directory import School, active_schools
 from homeroom.enrollment import (
     GRADE_COLUMNS,
@@ -118,13 +125,20 @@ class ProfileDriftError(ValueError):
 
 @dataclass(frozen=True)
 class SchoolProfile:
-    """Everything M3a knows about one active school. Every value is a Measure."""
+    """Everything Homeroom knows about one active school. Every value is a Measure.
+
+    ``teacher_assignments`` is ``None`` when the D5 file was not supplied to this
+    build. That is a different fact from a school the file covers with everything
+    withheld, and the two never collapse: the first says Homeroom has no source,
+    the second says the state published a mask.
+    """
 
     school: School
     academic_year: str
     total_enrollment: Measure
     grades: dict[str, Measure]
     subgroups: dict[str, Measure]
+    teacher_assignments: AssignmentRow | None
 
 
 @dataclass(frozen=True)
@@ -135,6 +149,9 @@ class ProfileAssembly:
     profiles: list[SchoolProfile]
     unjoined_school_totals: int
     schools_without_enrollment: int
+    assignments_academic_year: str | None
+    unjoined_assignment_rows: int | None
+    schools_without_assignments: int | None
 
 
 def _spine(directory_path: Path) -> dict[str, School]:
@@ -180,8 +197,25 @@ def _school_rows(
     return years.pop(), by_school
 
 
+def _assignment_rows(
+    assignments_path: Path,
+) -> tuple[str, dict[str, AssignmentRow]]:
+    """School-level D5 rows keyed by CDS code, plus the academic year they report."""
+    by_school = school_outcomes(assignments_path)
+    years = {row.academic_year for row in by_school.values()}
+    if len(years) != 1:
+        raise ProfileDriftError(
+            f"{assignments_path.name} carries academic years {sorted(years)}; "
+            "profile assembly was built against exactly one"
+        )
+    return years.pop(), by_school
+
+
 def _profile(
-    school: School, rows: dict[str, EnrollmentRow], academic_year: str
+    school: School,
+    rows: dict[str, EnrollmentRow],
+    academic_year: str,
+    assignments: AssignmentRow | None,
 ) -> SchoolProfile:
     """Copy published cells onto a profile. Absent rows are not reported, because
     the state published nothing; they are never filled in from arithmetic."""
@@ -199,21 +233,39 @@ def _profile(
             code: rows[code].total if code in rows else Measure.not_reported()
             for code in SUBGROUP_CODES
         },
+        teacher_assignments=assignments,
     )
 
 
-def assemble_profiles(directory_path: Path, enrollment_path: Path) -> ProfileAssembly:
+def assemble_profiles(
+    directory_path: Path,
+    enrollment_path: Path,
+    assignments_path: Path | None = None,
+) -> ProfileAssembly:
     """One profile per active school, in CDS order, with join gaps counted.
 
-    The gap runs both ways and both directions are published: school-level
-    enrollment totals whose CDS matches no active school (closed schools still
-    reporting, or spine lag), and active schools the enrollment file never
-    mentions.
+    The gap runs both ways for every source and both directions are published:
+    rows whose CDS matches no active school (closed schools still reporting, or
+    spine lag), and active schools the file never mentions.
+
+    ``assignments_path`` is optional because D5 is a separate acquisition. Left
+    out, the assignment counts come back ``None`` rather than zero: no source is
+    not the same claim as a source that covers nothing.
     """
     spine = _spine(directory_path)
     academic_year, by_school = _school_rows(enrollment_path)
+    assignment_year, assignments = (
+        _assignment_rows(assignments_path)
+        if assignments_path is not None
+        else (None, {})
+    )
     profiles = [
-        _profile(spine[cds], by_school.get(cds, {}), academic_year)
+        _profile(
+            spine[cds],
+            by_school.get(cds, {}),
+            academic_year,
+            assignments.get(cds) if assignments_path is not None else None,
+        )
         for cds in sorted(spine)
     ]
     unjoined = sum(
@@ -227,4 +279,15 @@ def assemble_profiles(directory_path: Path, enrollment_path: Path) -> ProfileAss
         profiles=profiles,
         unjoined_school_totals=unjoined,
         schools_without_enrollment=without,
+        assignments_academic_year=assignment_year,
+        unjoined_assignment_rows=(
+            sum(1 for cds in assignments if cds not in spine)
+            if assignments_path is not None
+            else None
+        ),
+        schools_without_assignments=(
+            sum(1 for cds in spine if cds not in assignments)
+            if assignments_path is not None
+            else None
+        ),
     )

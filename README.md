@@ -52,7 +52,18 @@ profile per active school, with total, grade-span, and subgroup enrollment as
 three-status measures, and emits deterministic JSON artifacts: 10,534 profiles,
 byte-identical across re-runs, coverage published beside the data (9,860 school
 totals joined, the 698-plus-674 join gap counted in both directions, masks kept
-as nulls). The remaining datasets are a plan recorded in PROVENANCE.md.
+as nulls).
+
+Teacher assignment monitoring (D5) has a parser and no data yet. CDE publishes
+these files from the Commission on Teacher Credentialing's CalSAAS system: by
+school, how many teaching assignments were held on a clear credential and
+appropriately matched to the assignment, and how many sat in one of the other
+authorization states the state tracks. The parser, its coverage output, and its
+join to the spine are built and tested against a synthetic fixture, because no D5
+file has been acquired here. So no D5 number about a real school is published
+anywhere, the column names the parser expects are provisional until the file is
+in hand, and PROVENANCE.md says both in as many words. The remaining datasets are
+a plan recorded there too.
 
 ## Development disclosure
 

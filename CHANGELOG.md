@@ -7,6 +7,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Teacher assignment monitoring (D5), parser only: `src/homeroom/assignments.py`
+  reads CDE's Teacher Assignment Monitoring Outcome files, published from the
+  Commission on Teacher Credentialing's CalSAAS system, and carries five
+  authorization outcomes per school as counts and published shares. Shares are
+  copied, never divided out of counts; no outcome is ever recovered as the total
+  minus its visible siblings. Profiles gain an optional `teacher_assignments`
+  block joined on the 14-digit CDS code, artifacts gain the block and its
+  coverage, and `--assignments` is a new optional input to `make data`.
+  **No D5 file has been acquired**, so no D5 number about a real school is
+  published anywhere. The parser was built against `fixtures/tamo.sample.txt`, a
+  synthetic fixture, and the column contract is provisional until the real file
+  is in hand; the drift errors are what make that safe, because a contract that
+  turns out wrong stops the build instead of mis-reading a file.
+- Each source now keeps its own school year. Assignment monitoring reports on a
+  different cycle than Census Day enrollment, and a profile carries both years
+  rather than putting one label over data from two calendars.
+- Unacquired sources state their absence rather than rendering as zeros: with no
+  D5 file, `coverage.json` records the source as unsupplied and no school carries
+  an assignment block at all. A build cannot stamp an acquisition date nobody
+  recorded, and the code constant and PROVENANCE.md are tested for agreement.
 - School profiles (M3a): one `SchoolProfile` per active school joining directory
   identity, academic year, total enrollment, TK-12 grade spans, and subgroup
   enrollment for the four families the 2025-26 file carries (race/ethnicity,
@@ -41,7 +61,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   least one in the 2025-26 enrollment file) cannot be read as a number; unknown
   sentinels fail the build; coverage is a first-class output.
 - Provenance record (PROVENANCE.md) for sources D1-D6, including the
-  browser-acquisition rule forced by CDE's bot challenge.
+  browser-acquisition rule that keeps every file's origin and date on the record.
 - Founding ADR 0000: the anti-ranking rule as an architectural decision.
 - Conformance scaffold from `standards-init` (STANDARDS EXP-09), conformant with
   `STANDARDS/` `v1.0.1` at birth: CI with fully SHA-pinned actions, signed-tag
