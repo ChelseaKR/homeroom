@@ -18,3 +18,9 @@ AcademicYear	AggregateLevel	CountyCode	DistrictCode	SchoolCode	CountyName	Distri
 2025-26	S	01	10017	0154321	Yolo	Davis Joint Unified	Ejemplo Charter Academy	Y	SG_SD	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*
 2025-26	S	57	72678	6056246	Yolo	Davis Joint Unified	Birch Lane Elementary	N	TA	441	28	55	60	58	62	59	61	58	0	0	0	0	0	0
 2025-26	S	01	10017	0167890	Yolo	Davis Joint Unified	Shuttered School	N	TA	250	15	25	35	35	35	35	35	35	0	0	0	0	0	0
+2025-26	D	01	10017		Yolo	Davis Joint Unified		Y	TA	55	5	5	5	5	5	5	5	5	5	0	0	0	0	0
+2025-26	D	01	10017		Yolo	Davis Joint Unified		N	TA	545	35	45	55	55	55	55	55	55	35	30	20	20	20	20
+2025-26	D	01	10017		Yolo	Davis Joint Unified		ALL	RE_H	210	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+2025-26	D	01	10017		Yolo	Davis Joint Unified		ALL	SG_HM	*	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+2025-26	T	00			00 STATE			ALL	RE_H	350	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+2025-26	T	00			00 STATE			ALL	SG_HM	*	0	0	0	0	0	0	0	0	0	0	0	0	0	0

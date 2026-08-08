@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from homeroom.artifacts import DIRECTORY_ACCESS_DATE, ENROLLMENT_ACCESS_DATE
+from homeroom.context import ContextDriftError, load_context
 from homeroom.i18n import LOCALES
 from homeroom.profiles import ProfileAssembly, SchoolProfile, assemble_profiles
 from homeroom.render import (
@@ -113,6 +114,13 @@ def build_site(
     """Render every selected school in every locale. Returns what was written."""
     assembly = assemble_profiles(directory, enrollment)
     cover = site_coverage(assembly)
+    context = load_context(enrollment)
+    if context.academic_year != assembly.academic_year:
+        raise ContextDriftError(
+            f"context covers {context.academic_year} but the profiles cover "
+            f"{assembly.academic_year}; a page must not read one year's school "
+            f"figures against another year's district and statewide figures"
+        )
     refs = sources(
         directory=directory,
         enrollment=enrollment,
@@ -132,6 +140,7 @@ def build_site(
                     cover=cover,
                     sources=refs,
                     is_fixture=is_fixture,
+                    context=context,
                 ),
                 encoding="utf-8",
             )

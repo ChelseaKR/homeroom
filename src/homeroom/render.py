@@ -35,8 +35,9 @@ twice and comparing hashes.
 from __future__ import annotations
 
 import html
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from homeroom.context import AggregateFigures, EnrollmentContext
 from homeroom.enrollment import GRADE_COLUMNS, TOTAL_CATEGORY
 from homeroom.i18n import (
     LOCALE_NAMES,
@@ -182,6 +183,12 @@ td.count, th.count { text-align: right; font-variant-numeric: tabular-nums; }
 .m-withheld .state { color: var(--withheld); font-style: italic; }
 .m-nothing { border-left: 3px solid var(--nothing); }
 .m-nothing .state { color: var(--nothing); }
+/* The page is about one school, so its own column stays the loudest of the three.
+   The separation is weight and a rule, never colour alone: the four cell states
+   already own the colours, and reusing them here would make a district's withheld
+   cell and a school's withheld cell say different things in the same hue. */
+td.c-district .num, td.c-state .num { font-weight: 400; color: var(--ink-2); }
+td.c-district { border-left-color: var(--rule-strong); }
 .s-number { font-weight: 600; }
 .s-zero { color: var(--zero); }
 .s-withheld { color: var(--withheld); font-style: italic; }
@@ -253,11 +260,19 @@ def site_coverage(assembly: ProfileAssembly) -> SiteCoverage:
 
 @dataclass(frozen=True)
 class Row:
-    """One measure as a table row: its name, this school's cell, and coverage."""
+    """One measure as a table row: its name, the cells to read it against, coverage.
+
+    ``district`` and ``state`` are CDE's own published aggregates, never a sum of
+    school rows (see :mod:`homeroom.context`). They are context, not a verdict:
+    the page puts them beside the school's figure and says nothing about whether
+    being above or below either one is good.
+    """
 
     label: str
     measure: Measure
     counts: dict[str, int]
+    district: Measure = field(default_factory=Measure.not_reported)
+    state: Measure = field(default_factory=Measure.not_reported)
 
 
 def _esc(value: str) -> str:
@@ -278,21 +293,26 @@ def _cde(value: str, locale: Locale) -> str:
     return f'<span lang="{lang}">{_esc(value)}</span>'
 
 
-def _measure_cell(measure: Measure, locale: Locale) -> str:
-    """One school's value, in whichever of the four states it is actually in."""
+def _measure_cell(measure: Measure, locale: Locale, scope: str = "school") -> str:
+    """One value, in whichever of the four states it is actually in.
+
+    ``scope`` says whose figure this is: ``school``, ``district`` or ``state``. It
+    is emitted as a class so the page can hold the school's own figure forward and
+    let the context recede, and so a test can ask what this school published
+    without a district's number answering.
+    """
+    cell = f'<td class="m c-{scope}'
     if measure.status is MeasureStatus.REPORTED:
         number = f'<span class="num">{_esc(format_number(measure.number()))}</span>'
         if measure.is_zero:
             label = _esc(text(locale, "state_zero_label"))
-            return (
-                f'<td class="m m-zero">{number} <span class="state">{label}</span></td>'
-            )
-        return f'<td class="m m-number">{number}</td>'
+            return f'{cell} m-zero">{number} <span class="state">{label}</span></td>'
+        return f'{cell} m-number">{number}</td>'
     if measure.status is MeasureStatus.SUPPRESSED:
         label = _esc(text(locale, "state_withheld_label"))
-        return f'<td class="m m-withheld"><span class="state">{label}</span></td>'
+        return f'{cell} m-withheld"><span class="state">{label}</span></td>'
     label = _esc(text(locale, "state_nothing_label"))
-    return f'<td class="m m-nothing"><span class="state">{label}</span></td>'
+    return f'{cell} m-nothing"><span class="state">{label}</span></td>'
 
 
 def _measure_table(
@@ -319,9 +339,12 @@ def _measure_table(
             f'<td class="count">{_esc(format_number(row.counts[status]))}</td>'
             for status in ("reported", "suppressed", "not_reported")
         )
+        context = _measure_cell(row.district, locale, "district") + _measure_cell(
+            row.state, locale, "state"
+        )
         body.append(
             f'<tr><th scope="row">{row.label}</th>'
-            f"{_measure_cell(row.measure, locale)}{counts}</tr>"
+            f"{_measure_cell(row.measure, locale)}{context}{counts}</tr>"
         )
     rows_html = "\n".join(body)
     return (
@@ -331,6 +354,8 @@ def _measure_table(
         "<thead><tr>"
         f'<th scope="col">{_esc(row_header)}</th>'
         f'<th scope="col">{_esc(text(locale, "col_this_school"))}</th>'
+        f'<th scope="col">{_esc(text(locale, "col_district"))}</th>'
+        f'<th scope="col">{_esc(text(locale, "col_state"))}</th>'
         f"{head}</tr></thead>\n"
         f"<tbody>\n{rows_html}\n</tbody>\n"
         "</table>\n"
@@ -386,6 +411,7 @@ def _how_to_read(locale: Locale) -> str:
         "how-to-read",
         text(locale, "how_to_read_heading"),
         f"<p>{_esc(text(locale, 'no_ranking_body'))}</p>\n"
+        f"<p>{_esc(text(locale, 'context_body'))}</p>\n"
         f"<p>{_esc(text(locale, 'states_intro'))}</p>\n"
         f"<h3>{_esc(text(locale, 'states_heading'))}</h3>\n"
         f"{_states_legend(locale)}",
@@ -400,7 +426,11 @@ def _coverage_note(locale: Locale, cover: SiteCoverage) -> str:
 
 
 def _students_section(
-    profile: SchoolProfile, locale: Locale, cover: SiteCoverage
+    profile: SchoolProfile,
+    locale: Locale,
+    cover: SiteCoverage,
+    district: AggregateFigures,
+    state: AggregateFigures,
 ) -> str:
     caption = text(locale, "caption_total").format(
         school=profile.school.name, year=profile.academic_year
@@ -414,6 +444,8 @@ def _students_section(
                 label=_esc(category_name(locale, TOTAL_CATEGORY)),
                 measure=profile.total_enrollment,
                 counts=cover.total_enrollment,
+                district=district.total,
+                state=state.total,
             )
         ],
     )
@@ -424,7 +456,13 @@ def _students_section(
     )
 
 
-def _grades_section(profile: SchoolProfile, locale: Locale, cover: SiteCoverage) -> str:
+def _grades_section(
+    profile: SchoolProfile,
+    locale: Locale,
+    cover: SiteCoverage,
+    district: AggregateFigures,
+    state: AggregateFigures,
+) -> str:
     caption = text(locale, "caption_grades").format(
         school=profile.school.name, year=profile.academic_year
     )
@@ -437,6 +475,8 @@ def _grades_section(profile: SchoolProfile, locale: Locale, cover: SiteCoverage)
                 label=_esc(grade_name(locale, grade)),
                 measure=profile.grades[grade],
                 counts=cover.grades[grade],
+                district=district.grade(grade),
+                state=state.grade(grade),
             )
             for grade in GRADE_COLUMNS
         ],
@@ -444,7 +484,13 @@ def _grades_section(profile: SchoolProfile, locale: Locale, cover: SiteCoverage)
     return _section("grades", text(locale, "grades_heading"), table)
 
 
-def _groups_section(profile: SchoolProfile, locale: Locale, cover: SiteCoverage) -> str:
+def _groups_section(
+    profile: SchoolProfile,
+    locale: Locale,
+    cover: SiteCoverage,
+    district: AggregateFigures,
+    state: AggregateFigures,
+) -> str:
     blocks: list[str] = [f"<p>{_esc(text(locale, 'groups_intro'))}</p>"]
     for family, codes in SUBGROUP_FAMILIES.items():
         caption = text(locale, "caption_groups").format(
@@ -461,6 +507,8 @@ def _groups_section(profile: SchoolProfile, locale: Locale, cover: SiteCoverage)
                     label=_esc(category_name(locale, code)),
                     measure=profile.subgroups[code],
                     counts=cover.subgroups[code],
+                    district=district.subgroup(code),
+                    state=state.subgroup(code),
                 )
                 for code in codes
             ],
@@ -493,7 +541,7 @@ def _coverage_section(locale: Locale, cover: SiteCoverage) -> str:
 def _not_yet_section(locale: Locale) -> str:
     body = "\n".join(
         f"<p>{_esc(text(locale, key))}</p>"
-        for key in ("not_yet_assignments", "not_yet_context", "not_yet_measures")
+        for key in ("not_yet_assignments", "not_yet_measures")
     )
     return _section("not-yet", text(locale, "not_yet_heading"), body)
 
@@ -589,9 +637,21 @@ def render_school(
     cover: SiteCoverage,
     sources: tuple[SourceRef, ...],
     is_fixture: bool,
+    context: EnrollmentContext | None = None,
 ) -> str:
-    """One school, one language, as a complete standalone HTML document."""
+    """One school, one language, as a complete standalone HTML document.
+
+    ``context`` carries CDE's own district and statewide rows. When it is absent
+    every context cell renders as nothing published, which is the honest state
+    for a build that did not load aggregates, and never a zero.
+    """
     school = profile.school
+    district = (
+        context.for_district(school.cds_code)
+        if context is not None
+        else AggregateFigures(cds_code=school.cds_code)
+    )
+    state = context.state if context is not None else AggregateFigures(cds_code="")
     title = (
         text(locale, "page_title").format(
             school=school.name, year=profile.academic_year
@@ -608,9 +668,9 @@ def render_school(
         *([_fixture_banner(locale)] if is_fixture else []),
         _identity(profile, locale),
         _how_to_read(locale),
-        _students_section(profile, locale, cover),
-        _grades_section(profile, locale, cover),
-        _groups_section(profile, locale, cover),
+        _students_section(profile, locale, cover, district, state),
+        _grades_section(profile, locale, cover, district, state),
+        _groups_section(profile, locale, cover, district, state),
         _coverage_section(locale, cover),
         _not_yet_section(locale),
         _sources_section(sources, locale),

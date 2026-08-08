@@ -90,6 +90,15 @@ UI: dict[Locale, dict[str, str]] = {
             "guard the real pages can run without any acquired file."
         ),
         "how_to_read_heading": "How to read this page",
+        "context_body": (
+            "Beside each figure are the same figures for this school's district and "
+            "for California. They are there to give a number a size, not to award a "
+            "verdict: being above or below either one is not by itself good or bad. "
+            "Both come from the state's own district and statewide rows in the same "
+            "file. Homeroom does not add schools together to make them, because any "
+            "such total would quietly leave out the students whose numbers the state "
+            "withheld."
+        ),
         "no_ranking_body": (
             "Homeroom does not rank schools. There is no score here, no grade, and no "
             "list putting one school above another. Each figure is shown on its own, "
@@ -132,6 +141,8 @@ UI: dict[Locale, dict[str, str]] = {
         "col_grade": "Grade",
         "col_group": "Group",
         "col_this_school": "At this school",
+        "col_district": "In this district",
+        "col_state": "In California",
         "col_publishing": "Schools publishing it",
         "col_withholding": "Schools withholding it",
         "col_nothing": "Schools publishing nothing",
@@ -160,10 +171,6 @@ UI: dict[Locale, dict[str, str]] = {
             "a clear credential matched to what they teach. Homeroom can read that "
             "file and has not obtained it, so this page shows no figure about the "
             "teachers at this school and will not until the file is in hand."
-        ),
-        "not_yet_context": (
-            "District and statewide figures are not yet beside each measure. Until "
-            "they are, the coverage columns are the only context here."
         ),
         "not_yet_measures": (
             "Chronic absenteeism, the state dashboard indicators, and per-pupil "
@@ -228,6 +235,15 @@ UI: dict[Locale, dict[str, str]] = {
             "ejecutarse sin ningún archivo obtenido."
         ),
         "how_to_read_heading": "Cómo leer esta página",
+        "context_body": (
+            "Junto a cada dato aparecen las mismas cifras del distrito de esta "
+            "escuela y de California. Están ahí para dar tamaño a un número, no para "
+            "emitir un juicio: estar por encima o por debajo de cualquiera de ellas "
+            "no es en sí mismo bueno ni malo. Ambas provienen de las filas de "
+            "distrito y de estado que el estado publica en el mismo archivo. Homeroom "
+            "no suma escuelas para obtenerlas, porque cualquier total así dejaría "
+            "fuera en silencio a los estudiantes cuyas cifras el estado retuvo."
+        ),
         "no_ranking_body": (
             "Homeroom no clasifica a las escuelas. Aquí no hay puntaje, ni "
             "calificación, ni una lista que ponga una escuela por encima de otra. "
@@ -271,6 +287,8 @@ UI: dict[Locale, dict[str, str]] = {
         "col_grade": "Grado",
         "col_group": "Grupo",
         "col_this_school": "En esta escuela",
+        "col_district": "En este distrito",
+        "col_state": "En California",
         "col_publishing": "Escuelas que lo publican",
         "col_withholding": "Escuelas que lo retienen",
         "col_nothing": "Escuelas que no publican nada",
@@ -301,10 +319,6 @@ UI: dict[Locale, dict[str, str]] = {
             "enseña. Homeroom puede leer ese archivo y no lo ha conseguido, así que "
             "esta página no muestra ningún dato sobre los maestros de esta escuela y "
             "no lo hará hasta tener el archivo."
-        ),
-        "not_yet_context": (
-            "Las cifras del distrito y del estado todavía no acompañan a cada dato. "
-            "Mientras tanto, las columnas de cobertura son el único contexto aquí."
         ),
         "not_yet_measures": (
             "El ausentismo crónico, los indicadores del panel estatal y el gasto por "

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from html import escape
 from html.parser import HTMLParser
 from itertools import pairwise
 from pathlib import Path
@@ -37,6 +38,7 @@ import pytest
 
 from homeroom.artifacts import DIRECTORY_ACCESS_DATE, ENROLLMENT_ACCESS_DATE
 from homeroom.assignments import OUTCOME_NAMES
+from homeroom.context import AggregateFigures, load_context
 from homeroom.i18n import LOCALES, Locale, format_number, text
 from homeroom.measures import MeasureStatus
 from homeroom.profiles import SchoolProfile, assemble_profiles
@@ -276,8 +278,19 @@ def test_every_scrollable_table_is_a_named_reachable_region(built: Path) -> None
 # ----------------------------------------------------------------------------------
 
 
-def cells_with(document: Document, state: str) -> list[str]:
-    return [body for classes, body in document.cells if state in classes]
+def cells_with(document: Document, state: str, scope: str = "c-school") -> list[str]:
+    """Cells in one state, from one column scope.
+
+    Scope defaults to this school's own column. The district and statewide columns
+    carry published numbers of their own, so a question like "does this school show
+    any number at all" has to exclude them, or a district's figure answers for the
+    school and the test passes while the page says something else.
+    """
+    return [
+        body
+        for classes, body in document.cells
+        if state in classes and scope in classes
+    ]
 
 
 def test_all_four_cell_states_appear_on_the_page_that_has_all_four(
@@ -337,11 +350,20 @@ def test_the_three_states_are_worded_differently_in_both_languages(
 def test_a_school_with_everything_withheld_shows_no_number_at_all(
     built: Path,
 ) -> None:
+    """Withheld everywhere in this school's column, even though context has numbers.
+
+    The second half is what keeps the first half honest. This school's district
+    does publish figures, so the page is not simply empty; the scoping is doing
+    real work, and a regression that let a district number render in the school's
+    column would fail here rather than pass quietly.
+    """
     for locale in LOCALES:
         document = parse(page(built, CHARTER, locale))
         assert not cells_with(document, "m-number")
         assert not cells_with(document, "m-zero")
         assert cells_with(document, "m-withheld")
+        assert cells_with(document, "m-number", "c-district")
+        assert cells_with(document, "m-number", "c-state")
 
 
 def test_a_school_the_file_never_mentions_says_nothing_was_published(
@@ -353,6 +375,55 @@ def test_a_school_the_file_never_mentions_says_nothing_was_published(
         assert not cells_with(document, "m-zero")
         assert not cells_with(document, "m-withheld")
         assert cells_with(document, "m-nothing")
+
+
+# ----------------------------------------------------------------------------------
+# District and statewide context
+# ----------------------------------------------------------------------------------
+
+
+def test_every_measure_table_offers_district_and_state_columns(built: Path) -> None:
+    for _cds, locale, path in every_page(built):
+        body = path.read_text(encoding="utf-8")
+        for key in ("col_this_school", "col_district", "col_state"):
+            header = escape(text(locale, key), quote=True)
+            assert f'<th scope="col">{header}</th>' in body, (path.name, key)
+
+
+def test_a_withheld_or_missing_context_cell_never_renders_a_digit(
+    built: Path,
+) -> None:
+    """The null-never-zero rule applies to context exactly as it does to schools."""
+    for _cds, _locale, path in every_page(built):
+        document = parse(path)
+        for scope in ("c-district", "c-state"):
+            for state in ("m-withheld", "m-nothing"):
+                for body in cells_with(document, state, scope):
+                    assert not NUMBER.search(body), (path.name, scope, state, body)
+
+
+def test_the_district_column_shows_the_all_charter_row(built: Path) -> None:
+    """The fixture carries the trap the acquired file contains.
+
+    Its district publishes three rows for the same category: 55 charter, 545
+    non-charter, 600 both. Only 600 describes the district, and the two decoys
+    must not appear anywhere on the page.
+    """
+    context = load_context(ENROLLMENT)
+    district = context.for_district(EXAMPLE)
+    assert district.total.number() == 600
+    for _locale, path in [(loc, page(built, EXAMPLE, loc)) for loc in LOCALES]:
+        body = path.read_text(encoding="utf-8")
+        assert "600" in body
+        for decoy in ("55", "545"):
+            assert f'<span class="num">{decoy}</span>' not in body, (path.name, decoy)
+
+
+def test_every_page_says_the_context_is_not_a_verdict(built: Path) -> None:
+    """Context invites comparison, so the page has to disclaim ranking near it."""
+    for _cds, locale, path in every_page(built):
+        body = path.read_text(encoding="utf-8")
+        assert escape(text(locale, "context_body"), quote=True) in body
 
 
 # ----------------------------------------------------------------------------------
@@ -370,6 +441,16 @@ def reported_values(profile: SchoolProfile) -> set[str]:
     }
 
 
+def context_values(figures: AggregateFigures) -> set[str]:
+    """Every number CDE published for one entity, formatted as the page prints it."""
+    measures = [figures.total, *figures.grades.values(), *figures.subgroups.values()]
+    return {
+        format_number(measure.number())
+        for measure in measures
+        if measure.status is MeasureStatus.REPORTED
+    }
+
+
 def coverage_numbers(cover: SiteCoverage) -> set[str]:
     groups = [cover.total_enrollment, *cover.grades.values(), *cover.subgroups.values()]
     numbers = {format_number(value) for group in groups for value in group.values()}
@@ -380,10 +461,24 @@ def coverage_numbers(cover: SiteCoverage) -> set[str]:
 
 
 def test_every_number_in_a_data_cell_was_counted(built: Path) -> None:
+    """No digit reaches a data cell that the pipeline did not read or count.
+
+    The allowed set is built per school from three sources and nothing else: what
+    this school published, what its district and California published, and the
+    coverage tallies. A number Homeroom computed for itself would not be in any of
+    them, which is the point.
+    """
     assembly = assemble_profiles(DIRECTORY, ENROLLMENT)
     counts = coverage_numbers(site_coverage(assembly))
+    context = load_context(ENROLLMENT)
+    state_values = context_values(context.state)
     for profile in assembly.profiles:
-        allowed = counts | reported_values(profile)
+        allowed = (
+            counts
+            | reported_values(profile)
+            | state_values
+            | context_values(context.for_district(profile.school.cds_code))
+        )
         for locale in LOCALES:
             document = parse(page(built, profile.school.cds_code, locale))
             for _, body in document.cells:
