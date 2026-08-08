@@ -17,6 +17,7 @@ from homeroom.profiles import (
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 DIRECTORY = FIXTURES / "pubschls.sample.txt"
 ENROLLMENT = FIXTURES / "cdenroll.sample.txt"
+ASSIGNMENTS = FIXTURES / "tamo.sample.txt"
 
 EXAMPLE = "01100170112345"
 CHARTER = "01100170154321"
@@ -207,3 +208,62 @@ def test_profiles_carry_the_full_subgroup_roster_always() -> None:
     for profile in assemble_profiles(DIRECTORY, ENROLLMENT).profiles:
         assert tuple(profile.subgroups) == SUBGROUP_CODES
         assert all(isinstance(m, Measure) for m in profile.subgroups.values())
+
+
+# --- D5 teacher assignment outcomes ---------------------------------------
+
+
+def test_without_the_d5_file_no_profile_claims_an_assignment_fact() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT)
+    assert assembly.assignments_academic_year is None
+    assert assembly.unjoined_assignment_rows is None
+    assert assembly.schools_without_assignments is None
+    assert all(p.teacher_assignments is None for p in assembly.profiles)
+
+
+def test_assignments_join_the_spine_on_cds_and_keep_their_own_year() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, ASSIGNMENTS)
+    # Enrollment is 2025-26; assignment monitoring reports 2024-25. Both stand.
+    assert assembly.academic_year == "2025-26"
+    assert assembly.assignments_academic_year == "2024-25"
+    example = next(p for p in assembly.profiles if p.school.cds_code == EXAMPLE)
+    assert example.teacher_assignments is not None
+    assert example.teacher_assignments.cds_code == EXAMPLE
+    assert example.teacher_assignments.counts["clear"].number() == 34
+
+
+def test_assignment_rendering_cases_survive_assembly() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, ASSIGNMENTS)
+    example = next(p for p in assembly.profiles if p.school.cds_code == EXAMPLE)
+    outcomes = example.teacher_assignments
+    assert outcomes is not None
+    assert outcomes.counts["intern"].is_zero
+    assert outcomes.counts["ineffective"].status is MeasureStatus.SUPPRESSED
+    assert outcomes.counts["unknown"].status is MeasureStatus.NOT_REPORTED
+    charter = next(p for p in assembly.profiles if p.school.cds_code == CHARTER)
+    assert charter.teacher_assignments is not None
+    assert charter.teacher_assignments.total.status is MeasureStatus.SUPPRESSED
+    absent = next(p for p in assembly.profiles if p.school.cds_code == NO_ENROLLMENT)
+    assert absent.teacher_assignments is None
+
+
+def test_assignment_join_gaps_are_counted_in_both_directions() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, ASSIGNMENTS)
+    # Shuttered School (closed) and Birch Lane (never in the directory fixture).
+    assert assembly.unjoined_assignment_rows == 2
+    # Sin Datos Middle is active and the assignment fixture never mentions it.
+    assert assembly.schools_without_assignments == 1
+
+
+def test_closed_school_with_assignment_rows_still_gets_no_profile() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, ASSIGNMENTS)
+    assert "01100170167890" not in {p.school.cds_code for p in assembly.profiles}
+
+
+def test_mixed_assignment_academic_years_are_drift(tmp_path: Path) -> None:
+    header, *rows = ASSIGNMENTS.read_text(encoding="utf-8").splitlines()
+    rows[-1] = rows[-1].replace("2024-25", "2023-24", 1)
+    path = tmp_path / "tamo.txt"
+    path.write_text("\n".join([header, *rows]) + "\n", encoding="utf-8")
+    with pytest.raises(ProfileDriftError, match="academic years"):
+        assemble_profiles(DIRECTORY, ENROLLMENT, path)

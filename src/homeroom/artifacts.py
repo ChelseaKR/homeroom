@@ -14,6 +14,12 @@ Two files land in the output directory:
     PROVENANCE.md access dates, and an ``is_fixture`` flag so fixture output can
     never impersonate acquired data.
 
+A source that was not supplied to the build is stated as absent rather than
+emitted as a field of zeros. Teacher assignment outcomes (D5) are optional input;
+without them, ``coverage.json`` records the source as unsupplied and no school
+carries a ``teacher_assignments`` block at all, so nothing in the artifact implies
+Homeroom looked and found nothing.
+
 Determinism is a requirement, not a nicety: re-running on the same inputs must be
 byte-identical (sorted keys, CDS-ordered schools, no wall clock anywhere). The
 access dates are reviewed constants mirrored from PROVENANCE.md and tested for
@@ -28,6 +34,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from homeroom.assignments import OUTCOME_NAMES, OUTCOMES
 from homeroom.enrollment import GRADE_COLUMNS, TOTAL_CATEGORY
 from homeroom.measures import Measure, MeasureStatus, coverage
 from homeroom.profiles import (
@@ -44,6 +51,10 @@ DIRECTORY_ACCESS_DATE = "2026-08-07"
 
 ENROLLMENT_ACCESS_DATE = "2026-08-07"
 """When D2 (cdenroll2526.txt) was acquired. Mirrors PROVENANCE.md; tested for sync."""
+
+ASSIGNMENTS_ACCESS_DATE: str | None = None
+"""When D5 was acquired. ``None`` until it is; PROVENANCE.md says the same, and the
+two are tested for sync so a real build can never stamp a date nobody recorded."""
 
 
 @dataclass(frozen=True)
@@ -66,9 +77,43 @@ def measure_json(measure: Measure) -> dict[str, object]:
     return payload
 
 
-def _school_json(profile: SchoolProfile) -> dict[str, object]:
-    school = profile.school
+def _assignments_json(profile: SchoolProfile) -> dict[str, object]:
+    """One school's published assignment outcomes, counts and shares side by side.
+
+    Both are copied. A share is never divided out of the counts, so a school whose
+    percent column is masked shows a masked share even where a count is visible.
+    """
+    row = profile.teacher_assignments
+    if row is None:
+        return {
+            "academic_year": None,
+            "total_assignments": measure_json(Measure.not_reported()),
+            "outcomes": {
+                outcome: {
+                    "count": measure_json(Measure.not_reported()),
+                    "percent": measure_json(Measure.not_reported()),
+                }
+                for outcome in OUTCOMES
+            },
+        }
     return {
+        "academic_year": row.academic_year,
+        "total_assignments": measure_json(row.total),
+        "outcomes": {
+            outcome: {
+                "count": measure_json(row.counts[outcome]),
+                "percent": measure_json(row.percents[outcome]),
+            }
+            for outcome in OUTCOMES
+        },
+    }
+
+
+def _school_json(
+    profile: SchoolProfile, *, with_assignments: bool
+) -> dict[str, object]:
+    school = profile.school
+    payload: dict[str, object] = {
         "cds_code": school.cds_code,
         "name": school.name,
         "district": school.district,
@@ -86,14 +131,63 @@ def _school_json(profile: SchoolProfile) -> dict[str, object]:
             for family, codes in SUBGROUP_FAMILIES.items()
         },
     }
+    if with_assignments:
+        payload["teacher_assignments"] = _assignments_json(profile)
+    return payload
 
 
 def _schools_payload(assembly: ProfileAssembly) -> dict[str, object]:
     named = (TOTAL_CATEGORY, *SUBGROUP_CODES)
-    return {
+    with_assignments = assembly.assignments_academic_year is not None
+    payload: dict[str, object] = {
         "academic_year": assembly.academic_year,
         "reporting_categories": {code: CATEGORY_NAMES[code] for code in named},
-        "schools": [_school_json(profile) for profile in assembly.profiles],
+        "schools": [
+            _school_json(profile, with_assignments=with_assignments)
+            for profile in assembly.profiles
+        ],
+    }
+    if with_assignments:
+        payload["teacher_assignment_academic_year"] = assembly.assignments_academic_year
+        payload["teacher_assignment_outcomes"] = dict(OUTCOME_NAMES)
+    return payload
+
+
+def _assignment_measure(
+    profile: SchoolProfile, outcome: str, *, percent: bool
+) -> Measure:
+    """The measure coverage counts for one school and outcome.
+
+    A school the D5 file never mentions counts as not reported, the same fact the
+    artifact publishes for it. Counting is not deriving: nothing here becomes a
+    value on a page.
+    """
+    row = profile.teacher_assignments
+    if row is None:
+        return Measure.not_reported()
+    return row.percents[outcome] if percent else row.counts[outcome]
+
+
+def _assignment_coverage(assembly: ProfileAssembly) -> dict[str, object]:
+    profiles = assembly.profiles
+    return {
+        "total_assignments": coverage(
+            p.teacher_assignments.total
+            if p.teacher_assignments is not None
+            else Measure.not_reported()
+            for p in profiles
+        ),
+        "outcomes": {
+            outcome: {
+                "count": coverage(
+                    _assignment_measure(p, outcome, percent=False) for p in profiles
+                ),
+                "percent": coverage(
+                    _assignment_measure(p, outcome, percent=True) for p in profiles
+                ),
+            }
+            for outcome in OUTCOMES
+        },
     }
 
 
@@ -102,9 +196,11 @@ def _coverage_payload(
     *,
     directory_name: str,
     enrollment_name: str,
+    assignments_name: str | None,
     is_fixture: bool,
 ) -> dict[str, object]:
     profiles = assembly.profiles
+    supplied = assembly.assignments_academic_year is not None
     return {
         "is_fixture": is_fixture,
         "sources": {
@@ -117,11 +213,19 @@ def _coverage_payload(
                 "access_date": None if is_fixture else ENROLLMENT_ACCESS_DATE,
                 "academic_year": assembly.academic_year,
             },
+            "D5_teacher_assignments": {
+                "supplied": supplied,
+                "file": assignments_name,
+                "access_date": None if is_fixture else ASSIGNMENTS_ACCESS_DATE,
+                "academic_year": assembly.assignments_academic_year,
+            },
         },
         "profiles": len(profiles),
         "join_gaps": {
             "school_totals_without_directory_match": assembly.unjoined_school_totals,
             "active_schools_without_enrollment_rows": assembly.schools_without_enrollment,
+            "assignment_rows_without_directory_match": assembly.unjoined_assignment_rows,
+            "active_schools_without_assignment_rows": assembly.schools_without_assignments,
         },
         "measures": {
             "total_enrollment": coverage(p.total_enrollment for p in profiles),
@@ -133,6 +237,7 @@ def _coverage_payload(
                 code: coverage(p.subgroups[code] for p in profiles)
                 for code in SUBGROUP_CODES
             },
+            "teacher_assignments": _assignment_coverage(assembly) if supplied else None,
         },
     }
 
@@ -148,8 +253,9 @@ def build_artifacts(
     enrollment: Path,
     out_dir: Path,
     is_fixture: bool,
+    assignments: Path | None = None,
 ) -> ArtifactBuild:
-    assembly = assemble_profiles(directory, enrollment)
+    assembly = assemble_profiles(directory, enrollment, assignments)
     out_dir.mkdir(parents=True, exist_ok=True)
     schools_path = out_dir / "schools.json"
     coverage_path = out_dir / "coverage.json"
@@ -160,6 +266,7 @@ def build_artifacts(
             assembly,
             directory_name=directory.name,
             enrollment_name=enrollment.name,
+            assignments_name=assignments.name if assignments is not None else None,
             is_fixture=is_fixture,
         ),
     )
@@ -180,6 +287,12 @@ def main(argv: list[str] | None = None) -> int:
         "--enrollment", type=Path, required=True, help="path to the D2 enrollment file"
     )
     parser.add_argument(
+        "--assignments",
+        type=Path,
+        default=None,
+        help="path to the D5 teacher assignment monitoring file (optional)",
+    )
+    parser.add_argument(
         "--out", type=Path, required=True, help="output directory for JSON artifacts"
     )
     parser.add_argument(
@@ -191,6 +304,7 @@ def main(argv: list[str] | None = None) -> int:
     build = build_artifacts(
         directory=args.directory,
         enrollment=args.enrollment,
+        assignments=args.assignments,
         out_dir=args.out,
         is_fixture=args.fixture,
     )
@@ -210,6 +324,19 @@ def main(argv: list[str] | None = None) -> int:
         f"directory match, {assembly.schools_without_enrollment} active schools "
         "without enrollment rows"
     )
+    if assembly.assignments_academic_year is None:
+        print("teacher assignments: no D5 file supplied, nothing published")
+    else:
+        clear_counts = coverage(
+            _assignment_measure(profile, "clear", percent=False)
+            for profile in assembly.profiles
+        )
+        print(
+            f"teacher assignments: {assembly.assignments_academic_year}, "
+            "clear-assignment counts "
+            + ", ".join(f"{status}={count}" for status, count in clear_counts.items())
+            + f"; {assembly.schools_without_assignments} active schools without rows"
+        )
     print(f"wrote {build.schools_path} and {build.coverage_path}")
     return 0
 

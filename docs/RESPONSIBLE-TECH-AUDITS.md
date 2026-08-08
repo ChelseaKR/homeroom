@@ -80,6 +80,14 @@ this framework to a repo", step 2).
     module contract); tests assert no profile or artifact value equals the
     complement of a masked cell and that every reported value appears verbatim
     in the source file (`tests/test_profiles.py`, `tests/test_artifacts.py`).
+  - AUTO (in place, extended 2026-08-07 for D5): teacher assignment outcomes are
+    the smallest cells the project has touched. A school with a handful of
+    teachers can have most of that table withheld, so a published share is read
+    from the file's own percent column and never divided out of counts, and no
+    outcome is recovered as the total minus its visible siblings. Tests assert
+    the complements of the fixture's masked outcomes appear nowhere, in the
+    profiles and again in the artifact (`tests/test_assignments.py`,
+    `tests/test_artifacts.py`).
   - A formal DPIA artifact is not maintained: the repo processes no personal data.
     PROVENANCE.md is the data inventory. This becomes wrong, and a DPIA becomes
     owed, if any non-public or individual-level data ever enters scope.
@@ -98,7 +106,17 @@ this framework to a repo", step 2).
     acquisition dates into `coverage.json`, with an `is_fixture` flag and null
     dates for fixture builds; tested for sync with the provenance record
     (`tests/test_artifacts.py`).
+  - AUTO (in place since D5a, 2026-08-07): a parser may be built ahead of its
+    file, but a number may not. A source marked "awaiting acquisition" in
+    PROVENANCE.md carries a null access date, publishes nothing, and is recorded
+    in `coverage.json` as unsupplied rather than rendered as a field of zeros;
+    the code constant and the provenance row are tested for agreement, so a
+    build cannot stamp a date nobody recorded (`tests/test_artifacts.py`).
   - REVIEW (not yet audited): honesty-of-framing pass on page copy, due at M4.
+    D5 adds a specific item to that pass: these outcomes describe which
+    credential an assignment sat on, which is a fact about staffing and the
+    state's own monitoring, and the page copy must not let a family read it as
+    an evaluation of a teacher.
   - Model card: N/A, no model. PROVENANCE.md serves as the dataset record; a
     fuller datasheet is considered at M5 when all six sources are joined.
 

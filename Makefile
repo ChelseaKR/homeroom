@@ -23,9 +23,10 @@ audit:
 	uv run pip-audit
 
 # Build artifacts from locally acquired files (data/raw/ is never in git or CI).
+# Add `--assignments data/raw/<the D5 file>` once D5 is acquired (PROVENANCE.md).
 data:
 	uv run python -m homeroom.artifacts --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --out data/out
 
 # Same pipeline over committed fixtures: runs anywhere, output flagged is_fixture.
 data-offline:
-	uv run python -m homeroom.artifacts --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --out data/out
+	uv run python -m homeroom.artifacts --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --assignments fixtures/tamo.sample.txt --out data/out

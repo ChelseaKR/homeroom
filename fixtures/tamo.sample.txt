@@ -1,0 +1,7 @@
+AcademicYear	AggregateLevel	CountyCode	DistrictCode	SchoolCode	CountyName	DistrictName	SchoolName	Charter	TotalAssignments	ClearCount	ClearPercent	OutOfFieldCount	OutOfFieldPercent	InternCount	InternPercent	IneffectiveCount	IneffectivePercent	UnknownCount	UnknownPercent
+2024-25	T	00			00 STATE				1000	880	88.0	60	6.0	40	4.0	10	1.0	10	1.0
+2024-25	D	01	10017		Yolo	Davis Joint Unified			600	528	88.0	42	7.0	18	3.0	6	1.0	6	1.0
+2024-25	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	N	40	34	85.0	4	10.0	0	0.0	*	*		
+2024-25	S	01	10017	0154321	Yolo	Davis Joint Unified	Ejemplo Charter Academy	Y	*	*	*	*	*	*	*	*	*	*	*
+2024-25	S	01	10017	0167890	Yolo	Davis Joint Unified	Shuttered School	N	12	12	100.0	0	0.0	0	0.0	0	0.0	0	0.0
+2024-25	S	57	72678	6056246	Yolo	Davis Joint Unified	Birch Lane Elementary	N	25	20	80.0	3	12.0	1	4.0	1	4.0	0	0.0

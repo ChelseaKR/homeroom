@@ -21,10 +21,10 @@ stated. No composite score, no ranking, ever (ADR 0000). No account, no tracking
 - Python 3.12+, stdlib-only runtime parsers, `uv`-managed dev tooling. Rejected:
   pandas and friends, because the parsers need exact cell-level control, not a
   dataframe dependency surface.
-- Source files are locally acquired inputs in `data/raw/`: CDE bot-challenges
-  non-browser clients, so acquisition is a documented browser step per file
-  (PROVENANCE.md). Rejected: automated fetch, which fights the bot wall and hides
-  provenance.
+- Source files are locally acquired inputs in `data/raw/`: acquisition is a
+  documented browser step per file, the way CDE's download pages are meant to be
+  used (PROVENANCE.md). Rejected: automated fetch at build time, which hides
+  provenance behind a script and makes every page depend on a live endpoint.
 - CI never touches the network; committed fixtures exercise every parsing and
   rendering case, including suppression.
 - The `Measure` type carries three statuses (reported, suppressed, not reported)
@@ -57,7 +57,8 @@ gate, byte-for-byte identical locally and in CI.
 | M3 | D3 chronic absenteeism | First masked-heavy measure end to end; every masked cell null, counted in coverage output |
 | M3 | Suppression showcase | A committed artifact demonstrating null-never-zero rendering: masked cells shown as "not published", coverage stats published beside the data |
 | M4 | First bilingual school page | One real school rendered EN/ES from acquired data; a11y and EN/ES parity gates wired from this milestone |
-| M5 | D4-D6 | Dashboard indicators, teacher assignment (CalSAAS), and per-pupil spending joined where published |
+| D5a (parser built 2026-08-07, awaiting acquisition) | D5 teacher assignment monitoring parser | Parser, spine join, artifact and coverage output built and tested against a synthetic fixture matching the documented file structure; every rendering case and the drift refusals covered; no D5 number published and PROVENANCE says why |
+| M5 | D4-D6 | Dashboard indicators, teacher assignment (CalSAAS) with a file in hand, and per-pupil spending joined where published |
 
 ## Metrics ledger
 
@@ -72,6 +73,7 @@ owning standard.
 | Fixed HIGH+CRITICAL vulns (deps) | 0 | `pip-audit` in CI | AUTO | Chelsea Kelly-Reif |
 | Masked cells readable as numbers | 0 (type-enforced) | `Measure` raises on read; `tests/test_measures.py` | AUTO | Chelsea Kelly-Reif |
 | Unrecognized source sentinels | build fails | `parse_cell` hard error; parser drift tests | AUTO | Chelsea Kelly-Reif |
+| Sources publishing a number without a recorded acquisition | 0 | access-date constants tested against PROVENANCE.md; `tests/test_artifacts.py` | AUTO | Chelsea Kelly-Reif |
 
 ### Day-one measured values (2026-08-07)
 
@@ -116,6 +118,22 @@ publishes (subgroup totals and all-students grade spans) in this file. The
 masking lives in subgroup-by-grade cells, which profiles do not carry. The
 suppressed path is exercised by the committed fixtures and stays load-bearing
 for M3, the first masked-heavy dataset.
+
+### D5a values (2026-08-07)
+
+This table has no acquired-data column, and that absence is the point. D5 was not
+acquired, so there is nothing to measure about California's teachers here yet.
+What follows is measured against the committed synthetic fixture, which is what
+the parser was built against.
+
+| Value | Measured | Source |
+|-------|----------|--------|
+| D5 files acquired | 0 | PROVENANCE.md D5, "awaiting acquisition" |
+| D5 numbers published about a real school | 0 | no acquired file exists to publish from |
+| Assignment outcomes carried per school | 5, each as a count and a published share | `src/homeroom/assignments.py` |
+| Values computed rather than copied | 0 (shares are read from the file, never divided out of counts) | `tests/test_assignments.py`, `tests/test_artifacts.py` |
+| Rendering cases covered by the fixture | 4 (reported, genuine zero, masked, missing) plus a wholly-withheld school | `fixtures/tamo.sample.txt` |
+| Drift refusals covered | 8 (missing column, renamed column, unreviewed aggregate level, non-numeric CDS, overlong CDS, unknown sentinel, percent-sign format, duplicate school row) | `tests/test_assignments.py` |
 
 ## Scoping: N/A declarations
 
