@@ -65,9 +65,6 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
-        with:
-          publishToken: ""
-      - run: semgrep ci --sarif --output=semgrep.sarif --severity=ERROR --severity=WARNING
-        continue-on-error: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+      - run: uvx --from semgrep==1.168.0 semgrep scan --error --metrics off --config p/python --config p/security-audit .
 
