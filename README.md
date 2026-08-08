@@ -54,6 +54,34 @@ byte-identical across re-runs, coverage published beside the data (9,860 school
 totals joined, the 698-plus-674 join gap counted in both directions, masks kept
 as nulls).
 
+The first bilingual school pages are built (M4). One page per school per
+language, rendered from those profiles: identity, total enrollment, TK-12 grade
+spans, and 25 subgroup figures, each cell in exactly one of four states, with
+coverage in the next three columns. Birch Lane Elementary in Davis Joint Unified
+renders from the acquired files in English and Spanish, publishing 30 figures
+(6 of them genuine zeros) and stating in words where the state published nothing.
+Every user-visible string exists in both languages: 120 keys per locale, zero
+present in one and missing from the other, enforced by test. The pages carry no
+script, no external asset, no account, and no tracking.
+
+What a cell can say, and how the four states stay apart on the page:
+
+| State | On the page | Never |
+|-------|-------------|-------|
+| Published figure | the number, as published | rounded, averaged, or derived |
+| Published zero | `0`, plus the words *reported as zero* | confused with an empty cell |
+| Withheld (CDE's `*`) | the words *withheld to protect privacy*, no digit | shown as `0`, estimated, or recovered from its siblings |
+| Nothing published | the words *no figure published*, no digit | shown as `0` or left blank |
+
+Accessibility and translation are gated, not asserted. `make verify` builds the
+pages from committed fixtures and runs html-validate and axe-core (WCAG 2.0/2.1/2.2
+A and AA, plus best-practice) over every page in both languages, and re-checks
+structure, EN/ES key parity, colour contrast in both themes, and that every number
+in a data cell is a number the pipeline counted. What none of that can do is look
+at the pages: layout, reflow at small widths, focus visibility in practice, and a
+screen-reader walkthrough in each language need a person, and that walkthrough has
+not happened yet.
+
 Teacher assignment monitoring (D5) has a parser and no data yet. CDE publishes
 these files from the Commission on Teacher Credentialing's CalSAAS system: by
 school, how many teaching assignments were held on a clear credential and
@@ -62,8 +90,14 @@ authorization states the state tracks. The parser, its coverage output, and its
 join to the spine are built and tested against a synthetic fixture, because no D5
 file has been acquired here. So no D5 number about a real school is published
 anywhere, the column names the parser expects are provisional until the file is
-in hand, and PROVENANCE.md says both in as many words. The remaining datasets are
-a plan recorded there too.
+in hand, and PROVENANCE.md says both in as many words. No school page shows a
+teacher figure, and each page says the data is not yet acquired in those words; the
+page build is not given an argument for the D5 file at all, and a test renders a
+profile that does carry parsed assignment outcomes to prove none of them reaches
+the markup. The remaining datasets are a plan recorded there too.
+
+Nothing is published or hosted. Whether these pages belong on the internet is a
+separate decision about real schools and real children, and no build makes it.
 
 ## Development disclosure
 
@@ -82,8 +116,8 @@ Governed by [portfolio-standards](https://github.com/ChelseaKR/portfolio-standar
 | Security & Supply-Chain | Applies |
 | CI/CD | Applies |
 | Observability | Applies (Tier C, library/CLI; declared in `docs/ROADMAP.md`) |
-| Accessibility | N/A at day one (no HTML surface); applies from the first school page (ROADMAP M4) |
-| Internationalization | Applies (EN/ES is a launch requirement; parity gate wired at ROADMAP M4) |
+| Accessibility | Applies (gated from the first school page: html-validate and axe-core over every built page in both languages, plus structure and contrast checks in `make verify`) |
+| Internationalization | Applies (EN/ES is a launch requirement; parity gate wired and merge-blocking as of ROADMAP M4) |
 | AI Evaluation | N/A (no prompt, retrieval, or model-version surface) |
 | Documentation | Applies |
 | Quality & Metrics | Applies (see `docs/ROADMAP.md` metrics ledger) |
