@@ -33,12 +33,12 @@ that cannot be shown honestly is not shown at all.
 
 ## Data reality
 
-CDE's download endpoints sit behind a bot-protection layer that challenges non-browser
-clients. The pipeline therefore treats source files as **locally acquired inputs**: fetch
-them in a browser session (documented per-file in PROVENANCE.md), drop them in `data/raw/`,
-and `make data` validates and builds from there. CI never touches the network; a small
+Source files are downloaded from CDE's public data pages the way CDE intends: in a
+browser, by a person. The pipeline treats them as **locally acquired inputs**, with each
+file's origin, date, and name documented in PROVENANCE.md; drop them in `data/raw/` and
+`make data` validates and builds from there. CI never touches the network; a small
 committed fixture exercises every rendering case. This mirrors the Afterward project's
-answer to the same problem with federal endpoints.
+answer to the same provenance problem with federal endpoints.
 
 ## Status
 
