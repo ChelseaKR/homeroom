@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-18
+
+First tagged release: the CDS-code directory spine, Census Day enrollment, the
+teacher-assignment parser (no D5 file acquired), one school profile per active
+school as deterministic JSON artifacts, and static bilingual school pages built
+from those profiles. Nothing is deployed or hosted; pages render locally from
+files a person downloaded from CDE's public data pages.
+
 ### Added
 - First bilingual school pages (M4): `src/homeroom/render.py` renders one static
   HTML page per school per language from the existing profiles, and `make site` /
@@ -114,6 +122,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   responsible-tech audit record, security policy, and citation metadata.
 
 ### Fixed
+- **The release trust root pointed at a file nothing read.** The maintainer's
+  signing key was committed 2026-08-07 to `.github/allowed_signers`, while
+  `release.yml` reads `.github/signing-allowed-signers`, which still held the
+  scaffold placeholder, so no tag could ever have verified. The signing
+  principal and public key, checked against the key registered on the
+  maintainer's GitHub account, now live in the file the workflow reads,
+  restricted to the `git` signature namespace, and the unread duplicate file is
+  removed so the trust root has one home (RR-04, closed).
+- **The hosted-ruleset binding check could never run.** The release workflow
+  called `check_release_ruleset.py` with `--tag "${TAG}"-message`, a mangled
+  spelling of `--tag "${TAG}" --verify-tag-message`: argparse accepted the
+  garbage tag value, no message operation was selected, and the step passed on
+  ruleset parity alone while the signed-tag-message binding it exists to
+  enforce silently never executed. The flag is now spelled correctly, so a
+  release tag must carry the exact message binding the hosted tag ruleset's id
+  and `updated_at` (`--print-tag-message` prints it for the tag command).
 - Two D2 values recorded at M2 were corrected by M3a re-measurement: rows
   carrying at least one masked cell are 117,946 (first recorded as 88,207), and
   the state's own statewide row is 5,731,260 (5,692,490, first recorded as that
