@@ -178,8 +178,11 @@ jobs:
 
           version = sys.argv[1]
           text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          # The quantifier braces are doubled because this is an f-string: a bare
+          # {4} is a replacement field, and the pattern silently becomes \d4, which
+          # matches a digit followed by a literal 4 and so never matches a date.
           pattern = re.compile(
-              rf"^## \[{re.escape(version)}\] - (\d4-\d2-\d2)\s*$",
+              rf"^## \[{re.escape(version)}\] - (\d{{4}}-\d{{2}}-\d{{2}})\s*$",
               re.MULTILINE,
           )
           match = pattern.search(text)
