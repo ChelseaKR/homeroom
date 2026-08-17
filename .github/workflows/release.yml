@@ -87,7 +87,7 @@ jobs:
           git verify-tag "${TAG}"
           python3 automation/check_release_ruleset.py \
             --hosted --repository "${REPOSITORY}" --repo-root . \
-            --tag "${TAG}"-message \
+            --tag "${TAG}" --verify-tag-message \
             .github/rulesets/tags.json
           {
             printf 'tag=%s\n' "${TAG}"
