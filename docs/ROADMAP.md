@@ -154,13 +154,13 @@ so no D5 figure can reach a page; the pages say that in words instead.
 | Real school rendered EN and ES from acquired data | 1 school, 2 pages | `make site`, Birch Lane Elementary (CDS 57726786056246) |
 | Figures published on that school's English page | 30 numbers, 6 of them genuine published zeros | D2, 2025-26 |
 | Figures on that page the state withheld / never published | 0 withheld, 4 never published | D2, 2025-26 |
-| Measure cells per page | 40 (1 total, 14 grade spans, 25 subgroups) | `src/homeroom/render.py` |
+| Measures per page | 40 (1 total, 14 grade spans, 25 subgroups), each in three columns: this school, its district, California | `src/homeroom/render.py` |
 | Coverage published beside each figure | 3 columns per row (publishing, withholding, publishing nothing), counted across 10,534 active schools | D1 + D2 |
 | Total-enrollment coverage stated on every page | 9,860 publishing, 0 withheld, 674 publishing nothing | D1 + D2 |
 | Pages the accessibility gate checks | 6 (3 fixture schools x 2 languages) | `make pages` |
 | WCAG violations, axe-core A/AA plus best-practice | 0 across 6 rule sets, both languages | `tools/a11y.mjs` |
 | html-validate errors, conformance plus a11y presets | 0 | `make htmlvalidate` |
-| User-visible strings carried in both languages | 120 keys per locale, 240 strings (69 interface, 33 reporting categories, 14 grade spans, 4 subgroup families) | `src/homeroom/i18n.py` |
+| User-visible strings carried in both languages | 122 keys per locale, 244 strings (71 interface, 33 reporting categories, 14 grade spans, 4 subgroup families) | `src/homeroom/i18n.py` |
 | Keys present in one locale and not the other | 0 | `tests/test_i18n.py` |
 | Spanish strings left identical to their English original | 2, both reviewed and named (the project's own name; CDE's Filipino category, the same word in Spanish) | `tests/test_i18n.py` |
 | D5 numbers on any page, including when the parsed file is loaded into the renderer | 0 | `tests/test_pages.py` |

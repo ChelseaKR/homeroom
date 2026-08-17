@@ -13,7 +13,9 @@ Spanish review is the most valuable outside contribution this repo can receive.
 
 from __future__ import annotations
 
+import re
 import string
+from pathlib import Path
 
 import pytest
 
@@ -38,6 +40,11 @@ from homeroom.i18n import (
     text,
 )
 from homeroom.profiles import CATEGORY_NAMES, SUBGROUP_CODES, SUBGROUP_FAMILIES
+
+ROOT = Path(__file__).resolve().parent.parent
+DOCS_STATING_THE_KEY_COUNT = ("README.md", "CHANGELOG.md", "docs/ROADMAP.md")
+KEYS_PER_LOCALE = re.compile(r"(\d[\d,]*) keys per locale")
+STRINGS = re.compile(r"(\d[\d,]*)\s+strings\b")
 
 
 def placeholders(template: str) -> set[str]:
@@ -162,3 +169,62 @@ def test_every_ui_string_is_reachable_through_the_public_helper(
 ) -> None:
     for key in UI["en"]:
         assert text(locale, key)
+
+
+# ----------------------------------------------------------------------------------
+# The figures the documents state about the catalogs
+# ----------------------------------------------------------------------------------
+
+
+def test_the_key_count_the_documents_state_is_the_count_that_exists() -> None:
+    """A number in the prose is a claim, and this project counts its claims.
+
+    README.md, CHANGELOG.md and docs/ROADMAP.md all state how many keys each
+    locale carries. Nothing tied those figures to the catalogs, and all three
+    drifted the moment the district and statewide columns added two interface
+    keys. A document that stops making the claim fails here too, rather than
+    passing on an empty match: the assertion is that each file states the
+    count, and states it correctly.
+    """
+    keys_per_locale = sum(len(catalog["en"]) for catalog in PLURAL_SAFE_CATALOGS)
+    total_strings = keys_per_locale * len(LOCALES)
+    for name in DOCS_STATING_THE_KEY_COUNT:
+        body = (ROOT / name).read_text(encoding="utf-8")
+        stated = {
+            int(match.group(1).replace(",", ""))
+            for match in KEYS_PER_LOCALE.finditer(body)
+        }
+        assert stated, f"{name} no longer states a key count"
+        assert stated == {keys_per_locale}, (name, sorted(stated), keys_per_locale)
+        counted_strings = {
+            int(match.group(1).replace(",", "")) for match in STRINGS.finditer(body)
+        }
+        assert counted_strings <= {total_strings}, (name, sorted(counted_strings))
+
+
+def test_the_roadmap_ledger_breaks_the_key_count_down_correctly() -> None:
+    """The ledger row splits the total four ways; each part is counted here."""
+    roadmap = (ROOT / "docs" / "ROADMAP.md").read_text(encoding="utf-8")
+    row = next(line for line in roadmap.splitlines() if KEYS_PER_LOCALE.search(line))
+    keys_per_locale = sum(len(catalog["en"]) for catalog in PLURAL_SAFE_CATALOGS)
+    assert (
+        f"{keys_per_locale} keys per locale, "
+        f"{keys_per_locale * len(LOCALES)} strings" in row
+    )
+    for count, label in (
+        (len(UI["en"]), "interface"),
+        (len(CATEGORY_NAMES_BY_LOCALE["en"]), "reporting categories"),
+        (len(GRADE_NAMES["en"]), "grade spans"),
+        (len(FAMILY_NAMES["en"]), "subgroup families"),
+    ):
+        assert f"{count} {label}" in row, (label, count, row)
+
+
+def test_the_roadmap_states_how_many_strings_are_deliberately_shared() -> None:
+    roadmap = (ROOT / "docs" / "ROADMAP.md").read_text(encoding="utf-8")
+    row = next(
+        line
+        for line in roadmap.splitlines()
+        if line.startswith("| Spanish strings left identical")
+    )
+    assert f"| {len(DELIBERATELY_SHARED)}," in row, (row, sorted(DELIBERATELY_SHARED))

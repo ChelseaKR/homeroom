@@ -24,7 +24,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 120 keys per locale, 240
+- English and Spanish as peers (`src/homeroom/i18n.py`): 122 keys per locale, 244
   strings, covering every reporting category, grade span, and subgroup family
   name. A missing key raises rather than falling back to English, and CDE's
   English-only school and district names are marked `lang="en"` on Spanish pages
@@ -122,3 +122,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   metrics ledger.
 - PROVENANCE now records the D2 acquisition itself (2025-26 file, acquired
   2026-08-07 as `cdenroll2526.txt`), which the coverage artifact stamps.
+- **The release workflow could never extract its own release notes.** The
+  CHANGELOG section pattern in `.github/workflows/release.yml` is built in an
+  f-string, where `{4}` is a replacement field rather than a regex quantifier,
+  so `\d{4}-\d{2}-\d{2}` had silently become `\d4-\d2-\d2` and matched no date
+  ever written. Every release would have aborted at "matching dated CHANGELOG
+  section is missing". The braces are doubled and the reason is in a comment
+  beside the line. It fails closed, so nothing was ever published wrongly; the
+  workflow simply could not run to completion.
+- **A test that could not fail.** The D5 acquisition-date test compared the
+  access date in `coverage.json` against `ASSIGNMENTS_ACCESS_DATE`, the constant
+  that writes that field, so the assertion could not fail whatever either one
+  said: setting the constant to a date PROVENANCE.md does not record still
+  passed. The expectation is now read from PROVENANCE.md, which is where a
+  person records an acquisition, so that mutation fails.
+- **The catalog figures in the prose were two short.** README, CHANGELOG and the
+  ROADMAP ledger all still gave the M4 figure of 120; the district and statewide
+  columns added two interface keys and none of the three was updated. The true
+  figures are 122 keys per locale, 244 strings, 71 of them interface, and
+  `tests/test_i18n.py` now reads those numbers out of all three documents and
+  compares them to the catalogs, failing when a document drops the claim as well
+  as when it states it wrongly.
+- The ROADMAP row "measure cells per page" gave 40, which is the number of
+  measures; each is rendered in three columns, so the row now says so.
+- **"No script, no external asset, no tracking" had no gate.** Neither
+  html-validate nor axe-core has an opinion about it: a page that loads a CDN
+  font or a tracking pixel is conformant and accessible. `tests/test_pages.py`
+  now checks every built page for script and subresource elements, fetching
+  attributes, inline event handlers, `@import`, `url(`, and `javascript:`, and
+  requires the stylesheet to still be present and inline so the check cannot be
+  met by a page that stopped rendering.
+- A CDS code the enrollment parser cannot assemble into 14 digits raises, and
+  now has a test; the guard was previously the only uncovered branch in that
+  module. Removed `context._empty`, which no caller ever used.

@@ -64,7 +64,7 @@ spans, and 25 subgroup figures, each cell in exactly one of four states, with
 coverage in the next three columns. Birch Lane Elementary in Davis Joint Unified
 renders from the acquired files in English and Spanish, publishing 30 figures
 (6 of them genuine zeros) and stating in words where the state published nothing.
-Every user-visible string exists in both languages: 120 keys per locale, zero
+Every user-visible string exists in both languages: 122 keys per locale, zero
 present in one and missing from the other, enforced by test. The pages carry no
 script, no external asset, no account, and no tracking.
 
