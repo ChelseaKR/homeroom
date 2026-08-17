@@ -293,9 +293,26 @@ def test_assignment_reruns_are_byte_identical(tmp_path: Path) -> None:
 def test_a_real_build_cannot_stamp_an_unrecorded_acquisition_date(
     tmp_path: Path,
 ) -> None:
+    """The emitted D5 date has to match the record, not the constant.
+
+    Comparing the field to :data:`ASSIGNMENTS_ACCESS_DATE` would be circular:
+    that constant is what writes the field, so the assertion could not fail
+    whatever either one said. The independent fact is PROVENANCE.md, which is
+    where a person records an acquisition, so the expectation is read from
+    there. Setting the constant without recording the acquisition fails here.
+    """
+    d5_row = next(
+        line
+        for line in (ROOT / "PROVENANCE.md").read_text(encoding="utf-8").splitlines()
+        if line.startswith("| D5 |")
+    )
     _, coverage_path = build(tmp_path, assignments=ASSIGNMENTS, is_fixture=False)
     source = load(coverage_path)["sources"]["D5_teacher_assignments"]
-    assert source["access_date"] == ASSIGNMENTS_ACCESS_DATE
+    if "awaiting acquisition" in d5_row:
+        assert source["access_date"] is None
+    else:
+        assert source["access_date"] is not None
+        assert source["access_date"] in d5_row
 
 
 def test_cli_builds_artifacts_and_reports(
