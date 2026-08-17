@@ -102,14 +102,6 @@ def district_key(cds_code: str) -> str:
     return f"{cds_code[:7]:0<7}".ljust(14, "0")[:14]
 
 
-def _empty(figures: AggregateFigures) -> bool:
-    return (
-        figures.total.status.value == "not_reported"
-        and not figures.grades
-        and not figures.subgroups
-    )
-
-
 def load_context(path: Path) -> EnrollmentContext:
     """Read district and statewide figures from the enrollment file's own rows.
 
