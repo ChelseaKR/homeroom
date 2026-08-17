@@ -88,6 +88,7 @@ class Document(HTMLParser):
         self.regions: list[str] = []
         self.cells: list[tuple[frozenset[str], str]] = []
         self.lang_spans: list[tuple[str, str]] = []
+        self.elements: list[tuple[str, dict[str, str]]] = []
         self.hrefs: list[str] = []
         self.alternates: list[tuple[str, str]] = []
         self.lang: str | None = None
@@ -102,6 +103,7 @@ class Document(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attr = {key: (value or "") for key, value in attrs}
+        self.elements.append((tag, attr))
         if tag == "style":
             self._in_style = True
         if "id" in attr:
@@ -271,6 +273,75 @@ def test_every_scrollable_table_is_a_named_reachable_region(built: Path) -> None
         assert all(label.strip() for label in document.regions)
         assert len(document.regions) == len(set(document.regions))
         assert len(document.regions) == len(document.tables)
+
+
+SUBRESOURCE_TAGS = frozenset(
+    {
+        "applet",
+        "audio",
+        "canvas",
+        "embed",
+        "frame",
+        "iframe",
+        "image",
+        "img",
+        "object",
+        "picture",
+        "portal",
+        "script",
+        "source",
+        "svg",
+        "track",
+        "video",
+    }
+)
+"""Tags that can execute code or fetch something the page did not ship with."""
+
+FETCHING_ATTRIBUTES = frozenset(
+    {
+        "background",
+        "codebase",
+        "data",
+        "formaction",
+        "imagesrcset",
+        "manifest",
+        "ping",
+        "poster",
+        "src",
+        "srcset",
+    }
+)
+"""Attributes that name a resource the browser goes and gets."""
+
+
+def test_no_page_carries_a_script_or_reaches_off_the_page_for_an_asset(
+    built: Path,
+) -> None:
+    """README's "no script, no external asset, no account, no tracking", checked.
+
+    Neither html-validate nor axe-core has an opinion about this: a page that
+    loads a font from a CDN, an analytics beacon, or a tracking pixel is
+    perfectly conformant and perfectly accessible. The claim is a privacy
+    promise to families reading about their own children's schools, so it needs
+    a gate of its own, and this is it. The stylesheet has to be present and
+    inline, so the check cannot be satisfied by a page that stopped rendering.
+    """
+    for _, _, path in every_page(built):
+        source = path.read_text(encoding="utf-8")
+        document = parse_markup(source)
+        styles = [attr for tag, attr in document.elements if tag == "style"]
+        assert len(styles) == 1, path.name
+        assert "--surface" in source, path.name
+        for tag, attr in document.elements:
+            assert tag not in SUBRESOURCE_TAGS, (path.name, tag)
+            for name in attr:
+                assert name not in FETCHING_ATTRIBUTES, (path.name, tag, name)
+                assert not name.startswith("on"), (path.name, tag, name)
+            if tag == "link":
+                assert attr.get("rel") == "alternate", (path.name, attr)
+        lowered = source.lower()
+        for smell in ("@import", "url(", "javascript:", "<script"):
+            assert smell not in lowered, (path.name, smell)
 
 
 # ----------------------------------------------------------------------------------
