@@ -188,11 +188,14 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     figure that is wrong and looks right rather than unauthorised access, and
     treats the drift refusals and the three-state measure type as security
     controls on that basis. Six residual risks carry an owner and a decision;
-    RR-04, RR-05 and RR-06 are tracked rather than accepted.
-  - REVIEW (open, needs the maintainer): `.github/signing-allowed-signers` still
-    holds the scaffold placeholder and must carry the maintainer's real signing
-    principal and public key before the first release; release.yml fails closed
-    until it does, so no unsigned release can escape in the meantime (RR-04).
+    RR-05 and RR-06 are tracked rather than accepted, and RR-04 closed
+    2026-08-17.
+  - REVIEW (done 2026-08-17): `.github/signing-allowed-signers` now carries the
+    maintainer's signing principal and public key, verified against the key
+    registered on the maintainer's GitHub account before being committed, and
+    the unread duplicate `.github/allowed_signers` is removed so the trust root
+    has one home. The tag signature itself still needs the maintainer's private
+    key, which no tooling holds (RR-04, closed).
 
 ## Governance (AI repos only)
 
