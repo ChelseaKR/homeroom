@@ -44,6 +44,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the page publishes 36 of its 40 figures. The second is this project's own rule
   read backwards, since a published zero is a figure the state published and is
   the reason the four cell states exist.
+- **The lockfile gate did not gate.** `make sync`, the first stage of `make verify`
+  and therefore of CI, ran `uv sync --frozen`. That flag installs from `uv.lock`
+  without reading `pyproject.toml`, so by construction it cannot notice the two
+  disagree, and it exits 0 on a drifted lock: a dependency added or bumped in
+  `pyproject.toml` without relocking would have passed the full gate. Now
+  `uv sync --locked`, which re-resolves and exits 1 on drift, with the reasoning
+  in a comment beside the line. The release job in `.github/workflows/release.yml`
+  gets the same substitution.
+- **Two ADRs were both numbered 0000**, making a citation to "ADR 0000" ambiguous.
+  `0000-record-architecture-decisions.md` keeps the seed number by convention;
+  refuse-to-rank-schools moves to `0002-refuse-to-rank-schools.md` with its
+  heading updated. No accepted ADR was renumbered out from under an existing
+  citation, and nothing referenced the moved file by number.
+
+### Added
+- `.github/dependabot.yml`: weekly `uv`, `npm` and `github-actions` updates,
+  keeping the pinned Python set, the Node page-gate toolchain, and the
+  SHA-pinned action set current at a weekly PR volume one maintainer can
+  review. The CodeQL action set is grouped into one PR because init, analyze,
+  autobuild and upload-sarif must run the same version.
+- Four standards missing from the README conformance table (Performance, AI
+  Development Measurement, Incident Response, Data Governance) are now
+  declared **Applies**, each naming what exists and what does not.
 
 ## [0.1.0] - 2026-08-18
 
@@ -54,6 +77,15 @@ from those profiles. Nothing is deployed or hosted; pages render locally from
 files a person downloaded from CDE's public data pages.
 
 ### Added
+- `.github/dependabot.yml`: weekly `uv`, `npm` and `github-actions` updates.
+  `pip-audit` in `make verify` catches a dependency that is already
+  known-vulnerable; this covers the other half, keeping the pinned set current.
+  The CodeQL action set is grouped into one PR because init, analyze, autobuild
+  and upload-sarif must always run the same version.
+- Four standards that the README conformance table had left undeclared are now
+  declared with their current state: Performance, AI Development Measurement,
+  Incident Response, and Data Governance. Each row says what exists and what
+  does not, rather than asserting a posture the repo has not built.
 - First bilingual school pages (M4): `src/homeroom/render.py` renders one static
   HTML page per school per language from the existing profiles, and `make site` /
   `make site-offline` build them. Birch Lane Elementary in Davis Joint Unified
