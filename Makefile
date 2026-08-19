@@ -6,7 +6,7 @@
 verify: sync lint format typecheck test audit pages
 
 sync:
-	uv sync --frozen
+	uv sync --locked
 
 lint:
 	uv run ruff check .
