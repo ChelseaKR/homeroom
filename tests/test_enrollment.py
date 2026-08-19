@@ -9,7 +9,7 @@ from homeroom.enrollment import (
     parse_enrollment,
     school_totals,
 )
-from homeroom.measures import MeasureStatus
+from homeroom.measures import MeasureStatus, UnparseableCellError
 
 HEADER = (
     "AcademicYear\tAggregateLevel\tCountyCode\tDistrictCode\tSchoolCode\tCountyName"
@@ -46,6 +46,23 @@ def test_masked_cells_stay_suppressed_never_zero(tmp_path: Path) -> None:
     assert row.total.status is MeasureStatus.SUPPRESSED
     assert not row.total.is_zero
     assert all(m.status is MeasureStatus.SUPPRESSED for m in row.grades.values())
+
+
+def test_a_no_value_marker_in_a_total_stops_the_file(tmp_path: Path) -> None:
+    """End to end, through the real parser: ``nan`` in a total is not a total.
+
+    An export that writes its missing values as ``nan`` reaches here as text, and
+    the whole file has to stop. The alternative, which this repository shipped
+    until now, is one school's page carrying the word ``nan`` in a cell styled and
+    captioned as a figure the state published.
+    """
+    p = write(
+        tmp_path,
+        "2025-26\tS\t57\t72678\t6056246\tYolo\tDavis\tBirch\tN\tTA"
+        "\tnan\t28\t55\t60\t58\t62\t59\t61\t58\t0\t0\t0\t0\t0\t0\n",
+    )
+    with pytest.raises(UnparseableCellError, match="TOTAL_ENR"):
+        school_totals(p)
 
 
 def test_a_school_code_that_will_not_make_a_cds_refuses_rather_than_joins(

@@ -92,7 +92,7 @@ Access dates and acquisition rules live in PROVENANCE.md.
 |-------|----------|--------|
 | Directory rows parsed, no drift errors | 18,396 | D1 `pubschls.txt`, acquired 2026-08-07 |
 | Active schools | 10,534 | D1 |
-| Districts | 1,048 | D1 |
+| Districts | 1,059 by CDS code (corrected; 1,048 was recorded here, which counts distinct district *names* and so loses eleven districts: ten names cover two districts each, and "Jefferson Elementary" covers three) | D1 |
 | Counties | 58 (all) | D1 |
 | Charter schools | 1,238 | D1 |
 | Enrollment rows parsed (2025-26 Census Day) | 269,090 | D2 |
@@ -152,7 +152,7 @@ so no D5 figure can reach a page; the pages say that in words instead.
 | Value | Measured | Source |
 |-------|----------|--------|
 | Real school rendered EN and ES from acquired data | 1 school, 2 pages | `make site`, Birch Lane Elementary (CDS 57726786056246) |
-| Figures published on that school's English page | 30 numbers, 6 of them genuine published zeros | D2, 2025-26 |
+| Figures published on that school's English page | 36 (corrected; recorded here as "30 numbers, 6 of them genuine published zeros", but the 6 are beside the 30, not among them: 30 `m-number` cells plus 6 `m-zero` cells, and 30 + 6 + 4 never published is the 40 below) | D2, 2025-26 |
 | Figures on that page the state withheld / never published | 0 withheld, 4 never published | D2, 2025-26 |
 | Measures per page | 40 (1 total, 14 grade spans, 25 subgroups), each in three columns: this school, its district, California | `src/homeroom/render.py` |
 | Coverage published beside each figure | 3 columns per row (publishing, withholding, publishing nothing), counted across 10,534 active schools | D1 + D2 |
