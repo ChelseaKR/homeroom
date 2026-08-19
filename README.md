@@ -49,8 +49,11 @@ answer to the same provenance problem with federal endpoints.
 The school-directory parser (the spine every other dataset joins against, via CDS
 codes) is built, tested against a fixture, and verified against the live file
 (acquired 2026-08-07): 18,396 directory rows parsed with no drift errors, yielding
-10,534 active schools across 1,048 districts and all 58 counties, 1,238 of them
-charters. The 2025-26 Census Day enrollment file (269,090 rows, acquired the same
+10,534 active schools across 1,059 districts and all 58 counties, 1,238 of them
+charters. Those 1,059 districts carry only 1,048 distinct names: ten names cover
+two districts each, except "Jefferson Elementary", which covers three. Counting
+districts by name loses eleven of them, which is why the CDS code is the only key
+this project joins on. The 2025-26 Census Day enrollment file (269,090 rows, acquired the same
 day) parses end to end and joins that spine, and `make data` now assembles one
 profile per active school, with total, grade-span, and subgroup enrollment as
 three-status measures, and emits deterministic JSON artifacts: 10,534 profiles,
@@ -62,8 +65,9 @@ The first bilingual school pages are built (M4). One page per school per
 language, rendered from those profiles: identity, total enrollment, TK-12 grade
 spans, and 25 subgroup figures, each cell in exactly one of four states, with
 coverage in the next three columns. Birch Lane Elementary in Davis Joint Unified
-renders from the acquired files in English and Spanish, publishing 30 figures
-(6 of them genuine zeros) and stating in words where the state published nothing.
+renders from the acquired files in English and Spanish, publishing 36 of its 40
+figures (30 counts and 6 genuine zeros) and stating in words, for the other four,
+that the state published nothing.
 Every user-visible string exists in both languages: 122 keys per locale, zero
 present in one and missing from the other, enforced by test. The pages carry no
 script, no external asset, no account, and no tracking.

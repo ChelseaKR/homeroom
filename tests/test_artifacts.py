@@ -59,6 +59,25 @@ def test_reruns_are_byte_identical(tmp_path: Path) -> None:
     assert first == again
 
 
+def test_the_artifact_is_json_a_strict_reader_can_read(tmp_path: Path) -> None:
+    """No ``NaN`` or ``Infinity`` token, from any path, ever.
+
+    Python writes and reads both without complaint, so the repository's own round
+    trip cannot notice them, and ``json.loads`` here would pass while the file was
+    already broken. RFC 8259 has no such literals: a browser's ``JSON.parse`` and a
+    Go or Rust decoder reject the whole document over one of them, so a single bad
+    cell would take every school down with it. ``parse_constant`` is the hook that
+    fires on exactly those tokens, which makes this the one assertion that a
+    consumer outside Python can read what this build wrote.
+    """
+
+    def refuse(token: str) -> object:
+        raise AssertionError(f"artifact carries the non-JSON literal {token!r}")
+
+    for path in build(tmp_path, assignments=ASSIGNMENTS):
+        json.loads(path.read_text(encoding="utf-8"), parse_constant=refuse)
+
+
 def test_measure_serialization_has_value_only_when_reported() -> None:
     assert measure_json(Measure.reported(441)) == {"status": "reported", "value": 441}
     assert measure_json(Measure.reported(42.5)) == {"status": "reported", "value": 42.5}

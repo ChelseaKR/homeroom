@@ -6,6 +6,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- A cell that is not a published number could become one. `parse_cell` handed
+  anything that was not `*` or empty straight to `float`, and `float` accepts a
+  great deal a data file never means as a number. `nan` is the one that matters:
+  it is how an export writes a value it does not have, and it was classified as
+  *reported*, so it rendered on a school page inside `<span class="num">`, in a
+  cell whose own legend says "the state published this figure", styled and
+  captioned exactly like a real count. The page-level gate that checks every
+  number in a data cell was counted did not catch it, because `nan` has no digits
+  in it. `1_0` read as ten through PEP 515 digit separators, `1e3` as a thousand,
+  `1,23` as one hundred and twenty-three once the commas were stripped, and
+  fullwidth or Arabic-Indic digits as numbers nobody typed. `parse_cell` now
+  checks the cell against `PUBLISHED_NUMBER`, an explicit statement of the shape
+  CDE publishes, before converting, and refuses everything else as the drift it
+  is. Measured against the acquired 2025-26 D2 file: no change to any real figure
+  (10,534 profiles, 182,362 / 0 / 80,988 subgroup measures, join gaps 698 and 674,
+  all unchanged).
+- A figure too large to hold became infinity in silence. A digit run long enough
+  to overflow a float converted without complaint, and `inf` reached the page the
+  same way `nan` did. `parse_cell` now refuses a value that is not finite.
+- `schools.json` could stop being JSON. A `nan` or overflowed cell serialized as
+  the bare literal `NaN` or `Infinity`, which RFC 8259 does not have: Python
+  writes and reads both without complaint, so the project's own round trip could
+  not see it, while a browser's `JSON.parse` and a Go or Rust decoder reject the
+  whole document over one of them, taking all 10,534 schools down with one bad
+  cell. `tests/test_artifacts.py` now reads the artifacts back through
+  `parse_constant`, which fires on exactly those tokens, so the gate holds for any
+  future path into the artifact and not only for this one.
+- Two measured figures in the docs were wrong, and are corrected in place in the
+  `docs/ROADMAP.md` ledger the way its earlier corrections are. Districts were
+  recorded as 1,048, which is the count of distinct district *names*: ten names
+  cover two districts each and "Jefferson Elementary" covers three, so counting by
+  name loses eleven, and the count by CDS code, the only key this project joins
+  on, is 1,059. And Birch Lane's page was recorded as "30 numbers, 6 of them
+  genuine published zeros" when the 6 are beside the 30 rather than among them:
+  the page publishes 36 of its 40 figures. The second is this project's own rule
+  read backwards, since a published zero is a figure the state published and is
+  the reason the four cell states exist.
+
 ## [0.1.0] - 2026-08-18
 
 First tagged release: the CDS-code directory spine, Census Day enrollment, the
