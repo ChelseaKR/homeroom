@@ -31,7 +31,11 @@ from __future__ import annotations
 from typing import Literal
 
 from homeroom.enrollment import GRADE_COLUMNS
-from homeroom.profiles import CATEGORY_NAMES, SUBGROUP_FAMILIES
+from homeroom.profiles import (
+    ABSENTEEISM_CATEGORY_NAMES,
+    CATEGORY_NAMES,
+    SUBGROUP_FAMILIES,
+)
 
 Locale = Literal["en", "es"]
 
@@ -164,18 +168,46 @@ UI: dict[Locale, dict[str, str]] = {
         "coverage_total_withheld": "Schools where that total is withheld",
         "coverage_total_nothing": "Schools publishing no total at all",
         "coverage_unjoined": "Enrollment records matching no active school",
+        "absenteeism_heading": "Chronic absenteeism",
+        "absenteeism_intro": (
+            "A student is chronically absent if they missed 10% or more of the "
+            "days they were expected to attend. The rate below is the state's own "
+            "figure, counted only from students eligible to be considered: a "
+            "student enrolled too briefly, or exempt for reasons the state sets, "
+            "is not part of it. Homeroom does not compute this rate; it is printed "
+            "exactly as the state published it."
+        ),
+        "caption_absenteeism_total": (
+            "Chronic absenteeism at {school}, {year} school year."
+        ),
+        "caption_absenteeism_groups": (
+            "{family} chronic absenteeism at {school}, {year} school year."
+        ),
+        "coverage_absenteeism_published": (
+            "Schools publishing a chronic absenteeism rate"
+        ),
+        "coverage_absenteeism_withheld": "Schools where that rate is withheld",
+        "coverage_absenteeism_nothing": (
+            "Schools publishing no chronic absenteeism rate at all"
+        ),
         "not_yet_heading": "What is not on this page yet",
         "not_yet_assignments": (
-            "Teacher assignment data is not yet acquired. California publishes, for "
-            "each school, how many teaching assignments were held by a teacher with "
-            "a clear credential matched to what they teach. Homeroom can read that "
-            "file and has not obtained it, so this page shows no figure about the "
-            "teachers at this school and will not until the file is in hand."
+            "Teacher assignment data is not yet published here. California "
+            "publishes, for each school, how many teaching assignments were held "
+            "by a teacher with a clear credential matched to what they teach. "
+            "Homeroom has read that file and confirmed what it contains, and has "
+            "not yet decided how to publish it, so this page shows no figure about "
+            "the teachers at this school."
+        ),
+        "not_yet_absenteeism": (
+            "Chronic absenteeism data is not yet acquired for this page. Homeroom "
+            "can read that file and has not obtained it here, so this page shows "
+            "no chronic-absenteeism figure and will not until the file is in hand."
         ),
         "not_yet_measures": (
-            "Chronic absenteeism, the state dashboard indicators, and per-pupil "
-            "spending are not here yet either. Each one arrives with its own file "
-            "and its own access date, or it does not arrive."
+            "The state dashboard indicators and per-pupil spending are not here "
+            "yet either. Each one arrives with its own file and its own access "
+            "date, or it does not arrive."
         ),
         "sources_heading": "Where these numbers come from",
         "sources_body": (
@@ -186,6 +218,8 @@ UI: dict[Locale, dict[str, str]] = {
         "source_d1_title": "Public Schools and Districts directory",
         "source_d2_name": "Enrollment",
         "source_d2_title": "Census Day Enrollment Data",
+        "source_d3_name": "Chronic absenteeism",
+        "source_d3_title": "Chronic Absenteeism Data",
         "source_file": "File",
         "source_downloaded": "Downloaded",
         "source_year": "School year",
@@ -311,19 +345,47 @@ UI: dict[Locale, dict[str, str]] = {
         "coverage_total_withheld": "Escuelas donde ese total está retenido",
         "coverage_total_nothing": "Escuelas que no publican ningún total",
         "coverage_unjoined": "Registros de matrícula sin escuela activa que coincida",
+        "absenteeism_heading": "Ausentismo crónico",
+        "absenteeism_intro": (
+            "Un estudiante tiene ausentismo crónico si faltó el 10% o más de los "
+            "días en que se esperaba que asistiera. La tasa de abajo es la cifra "
+            "propia del estado, contada solo entre los estudiantes elegibles para "
+            "considerarse: un estudiante matriculado muy poco tiempo, o exento por "
+            "razones que fija el estado, no forma parte de ella. Homeroom no "
+            "calcula esta tasa; se muestra tal como la publicó el estado."
+        ),
+        "caption_absenteeism_total": (
+            "Ausentismo crónico en {school}, ciclo escolar {year}."
+        ),
+        "caption_absenteeism_groups": (
+            "Ausentismo crónico de {family} en {school}, ciclo escolar {year}."
+        ),
+        "coverage_absenteeism_published": (
+            "Escuelas que publican una tasa de ausentismo crónico"
+        ),
+        "coverage_absenteeism_withheld": "Escuelas donde esa tasa está retenida",
+        "coverage_absenteeism_nothing": (
+            "Escuelas que no publican ninguna tasa de ausentismo crónico"
+        ),
         "not_yet_heading": "Lo que todavía no está en esta página",
         "not_yet_assignments": (
-            "Los datos sobre la asignación de maestros todavía no se han obtenido. "
-            "California publica, por escuela, cuántas asignaciones docentes estaban "
-            "a cargo de un maestro con credencial vigente que corresponde a lo que "
-            "enseña. Homeroom puede leer ese archivo y no lo ha conseguido, así que "
-            "esta página no muestra ningún dato sobre los maestros de esta escuela y "
-            "no lo hará hasta tener el archivo."
+            "Los datos sobre la asignación de maestros todavía no se publican "
+            "aquí. California publica, por escuela, cuántas asignaciones docentes "
+            "estaban a cargo de un maestro con credencial vigente que corresponde "
+            "a lo que enseña. Homeroom leyó ese archivo y confirmó lo que "
+            "contiene, y todavía no ha decidido cómo publicarlo, así que esta "
+            "página no muestra ningún dato sobre los maestros de esta escuela."
+        ),
+        "not_yet_absenteeism": (
+            "Los datos de ausentismo crónico todavía no se han obtenido para esta "
+            "página. Homeroom puede leer ese archivo y no lo ha conseguido aquí, "
+            "así que esta página no muestra ningún dato de ausentismo crónico y no "
+            "lo hará hasta tener el archivo."
         ),
         "not_yet_measures": (
-            "El ausentismo crónico, los indicadores del panel estatal y el gasto por "
-            "estudiante tampoco están todavía. Cada uno llega con su propio archivo "
-            "y su propia fecha de descarga, o no llega."
+            "Los indicadores del panel estatal y el gasto por estudiante tampoco "
+            "están todavía. Cada uno llega con su propio archivo y su propia fecha "
+            "de descarga, o no llega."
         ),
         "sources_heading": "De dónde salen estas cifras",
         "sources_body": (
@@ -334,6 +396,8 @@ UI: dict[Locale, dict[str, str]] = {
         "source_d1_title": "Directorio de escuelas y distritos públicos",
         "source_d2_name": "Matrícula",
         "source_d2_title": "Datos de matrícula del Día del Censo",
+        "source_d3_name": "Ausentismo crónico",
+        "source_d3_title": "Datos de ausentismo crónico",
         "source_file": "Archivo",
         "source_downloaded": "Descargado el",
         "source_year": "Ciclo escolar",
@@ -464,13 +528,64 @@ CATEGORY_NAMES_BY_LOCALE: dict[Locale, dict[str, str]] = {
     "es": CATEGORY_NAMES_ES,
 }
 
-DELIBERATELY_SHARED: frozenset[str] = frozenset({"site_name", "RE_F"})
+ABSENTEEISM_CATEGORY_NAMES_ES: dict[str, str] = {
+    "TA": "Todos los estudiantes",
+    # Race and ethnicity. CDE's own label for RD is "Did not Report"; expanded in
+    # both languages for the same reason D2's RE_D is.
+    "RA": "Asiático",
+    "RB": "Afroamericano",
+    "RD": "Raza o etnia no informada",
+    "RF": "Filipino",
+    "RH": "Hispano o latino",
+    "RI": "Indígena estadounidense o nativo de Alaska",
+    "RP": "Isleño del Pacífico",
+    "RT": "Dos o más razas",
+    "RW": "Blanco",
+    # Gender.
+    "GF": "Femenino",
+    "GM": "Masculino",
+    "GX": "No binario",
+    # Student groups.
+    "SD": "Estudiantes con discapacidades",
+    "SE": "Estudiantes del idioma inglés",
+    "SF": "Jóvenes en hogares de crianza temporal",
+    "SH": "Jóvenes sin hogar",
+    "SM": "Jóvenes migrantes",
+    "SS": "En desventaja socioeconómica",
+    # Grade spans: carried so the catalogs stay in step with the pipeline, though
+    # profiles do not render them as a subgroup family.
+    "GRTKKN": "Grados TK a kínder",
+    "GR13": "Grados 1 a 3",
+    "GR46": "Grados 4 a 6",
+    "GR78": "Grados 7 y 8",
+    "GRTK8": "Grados TK/kínder a 8",
+    "GR912": "Grados 9 a 12",
+}
+"""Spanish for every D3 reporting-category code this pipeline recognizes. The
+English side is :data:`homeroom.profiles.ABSENTEEISM_CATEGORY_NAMES`, which the
+build already refuses to run without. The parity gate asserts the two key sets
+match, the same guarantee :data:`CATEGORY_NAMES_ES` gives D2's codes."""
+
+ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE: dict[Locale, dict[str, str]] = {
+    "en": dict(ABSENTEEISM_CATEGORY_NAMES),
+    "es": ABSENTEEISM_CATEGORY_NAMES_ES,
+}
+
+DELIBERATELY_SHARED: frozenset[str] = frozenset({"site_name", "RE_F", "RF"})
 """Strings that are correctly identical in both languages, each for a reason.
 
-``site_name`` is the project's name, a proper noun. ``RE_F`` is CDE's Filipino
-category, which is the same word in Spanish. Everything else differing by locale
-is enforced; this set is kept short and is itself size-checked by the parity gate,
-so it cannot become somewhere to park an untranslated string.
+``site_name`` is the project's name, a proper noun. ``RE_F`` (D2) and ``RF`` (D3)
+are CDE's two different codes for the same Filipino category, each the same word
+in Spanish. Everything else differing by locale is enforced; this set is kept
+short and is itself size-checked by the parity gate, so it cannot become somewhere
+to park an untranslated string.
+
+D2's and D3's ``CATEGORY_NAMES`` catalogs both use the key ``TA`` (D2's own
+"All students"/"Todos los estudiantes"; D3's own, separately translated pair for
+the same key), which is not a parity concern: :data:`PLURAL_SAFE_CATALOGS` checks
+each catalog's English and Spanish values against each other, never one catalog's
+values against another's, so the two ``TA`` entries are independent strings that
+each already differ correctly between locales.
 """
 
 PLURAL_SAFE_CATALOGS: tuple[dict[Locale, dict[str, str]], ...] = (
@@ -478,6 +593,7 @@ PLURAL_SAFE_CATALOGS: tuple[dict[Locale, dict[str, str]], ...] = (
     GRADE_NAMES,
     FAMILY_NAMES,
     CATEGORY_NAMES_BY_LOCALE,
+    ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE,
 )
 """Every locale-keyed catalog, so the parity gate cannot miss one by being added
 to the module and not to the test."""
@@ -505,6 +621,10 @@ def category_name(locale: Locale, code: str) -> str:
     return CATEGORY_NAMES_BY_LOCALE[locale][code]
 
 
+def absenteeism_category_name(locale: Locale, code: str) -> str:
+    return ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE[locale][code]
+
+
 def format_number(value: float) -> str:
     """A count as both locales write it.
 
@@ -519,6 +639,8 @@ def format_number(value: float) -> str:
 
 
 __all__ = [
+    "ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE",
+    "ABSENTEEISM_CATEGORY_NAMES_ES",
     "CATEGORY_NAMES_BY_LOCALE",
     "CATEGORY_NAMES_ES",
     "DELIBERATELY_SHARED",
@@ -532,6 +654,7 @@ __all__ = [
     "SUBGROUP_FAMILIES",
     "UI",
     "Locale",
+    "absenteeism_category_name",
     "category_name",
     "cde_text_lang",
     "family_name",

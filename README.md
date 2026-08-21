@@ -68,9 +68,23 @@ coverage in the next three columns. Birch Lane Elementary in Davis Joint Unified
 renders from the acquired files in English and Spanish, publishing 36 of its 40
 figures (30 counts and 6 genuine zeros) and stating in words, for the other four,
 that the state published nothing.
-Every user-visible string exists in both languages: 122 keys per locale, zero
+Every user-visible string exists in both languages: 157 keys per locale, zero
 present in one and missing from the other, enforced by test. The pages carry no
 script, no external asset, no account, and no tracking.
+
+Chronic absenteeism (D3) is the first measure Homeroom publishes that CDE masks
+at real scale, and it is now built end to end (M3). The 2024-25 file (341,490
+rows, acquired 2026-08-21) parses, joins the spine, and renders on every school
+page: a total rate plus race/ethnicity, gender, and student-group breakdowns, each
+beside its district and statewide figure, read from CDE's own `Charter School =
+All` and `DASS = All` rows. Across the 10,534 active schools, the total rate is
+published for 9,718 of them, withheld for 83, and not published for 733 that the
+file never mentions; some subgroups are withheld far more often than that, up to
+95.4% of the schools that have any row at all for American Indian or Alaska
+Native students. `docs/SUPPRESSION-SHOWCASE.md` walks four real rows, one of each
+cell state, from the source file to the rendered markup. Grade-span categories
+are recognized so the file parses but are not rendered as a subgroup, the same
+choice already made for D2's age ranges.
 
 What a cell can say, and how the four states stay apart on the page:
 
@@ -85,24 +99,35 @@ Accessibility and translation are gated, not asserted. `make verify` builds the
 pages from committed fixtures and runs html-validate and axe-core (WCAG 2.0/2.1/2.2
 A and AA, plus best-practice) over every page in both languages, and re-checks
 structure, EN/ES key parity, colour contrast in both themes, and that every number
-in a data cell is a number the pipeline counted. What none of that can do is look
-at the pages: layout, reflow at small widths, focus visibility in practice, and a
-screen-reader walkthrough in each language need a person, and that walkthrough has
-not happened yet.
+in a data cell is a number the pipeline counted. Re-verified with M3's four new
+tables in the fixture build (2026-08-21): zero violations, same six rule sets.
+What none of that can do is look at the pages: layout, reflow at small widths,
+focus visibility in practice, and a screen-reader walkthrough in each language
+need a person, and that walkthrough has not happened yet. M3 deliberately kept
+its new tables at the same seven columns as the existing ones rather than adding
+more while that gate is open; see `docs/RESPONSIBLE-TECH-AUDITS.md` §E and RR-05
+in `docs/audits/residual-risk-register.md`.
 
-Teacher assignment monitoring (D5) has a parser and no data yet. CDE publishes
-these files from the Commission on Teacher Credentialing's CalSAAS system: by
-school, how many teaching assignments were held on a clear credential and
-appropriately matched to the assignment, and how many sat in one of the other
-authorization states the state tracks. The parser, its coverage output, and its
-join to the spine are built and tested against a synthetic fixture, because no D5
-file has been acquired here. So no D5 number about a real school is published
-anywhere, the column names the parser expects are provisional until the file is
-in hand, and PROVENANCE.md says both in as many words. No school page shows a
-teacher figure, and each page says the data is not yet acquired in those words; the
-page build is not given an argument for the D5 file at all, and a test renders a
-profile that does carry parsed assignment outcomes to prove none of them reaches
-the markup. The remaining datasets are a plan recorded there too.
+Teacher assignment monitoring (D5) has been acquired and its schema verified
+against a real file, and is still not published anywhere. CDE publishes these
+files from the Commission on Teacher Credentialing's CalSAAS system: by school,
+how much teaching FTE sat on a clear credential appropriately matched to the
+assignment, and how much sat in one of the other authorization states the state
+tracks. The 2023-24 file (234,206,408 bytes, 1,528,796 rows, acquired
+2026-08-21) turned out to disagree with the parser's provisional contract in
+every particular -- real column names, seven outcomes rather than five, FTE
+fractions rather than integer counts, and up to 150 rows per school rather than
+one -- and `src/homeroom/assignments.py` was rewritten to match what the file
+actually contains (PROVENANCE.md D5 has the full list). The parser, its coverage
+output, and its join to the spine are tested against a fixture shaped like that
+real file. No D5 number about a real school is published anywhere: `make data`
+and `make site` are not given the file by default, `homeroom.site` accepts no
+argument for it at all, and PROVENANCE.md says publishing it is a separate,
+not-yet-made decision. No school page shows a teacher figure; each page says so
+in words, and a test renders a profile that does carry parsed assignment
+outcomes to prove none of them reaches the markup. The remaining datasets (D4,
+the state dashboard indicators, and D6, per-pupil spending) are a plan recorded
+in PROVENANCE.md too.
 
 Nothing is published or hosted. Whether these pages belong on the internet is a
 separate decision about real schools and real children, and no build makes it.

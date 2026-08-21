@@ -59,6 +59,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   citation, and nothing referenced the moved file by number.
 
 ### Added
+- **M3: chronic absenteeism (D3), the first masked-heavy measure, end to end**
+  (`src/homeroom/absenteeism.py`, new). The 2024-25 file (`chronicabsenteeism25.txt`,
+  33,781,100 bytes, 341,490 rows) was acquired 2026-08-21 and its header read
+  directly: identity columns are spaced (`Academic Year`, `Charter School`, ...)
+  while the three measure columns are concatenated
+  (`ChronicAbsenteeismEligibleCumulativeEnrollment`, `ChronicAbsenteeismCount`,
+  `ChronicAbsenteeismRate`), and `Charter School`/`DASS` are two independent
+  `All`/`Yes`/`No` dimensions rather than D2's one. Joins the D1 spine and D2's
+  academic year stays separate from D3's own (`homeroom.profiles`); district and
+  statewide context reads CDE's own `Charter School = All, DASS = All` rows,
+  never a sum over schools (`homeroom.context.load_absenteeism_context`, mirroring
+  `load_context`'s existing rule for D2). Renders on every school page as a total
+  rate plus race/ethnicity, gender, and student-group tables, each in the same
+  four states and the same seven-column shape as every other measure table
+  (`homeroom.render._absenteeism_section`); wired into `make data` and
+  `make site`'s default invocation. Measured against the acquired files: total
+  rate reported for 9,718 of 10,534 active schools, withheld for 83, not
+  published for 733; the most-withheld subgroup (American Indian or Alaska
+  Native) is withheld for 95.4% of the schools that have any row for it.
+  `docs/SUPPRESSION-SHOWCASE.md` is the committed artifact walking four real rows,
+  one of each cell state, from the source file to the rendered markup.
+- **D5's provisional column contract, checked against the real file and rewritten
+  to match it** (issue #5). The 2023-24 Teacher Assignment Monitoring Outcome
+  file (`tamo2324.txt`, 234,206,408 bytes, 1,528,796 rows) was acquired
+  2026-08-21. Every part of the provisional contract disagreed with it: real
+  column names are spaced and some carry CDE's own typo (`Unknown FTE FTE
+  (percent)`, read verbatim); there are seven outcomes, not five (`incomplete`
+  and `na` were missing); values are fractional FTE, not integer counts; and the
+  file's grain is one row per (school, charter, DASS, grade span, teacher
+  experience level, teacher credential level, subject area) -- up to 150 rows per
+  school, not one -- of which exactly one row per school (experience = credential
+  = `ALL`, subject = `TA`) is CDE's own already-aggregated whole-school total,
+  verified present for all 10,064 schools in the file. Scanning every numeric
+  cell in the file found zero masked cells anywhere, unlike D2 and D3.
+  `src/homeroom/assignments.py` and `fixtures/tamo.sample.txt` are rewritten to
+  match; acquired is still not published, and `make data`/`make site`'s default
+  invocation are unchanged.
 - `.github/dependabot.yml`: weekly `uv`, `npm` and `github-actions` updates,
   keeping the pinned Python set, the Node page-gate toolchain, and the
   SHA-pinned action set current at a weekly PR volume one maintainer can
@@ -103,11 +140,12 @@ files a person downloaded from CDE's public data pages.
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 122 keys per locale, 244
-  strings, covering every reporting category, grade span, and subgroup family
-  name. A missing key raises rather than falling back to English, and CDE's
-  English-only school and district names are marked `lang="en"` on Spanish pages
-  (WCAG 2.2 SC 3.1.2).
+- English and Spanish as peers (`src/homeroom/i18n.py`): 157 keys per locale, 314
+  strings total (122 keys at M4, before D3 added its own 25-code category catalog
+  and 10 interface strings at M3), covering every reporting category, grade span,
+  and subgroup family name. A missing key raises rather than falling back to
+  English, and CDE's English-only school and district names are marked
+  `lang="en"` on Spanish pages (WCAG 2.2 SC 3.1.2).
 - The accessibility gate the README promised from the first page, inside
   `make verify` and merge-blocking in CI: `html-validate` (conformance, document,
   and a11y presets, with `scope` required on every table header) and `axe-core` in
@@ -233,10 +271,10 @@ files a person downloaded from CDE's public data pages.
   person records an acquisition, so that mutation fails.
 - **The catalog figures in the prose were two short.** README, CHANGELOG and the
   ROADMAP ledger all still gave the M4 figure of 120; the district and statewide
-  columns added two interface keys and none of the three was updated. The true
-  figures are 122 keys per locale, 244 strings, 71 of them interface, and
-  `tests/test_i18n.py` now reads those numbers out of all three documents and
-  compares them to the catalogs, failing when a document drops the claim as well
+  columns added two interface keys and none of the three was updated.
+  `tests/test_i18n.py` now reads the true count (stated correctly, and kept
+  current, everywhere else in these three documents) out of all three and
+  compares it to the catalogs, failing when a document drops the claim as well
   as when it states it wrongly.
 - The ROADMAP row "measure cells per page" gave 40, which is the number of
   measures; each is rendered in three columns, so the row now says so.

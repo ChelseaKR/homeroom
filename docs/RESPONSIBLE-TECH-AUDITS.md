@@ -155,15 +155,28 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     dark, and the document structure a screen reader depends on. It also asserts
     each cell state carries its own words, so colour is never the only signal
     (SC 1.4.1).
-  - REVIEW (not yet done): a keyboard and screen-reader walkthrough of a built
-    page in each language, and a look at reflow on a narrow screen. No headless
-    gate settles those, README.md says so, and this line stays open until the
-    walkthrough happens. Accountable owner: Chelsea Kelly-Reif. Registered as
-    RR-05 in `docs/audits/residual-risk-register.md`. The measure tables grew
-    from five columns to seven at M4 when district and statewide context landed,
-    which makes the reflow half of this walkthrough more pressing, not less: the
+  - REVIEW (not yet done, still open at M3, 2026-08-21): a keyboard and
+    screen-reader walkthrough of a built page in each language, and a look at
+    reflow on a narrow screen. No headless gate settles those, README.md says
+    so, and this line stays open until the walkthrough happens. Accountable
+    owner: Chelsea Kelly-Reif. Registered as RR-05 in
+    `docs/audits/residual-risk-register.md`. The measure tables grew from five
+    columns to seven at M4 when district and statewide context landed, which
+    makes the reflow half of this walkthrough more pressing, not less: the
     tables scroll inside a focusable region rather than reflowing, and whether
     that is comfortable on a phone is exactly what a headless gate cannot say.
+    M3 (chronic absenteeism) deliberately keeps the same seven-column shape for
+    its four new tables rather than adding columns, precisely because this gate
+    was already open when M3 was built; a design that widened the tables further
+    while the walkthrough was still outstanding would have made the eventual
+    finding harder to act on. `make pages` was re-run with M3 present in the
+    fixture build (`fixtures/chronicabsenteeism.sample.txt`, all four cell states
+    on one school) and stayed at zero violations across the same six rule sets,
+    so the automated half of this gate is confirmed to extend cleanly to the new
+    content; that is not a substitute for the walkthrough, and no session that
+    built M3 has had a browser available to attempt even a keyboard-only pass —
+    stated here rather than left implicit, so automated coverage is never read
+    as a stand-in for the human step it explicitly is not.
 
 ## F. Security
 

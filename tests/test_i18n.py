@@ -21,6 +21,7 @@ import pytest
 
 from homeroom.enrollment import GRADE_COLUMNS
 from homeroom.i18n import (
+    ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE,
     CATEGORY_NAMES_BY_LOCALE,
     DELIBERATELY_SHARED,
     FAMILY_NAMES,
@@ -31,6 +32,7 @@ from homeroom.i18n import (
     PLURAL_SAFE_CATALOGS,
     UI,
     Locale,
+    absenteeism_category_name,
     category_name,
     cde_text_lang,
     family_name,
@@ -39,7 +41,14 @@ from homeroom.i18n import (
     strings,
     text,
 )
-from homeroom.profiles import CATEGORY_NAMES, SUBGROUP_CODES, SUBGROUP_FAMILIES
+from homeroom.profiles import (
+    ABSENTEEISM_CATEGORY_NAMES,
+    ABSENTEEISM_SUBGROUP_CODES,
+    ABSENTEEISM_SUBGROUP_FAMILIES,
+    CATEGORY_NAMES,
+    SUBGROUP_CODES,
+    SUBGROUP_FAMILIES,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS_STATING_THE_KEY_COUNT = ("README.md", "CHANGELOG.md", "docs/ROADMAP.md")
@@ -125,6 +134,26 @@ def test_every_grade_column_and_subgroup_family_has_both_names() -> None:
         for grade in GRADE_COLUMNS:
             assert grade_name(locale, grade)
         for family in SUBGROUP_FAMILIES:
+            assert family_name(locale, family)
+
+
+def test_every_absenteeism_category_the_pipeline_knows_has_both_names() -> None:
+    """The D3 analogue of the D2 parity check above."""
+    assert set(ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE["es"]) == set(
+        ABSENTEEISM_CATEGORY_NAMES
+    )
+    for code in ABSENTEEISM_SUBGROUP_CODES:
+        for locale in LOCALES:
+            assert absenteeism_category_name(locale, code)
+
+
+def test_absenteeism_subgroup_families_are_a_subset_of_d2s_family_names() -> None:
+    """D3 renders three of D2's four subgroup families (no English-language-
+    acquisition breakdown in this file) and reuses their existing names rather
+    than duplicating a translation catalog for the same family labels."""
+    assert set(ABSENTEEISM_SUBGROUP_FAMILIES) < set(SUBGROUP_FAMILIES)
+    for locale in LOCALES:
+        for family in ABSENTEEISM_SUBGROUP_FAMILIES:
             assert family_name(locale, family)
 
 
@@ -216,6 +245,10 @@ def test_the_roadmap_ledger_breaks_the_key_count_down_correctly() -> None:
         (len(CATEGORY_NAMES_BY_LOCALE["en"]), "reporting categories"),
         (len(GRADE_NAMES["en"]), "grade spans"),
         (len(FAMILY_NAMES["en"]), "subgroup families"),
+        (
+            len(ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE["en"]),
+            "chronic-absenteeism categories",
+        ),
     ):
         assert f"{count} {label}" in row, (label, count, row)
 

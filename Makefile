@@ -29,13 +29,16 @@ audit:
 	uv run pip-audit
 
 # Build artifacts from locally acquired files (data/raw/ is never in git or CI).
-# Add `--assignments data/raw/<the D5 file>` once D5 is acquired (PROVENANCE.md).
+# D3 (chronic absenteeism, M3) is wired in by default. Add
+# `--assignments data/raw/<the D5 file>` to also carry teacher assignment
+# outcomes into the artifact -- D5 is acquired and schema-verified (PROVENANCE.md)
+# but publishing it is a separate, not-yet-made decision, so it stays off here.
 data:
-	uv run python -m homeroom.artifacts --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --out data/out
+	uv run python -m homeroom.artifacts --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --out data/out
 
 # Same pipeline over committed fixtures: runs anywhere, output flagged is_fixture.
 data-offline:
-	uv run python -m homeroom.artifacts --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --assignments fixtures/tamo.sample.txt --out data/out
+	uv run python -m homeroom.artifacts --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --assignments fixtures/tamo.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --out data/out
 
 # The school Homeroom renders from acquired data (ROADMAP M4: one real school,
 # both languages). Override to render another, or drop --cds to render them all:
@@ -46,13 +49,13 @@ data-offline:
 SCHOOL ?= 57726786056246
 
 site:
-	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --cds $(SCHOOL) --out build/site
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out build/site
 
 # The same renderer over committed fixtures: every school, both languages, every
 # rendering case (published, genuine zero, withheld, nothing published), no
 # acquired file, no network. This is what the gates below read.
 site-offline:
-	uv run python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --out build/site-offline
+	uv run python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --out build/site-offline
 
 # The accessibility gate the README's standards table promises from the first
 # school page. Builds the pages from fixtures, then checks the markup two ways:

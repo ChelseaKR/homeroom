@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from homeroom.artifacts import (
+    ABSENTEEISM_ACCESS_DATE,
     ASSIGNMENTS_ACCESS_DATE,
     DIRECTORY_ACCESS_DATE,
     ENROLLMENT_ACCESS_DATE,
@@ -16,12 +17,14 @@ from homeroom.artifacts import (
 )
 from homeroom.assignments import OUTCOMES
 from homeroom.measures import Measure
+from homeroom.profiles import ABSENTEEISM_SUBGROUP_CODES
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "fixtures"
 DIRECTORY = FIXTURES / "pubschls.sample.txt"
 ENROLLMENT = FIXTURES / "cdenroll.sample.txt"
 ASSIGNMENTS = FIXTURES / "tamo.sample.txt"
+ABSENTEEISM = FIXTURES / "chronicabsenteeism.sample.txt"
 
 
 def build(
@@ -29,11 +32,13 @@ def build(
     *,
     is_fixture: bool = True,
     assignments: Path | None = None,
+    absenteeism: Path | None = None,
 ) -> tuple[Path, Path]:
     result = build_artifacts(
         directory=DIRECTORY,
         enrollment=ENROLLMENT,
         assignments=assignments,
+        absenteeism=absenteeism,
         out_dir=tmp_path / "out",
         is_fixture=is_fixture,
     )
@@ -140,6 +145,8 @@ def test_coverage_is_first_class(tmp_path: Path) -> None:
         "active_schools_without_enrollment_rows": 1,
         "assignment_rows_without_directory_match": None,
         "active_schools_without_assignment_rows": None,
+        "absenteeism_rows_without_directory_match": None,
+        "active_schools_without_absenteeism_rows": None,
     }
     assert payload["measures"]["total_enrollment"] == {
         "reported": 1,
@@ -176,8 +183,11 @@ def test_access_date_constants_match_provenance_record() -> None:
     provenance = (ROOT / "PROVENANCE.md").read_text(encoding="utf-8")
     d1_row = next(line for line in provenance.splitlines() if line.startswith("| D1 |"))
     d2_row = next(line for line in provenance.splitlines() if line.startswith("| D2 |"))
+    d3_row = next(line for line in provenance.splitlines() if line.startswith("| D3 |"))
     assert DIRECTORY_ACCESS_DATE in d1_row
     assert ENROLLMENT_ACCESS_DATE in d2_row
+    assert ABSENTEEISM_ACCESS_DATE is not None
+    assert ABSENTEEISM_ACCESS_DATE in d3_row
 
 
 def test_unacquired_source_carries_no_access_date_in_either_place() -> None:
@@ -216,17 +226,17 @@ def test_without_the_d5_file_absence_is_stated_not_faked(tmp_path: Path) -> None
 def test_assignment_outcomes_render_every_case(tmp_path: Path) -> None:
     schools_path, _ = build(tmp_path, assignments=ASSIGNMENTS)
     payload = load(schools_path)
-    assert payload["teacher_assignment_academic_year"] == "2024-25"
+    assert payload["teacher_assignment_academic_year"] == "2023-24"
     assert set(payload["teacher_assignment_outcomes"]) == set(OUTCOMES)
 
     example = next(s for s in payload["schools"] if s["name"] == "Example Elementary")
     block = example["teacher_assignments"]
-    assert block["academic_year"] == "2024-25"
-    assert block["total_assignments"] == {"status": "reported", "value": 40}
+    assert block["academic_year"] == "2023-24"
+    assert block["total_assignments"] == {"status": "reported", "value": 5}
     outcomes = block["outcomes"]
     assert outcomes["clear"] == {
-        "count": {"status": "reported", "value": 34},
-        "percent": {"status": "reported", "value": 85.0},
+        "count": {"status": "reported", "value": 4},
+        "percent": {"status": "reported", "value": 80.0},
     }
     assert outcomes["intern"] == {
         "count": {"status": "reported", "value": 0},
@@ -236,7 +246,7 @@ def test_assignment_outcomes_render_every_case(tmp_path: Path) -> None:
         "count": {"status": "suppressed"},
         "percent": {"status": "suppressed"},
     }
-    assert outcomes["unknown"] == {
+    assert outcomes["na"] == {
         "count": {"status": "not_reported"},
         "percent": {"status": "not_reported"},
     }
@@ -257,23 +267,25 @@ def test_a_school_the_file_never_mentions_reads_as_not_reported(
         assert outcome["percent"] == {"status": "not_reported"}
 
 
-def test_assignment_artifact_exposes_no_complement_of_a_masked_cell(
+def test_assignment_artifact_never_publishes_the_distractor_rows_values(
     tmp_path: Path,
 ) -> None:
-    """The withheld outcomes at Example Elementary hold 2 assignments and 5.0
-    percent between them. Neither may appear as a published value."""
+    """Example Elementary's fixture rows include a non-total row (Total FTE 2.00,
+    a 100 percent "clear" share, Subject Area MATH) alongside the whole-school
+    total (5.00 FTE, an 80.0 percent "clear" share). If artifact assembly ever
+    selected the distractor instead of the whole-school total row, its values
+    would appear in Example Elementary's published block.
+    """
     schools_path, _ = build(tmp_path, assignments=ASSIGNMENTS)
-    values = []
-    for school in load(schools_path)["schools"]:
-        block = school["teacher_assignments"]
-        for measure in (
-            block["total_assignments"],
-            *(m for o in block["outcomes"].values() for m in o.values()),
-        ):
-            if "value" in measure:
-                values.append(measure["value"])
-    assert 2 not in values
-    assert 5.0 not in values
+    example = next(
+        s for s in load(schools_path)["schools"] if s["name"] == "Example Elementary"
+    )
+    block = example["teacher_assignments"]
+    assert block["total_assignments"] == {"status": "reported", "value": 5}
+    assert block["outcomes"]["clear"]["percent"] == {
+        "status": "reported",
+        "value": 80.0,
+    }
 
 
 def test_assignment_coverage_is_first_class(tmp_path: Path) -> None:
@@ -283,7 +295,7 @@ def test_assignment_coverage_is_first_class(tmp_path: Path) -> None:
         "supplied": True,
         "file": "tamo.sample.txt",
         "access_date": None,
-        "academic_year": "2024-25",
+        "academic_year": "2023-24",
     }
     assert payload["join_gaps"]["assignment_rows_without_directory_match"] == 2
     assert payload["join_gaps"]["active_schools_without_assignment_rows"] == 1
@@ -299,7 +311,10 @@ def test_assignment_coverage_is_first_class(tmp_path: Path) -> None:
         for counts in outcome.values():
             assert sum(counts.values()) == payload["profiles"]
     assert measures["outcomes"]["ineffective"]["count"]["suppressed"] == 2
-    assert measures["outcomes"]["unknown"]["count"]["not_reported"] == 2
+    # "na" (not "unknown") is the outcome the fixture leaves wholly unreported at
+    # Example Elementary; Sin Datos Middle is not_reported for every outcome
+    # because the D5 file never mentions it at all.
+    assert measures["outcomes"]["na"]["count"]["not_reported"] == 2
 
 
 def test_assignment_reruns_are_byte_identical(tmp_path: Path) -> None:
@@ -376,6 +391,115 @@ def test_cli_reports_assignment_coverage_when_the_file_is_given(
     )
     assert code == 0
     printed = capsys.readouterr().out
-    assert "teacher assignments: 2024-25" in printed
+    assert "teacher assignments: 2023-24" in printed
+    assert "reported=1, suppressed=1, not_reported=1" in printed
+    assert "1 active schools without rows" in printed
+
+
+# --- D3 chronic absenteeism (M3) --------------------------------------------
+
+
+def test_without_the_d3_file_absence_is_stated_not_faked(tmp_path: Path) -> None:
+    schools_path, coverage_path = build(tmp_path)
+    assert all(
+        "chronic_absenteeism" not in school for school in load(schools_path)["schools"]
+    )
+    assert "chronic_absenteeism_categories" not in load(schools_path)
+    payload = load(coverage_path)
+    assert payload["sources"]["D3_chronic_absenteeism"] == {
+        "supplied": False,
+        "file": None,
+        "access_date": None,
+        "academic_year": None,
+    }
+    assert payload["measures"]["chronic_absenteeism"] is None
+
+
+def test_absenteeism_renders_every_case(tmp_path: Path) -> None:
+    schools_path, _ = build(tmp_path, absenteeism=ABSENTEEISM)
+    payload = load(schools_path)
+    assert payload["chronic_absenteeism_academic_year"] == "2024-25"
+    assert payload["chronic_absenteeism_categories"]["TA"] == "All students"
+    assert payload["chronic_absenteeism_categories"]["RA"] == "Asian"
+
+    example = next(s for s in payload["schools"] if s["name"] == "Example Elementary")
+    block = example["chronic_absenteeism"]
+    assert block["total"] == {"status": "reported", "value": 12.5}
+    subgroups = block["subgroups"]
+    assert subgroups["race_ethnicity"]["RA"] == {"status": "reported", "value": 0}
+    assert subgroups["race_ethnicity"]["RB"] == {"status": "suppressed"}
+    assert subgroups["race_ethnicity"]["RH"] == {"status": "not_reported"}
+    assert subgroups["student_groups"]["SE"] == {"status": "reported", "value": 33.3}
+
+
+def test_absenteeism_wholly_withheld_school_reads_as_such(tmp_path: Path) -> None:
+    schools_path, _ = build(tmp_path, absenteeism=ABSENTEEISM)
+    charter = next(
+        s
+        for s in load(schools_path)["schools"]
+        if s["name"] == "Ejemplo Charter Academy"
+    )
+    assert charter["chronic_absenteeism"]["total"] == {"status": "suppressed"}
+
+
+def test_absenteeism_coverage_is_first_class(tmp_path: Path) -> None:
+    _, coverage_path = build(tmp_path, absenteeism=ABSENTEEISM)
+    payload = load(coverage_path)
+    assert payload["sources"]["D3_chronic_absenteeism"] == {
+        "supplied": True,
+        "file": "chronicabsenteeism.sample.txt",
+        "access_date": None,
+        "academic_year": "2024-25",
+    }
+    assert payload["join_gaps"]["absenteeism_rows_without_directory_match"] == 2
+    assert payload["join_gaps"]["active_schools_without_absenteeism_rows"] == 1
+
+    measures = payload["measures"]["chronic_absenteeism"]
+    # Example reported, charter masked, Sin Datos never mentioned.
+    assert measures["total"] == {"reported": 1, "suppressed": 1, "not_reported": 1}
+    for code in ABSENTEEISM_SUBGROUP_CODES:
+        assert sum(measures["subgroups"][code].values()) == payload["profiles"]
+    assert measures["subgroups"]["RB"]["suppressed"] == 1
+    assert measures["subgroups"]["RH"]["not_reported"] == 3
+
+
+def test_absenteeism_reruns_are_byte_identical(tmp_path: Path) -> None:
+    schools_path, coverage_path = build(tmp_path, absenteeism=ABSENTEEISM)
+    first = (schools_path.read_bytes(), coverage_path.read_bytes())
+    build(tmp_path, absenteeism=ABSENTEEISM)
+    assert first == (schools_path.read_bytes(), coverage_path.read_bytes())
+
+
+def test_absenteeism_access_date_matches_provenance_when_real(tmp_path: Path) -> None:
+    d3_row = next(
+        line
+        for line in (ROOT / "PROVENANCE.md").read_text(encoding="utf-8").splitlines()
+        if line.startswith("| D3 |")
+    )
+    _, coverage_path = build(tmp_path, absenteeism=ABSENTEEISM, is_fixture=False)
+    source = load(coverage_path)["sources"]["D3_chronic_absenteeism"]
+    assert source["access_date"] is not None
+    assert source["access_date"] in d3_row
+
+
+def test_cli_reports_absenteeism_coverage_when_the_file_is_given(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = main(
+        [
+            "--directory",
+            str(DIRECTORY),
+            "--enrollment",
+            str(ENROLLMENT),
+            "--absenteeism",
+            str(ABSENTEEISM),
+            "--out",
+            str(tmp_path / "out"),
+            "--fixture",
+        ]
+    )
+    assert code == 0
+    printed = capsys.readouterr().out
+    assert "chronic absenteeism: 2024-25" in printed
     assert "reported=1, suppressed=1, not_reported=1" in printed
     assert "1 active schools without rows" in printed

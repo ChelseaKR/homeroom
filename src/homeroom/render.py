@@ -37,12 +37,18 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass, field
 
-from homeroom.context import AggregateFigures, EnrollmentContext
+from homeroom.context import (
+    AbsenteeismAggregate,
+    AbsenteeismContext,
+    AggregateFigures,
+    EnrollmentContext,
+)
 from homeroom.enrollment import GRADE_COLUMNS, TOTAL_CATEGORY
 from homeroom.i18n import (
     LOCALE_NAMES,
     OTHER_LOCALE,
     Locale,
+    absenteeism_category_name,
     category_name,
     cde_text_lang,
     family_name,
@@ -51,13 +57,21 @@ from homeroom.i18n import (
     text,
 )
 from homeroom.measures import Measure, MeasureStatus, coverage
-from homeroom.profiles import SUBGROUP_FAMILIES, ProfileAssembly, SchoolProfile
+from homeroom.profiles import (
+    ABSENTEEISM_SUBGROUP_FAMILIES,
+    SUBGROUP_FAMILIES,
+    ProfileAssembly,
+    SchoolProfile,
+)
 
 DIRECTORY_URL = "https://www.cde.ca.gov/schooldirectory/"
 """CDE's page for D1. Mirrors PROVENANCE.md; tested for agreement with it."""
 
 ENROLLMENT_URL = "https://www.cde.ca.gov/ds/ad/filesenrcensus.asp"
 """CDE's page for D2. Mirrors PROVENANCE.md; tested for agreement with it."""
+
+ABSENTEEISM_URL = "https://www.cde.ca.gov/ds/ad/filesabd.asp"
+"""CDE's page for D3. Mirrors PROVENANCE.md; tested for agreement with it."""
 
 LIGHT: dict[str, str] = {
     "surface": "#fbfbf8",
@@ -238,10 +252,15 @@ class SiteCoverage:
     grades: dict[str, dict[str, int]]
     subgroups: dict[str, dict[str, int]]
     unjoined_school_totals: int
+    absenteeism_supplied: bool
+    absenteeism_academic_year: str | None
+    absenteeism_total: dict[str, int]
+    absenteeism_subgroups: dict[str, dict[str, int]]
 
 
 def site_coverage(assembly: ProfileAssembly) -> SiteCoverage:
     profiles = assembly.profiles
+    absenteeism_supplied = assembly.absenteeism_academic_year is not None
     return SiteCoverage(
         schools=len(profiles),
         total_enrollment=coverage(p.total_enrollment for p in profiles),
@@ -255,6 +274,22 @@ def site_coverage(assembly: ProfileAssembly) -> SiteCoverage:
             for code in family
         },
         unjoined_school_totals=assembly.unjoined_school_totals,
+        absenteeism_supplied=absenteeism_supplied,
+        absenteeism_academic_year=assembly.absenteeism_academic_year,
+        absenteeism_total=(
+            coverage(p.chronic_absenteeism_rate for p in profiles)
+            if absenteeism_supplied
+            else {}
+        ),
+        absenteeism_subgroups=(
+            {
+                code: coverage(p.chronic_absenteeism_subgroups[code] for p in profiles)
+                for family in ABSENTEEISM_SUBGROUP_FAMILIES.values()
+                for code in family
+            }
+            if absenteeism_supplied
+            else {}
+        ),
     )
 
 
@@ -273,6 +308,11 @@ class Row:
     counts: dict[str, int]
     district: Measure = field(default_factory=Measure.not_reported)
     state: Measure = field(default_factory=Measure.not_reported)
+    unit: str = ""
+    """A suffix appended to a *published* number in this row's cells (e.g. ``"%"``
+    for a rate), so the figure reads unambiguously even outside its column header.
+    Never applied to a withheld or not-reported cell, which carry no digit at all.
+    """
 
 
 def _esc(value: str) -> str:
@@ -293,17 +333,24 @@ def _cde(value: str, locale: Locale) -> str:
     return f'<span lang="{lang}">{_esc(value)}</span>'
 
 
-def _measure_cell(measure: Measure, locale: Locale, scope: str = "school") -> str:
+def _measure_cell(
+    measure: Measure, locale: Locale, scope: str = "school", *, unit: str = ""
+) -> str:
     """One value, in whichever of the four states it is actually in.
 
     ``scope`` says whose figure this is: ``school``, ``district`` or ``state``. It
     is emitted as a class so the page can hold the school's own figure forward and
     let the context recede, and so a test can ask what this school published
     without a district's number answering.
+
+    ``unit`` is appended after a *published* number only (e.g. ``"%"``), so the
+    figure is unambiguous read aloud out of table-header context. A withheld or
+    not-reported cell carries no digit and so never carries a unit either.
     """
     cell = f'<td class="m c-{scope}'
     if measure.status is MeasureStatus.REPORTED:
-        number = f'<span class="num">{_esc(format_number(measure.number()))}</span>'
+        digits = _esc(format_number(measure.number())) + _esc(unit)
+        number = f'<span class="num">{digits}</span>'
         if measure.is_zero:
             label = _esc(text(locale, "state_zero_label"))
             return f'{cell} m-zero">{number} <span class="state">{label}</span></td>'
@@ -339,12 +386,13 @@ def _measure_table(
             f'<td class="count">{_esc(format_number(row.counts[status]))}</td>'
             for status in ("reported", "suppressed", "not_reported")
         )
-        context = _measure_cell(row.district, locale, "district") + _measure_cell(
-            row.state, locale, "state"
-        )
+        context = _measure_cell(
+            row.district, locale, "district", unit=row.unit
+        ) + _measure_cell(row.state, locale, "state", unit=row.unit)
         body.append(
             f'<tr><th scope="row">{row.label}</th>'
-            f"{_measure_cell(row.measure, locale)}{context}{counts}</tr>"
+            f"{_measure_cell(row.measure, locale, unit=row.unit)}"
+            f"{context}{counts}</tr>"
         )
     rows_html = "\n".join(body)
     return (
@@ -517,14 +565,102 @@ def _groups_section(
     return _section("groups", text(locale, "groups_heading"), "\n".join(blocks))
 
 
+def _absenteeism_section(
+    profile: SchoolProfile,
+    locale: Locale,
+    cover: SiteCoverage,
+    district: AbsenteeismAggregate,
+    state: AbsenteeismAggregate,
+) -> str:
+    """The first masked-heavy measure this project publishes end to end (M3).
+
+    Structured exactly like :func:`_students_section` and :func:`_groups_section`:
+    a total row, then one table per rendered subgroup family, each cell in the
+    same four states as every other measure on this page, with the same district
+    and statewide context and the same coverage tally. The only difference is the
+    unit -- a rate, not a count -- carried by :attr:`Row.unit` rather than by any
+    special-cased rendering path.
+    """
+    # This section's own year, never the enrollment year: D3 and D2 report on
+    # different cycles (docs/ROADMAP.md), and a caption that borrowed D2's year
+    # would mislabel the data below it exactly as the code that once let one
+    # source's academic year print over another's numbers.
+    year = cover.absenteeism_academic_year or profile.academic_year
+    total_caption = text(locale, "caption_absenteeism_total").format(
+        school=profile.school.name, year=year
+    )
+    total_table = _measure_table(
+        locale=locale,
+        caption=total_caption,
+        row_header=text(locale, "col_figure"),
+        rows=[
+            Row(
+                label=_esc(absenteeism_category_name(locale, TOTAL_CATEGORY)),
+                measure=profile.chronic_absenteeism_rate,
+                counts=cover.absenteeism_total,
+                district=district.category(TOTAL_CATEGORY),
+                state=state.category(TOTAL_CATEGORY),
+                unit="%",
+            )
+        ],
+    )
+    blocks: list[str] = [
+        f"<p>{_esc(text(locale, 'absenteeism_intro'))}</p>",
+        total_table,
+    ]
+    for family, codes in ABSENTEEISM_SUBGROUP_FAMILIES.items():
+        caption = text(locale, "caption_absenteeism_groups").format(
+            family=family_name(locale, family),
+            school=profile.school.name,
+            year=year,
+        )
+        table = _measure_table(
+            locale=locale,
+            caption=caption,
+            row_header=text(locale, "col_group"),
+            rows=[
+                Row(
+                    label=_esc(absenteeism_category_name(locale, code)),
+                    measure=profile.chronic_absenteeism_subgroups[code],
+                    counts=cover.absenteeism_subgroups[code],
+                    district=district.category(code),
+                    state=state.category(code),
+                    unit="%",
+                )
+                for code in codes
+            ],
+        )
+        blocks.append(f"<h3>{_esc(family_name(locale, family))}</h3>\n{table}")
+    return _section(
+        "absenteeism", text(locale, "absenteeism_heading"), "\n".join(blocks)
+    )
+
+
 def _coverage_section(locale: Locale, cover: SiteCoverage) -> str:
-    pairs = (
+    pairs = [
         ("coverage_schools", cover.schools),
         ("coverage_total_published", cover.total_enrollment["reported"]),
         ("coverage_total_withheld", cover.total_enrollment["suppressed"]),
         ("coverage_total_nothing", cover.total_enrollment["not_reported"]),
         ("coverage_unjoined", cover.unjoined_school_totals),
-    )
+    ]
+    if cover.absenteeism_supplied:
+        pairs.extend(
+            [
+                (
+                    "coverage_absenteeism_published",
+                    cover.absenteeism_total["reported"],
+                ),
+                (
+                    "coverage_absenteeism_withheld",
+                    cover.absenteeism_total["suppressed"],
+                ),
+                (
+                    "coverage_absenteeism_nothing",
+                    cover.absenteeism_total["not_reported"],
+                ),
+            ]
+        )
     items = "\n".join(
         f"<dt>{_esc(text(locale, key))}</dt>"
         f'<dd class="count">{_esc(format_number(value))}</dd>'
@@ -538,11 +674,12 @@ def _coverage_section(locale: Locale, cover: SiteCoverage) -> str:
     )
 
 
-def _not_yet_section(locale: Locale) -> str:
-    body = "\n".join(
-        f"<p>{_esc(text(locale, key))}</p>"
-        for key in ("not_yet_assignments", "not_yet_measures")
-    )
+def _not_yet_section(locale: Locale, *, absenteeism_supplied: bool) -> str:
+    keys = ["not_yet_assignments"]
+    if not absenteeism_supplied:
+        keys.append("not_yet_absenteeism")
+    keys.append("not_yet_measures")
+    body = "\n".join(f"<p>{_esc(text(locale, key))}</p>" for key in keys)
     return _section("not-yet", text(locale, "not_yet_heading"), body)
 
 
@@ -638,12 +775,17 @@ def render_school(
     sources: tuple[SourceRef, ...],
     is_fixture: bool,
     context: EnrollmentContext | None = None,
+    absenteeism_context: AbsenteeismContext | None = None,
 ) -> str:
     """One school, one language, as a complete standalone HTML document.
 
-    ``context`` carries CDE's own district and statewide rows. When it is absent
-    every context cell renders as nothing published, which is the honest state
-    for a build that did not load aggregates, and never a zero.
+    ``context`` carries CDE's own district and statewide enrollment rows.
+    ``absenteeism_context`` carries the same for D3. When either is absent every
+    context cell renders as nothing published, which is the honest state for a
+    build that did not load that aggregate, and never a zero. The chronic
+    absenteeism section itself only appears when ``cover.absenteeism_supplied``:
+    a build with no D3 source says so in words in the "not yet" section instead
+    of rendering an empty table.
     """
     school = profile.school
     district = (
@@ -652,6 +794,16 @@ def render_school(
         else AggregateFigures(cds_code=school.cds_code)
     )
     state = context.state if context is not None else AggregateFigures(cds_code="")
+    absenteeism_district = (
+        absenteeism_context.for_district(school.cds_code)
+        if absenteeism_context is not None
+        else AbsenteeismAggregate(cds_code=school.cds_code)
+    )
+    absenteeism_state = (
+        absenteeism_context.state
+        if absenteeism_context is not None
+        else AbsenteeismAggregate(cds_code="")
+    )
     title = (
         text(locale, "page_title").format(
             school=school.name, year=profile.academic_year
@@ -671,8 +823,17 @@ def render_school(
         _students_section(profile, locale, cover, district, state),
         _grades_section(profile, locale, cover, district, state),
         _groups_section(profile, locale, cover, district, state),
+        *(
+            [
+                _absenteeism_section(
+                    profile, locale, cover, absenteeism_district, absenteeism_state
+                )
+            ]
+            if cover.absenteeism_supplied
+            else []
+        ),
         _coverage_section(locale, cover),
-        _not_yet_section(locale),
+        _not_yet_section(locale, absenteeism_supplied=cover.absenteeism_supplied),
         _sources_section(sources, locale),
         "</main>",
         '<footer>\n<div class="wrap">\n'
