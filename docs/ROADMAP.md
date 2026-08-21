@@ -58,11 +58,11 @@ gate, byte-for-byte identical locally and in CI.
 | M1 (done 2026-08-07) | D1 directory spine parser | Verified against the live file: 18,396 rows parsed with no drift errors |
 | M2 (done 2026-08-07) | D2 Census Day enrollment parser and spine join | 2025-26 file parses end to end; school totals join the spine; statewide sum reconciles with the state's own row |
 | M3a (done 2026-08-07) | School profiles, subgroup measures, deterministic artifacts | One profile per active school (10,534 emitted from acquired data); every reporting category carries a reviewed display name, unreviewed codes fail the build; artifacts are byte-identical across re-runs; coverage (per-measure statuses, join gaps both ways, access dates, `is_fixture`) published beside the data; no published value is ever derived from complements, enforced by test |
-| M3 | D3 chronic absenteeism | First masked-heavy measure end to end; every masked cell null, counted in coverage output |
-| M3 | Suppression showcase | A committed artifact demonstrating null-never-zero rendering: masked cells shown as "not published", coverage stats published beside the data |
+| M3 (done 2026-08-21) | D3 chronic absenteeism | First masked-heavy measure end to end; every masked cell null, counted in coverage output |
+| M3 (done 2026-08-21) | Suppression showcase | A committed artifact demonstrating null-never-zero rendering: masked cells shown as "not published", coverage stats published beside the data (`docs/SUPPRESSION-SHOWCASE.md`) |
 | M4 (done 2026-08-08) | First bilingual school page, with district and statewide context | One real school rendered EN/ES from acquired data (Birch Lane Elementary, Davis Joint Unified, CDS 57726786056246); a11y and EN/ES parity gates wired and merge-blocking from this milestone; each measure sits beside its district and statewide figure, read from CDE's own `Charter=ALL` aggregate rows and never summed from schools |
-| D5a (parser built 2026-08-07, awaiting acquisition) | D5 teacher assignment monitoring parser | Parser, spine join, artifact and coverage output built and tested against a synthetic fixture matching the documented file structure; every rendering case and the drift refusals covered; no D5 number published and PROVENANCE says why |
-| M5 | D4-D6 | Dashboard indicators, teacher assignment (CalSAAS) with a file in hand, and per-pupil spending joined where published |
+| D5a (rebuilt against the real file 2026-08-21) | D5 teacher assignment monitoring parser | Parser, spine join, artifact and coverage output built and verified against the real acquired 2023-24 file; every rendering case and the drift refusals covered; no D5 number published on any page or in `make data`'s default invocation, and PROVENANCE says why |
+| M5 | D4, D6 | Dashboard indicators and per-pupil spending joined where published. (D5 is acquired and schema-verified as of D5a; publishing it on a page is a separate decision this roadmap has not made, tracked at issue level rather than promised a milestone here) |
 
 ## Metrics ledger
 
@@ -127,21 +127,60 @@ masking lives in subgroup-by-grade cells, which profiles do not carry. The
 suppressed path is exercised by the committed fixtures and stays load-bearing
 for M3, the first masked-heavy dataset.
 
-### D5a values (2026-08-07)
+### M3 measured values (2026-08-21)
 
-This table has no acquired-data column, and that absence is the point. D5 was not
-acquired, so there is nothing to measure about California's teachers here yet.
-What follows is measured against the committed synthetic fixture, which is what
-the parser was built against.
+Measured by running `make data` and `make site` against the acquired D1, D2 and
+D3 files together (`chronicabsenteeism25.txt`, the 2024-25 file, acquired
+2026-08-21; PROVENANCE.md D3). Unlike M3a, this is genuinely the masked-heavy
+case the roadmap named at M3: CDE withholds a meaningful share of these cells,
+not zero of them. `docs/SUPPRESSION-SHOWCASE.md` walks four real rows (one of
+each of the four cell states) from source file to rendered markup.
 
 | Value | Measured | Source |
 |-------|----------|--------|
-| D5 files acquired | 0 | PROVENANCE.md D5, "awaiting acquisition" |
-| D5 numbers published about a real school | 0 | no acquired file exists to publish from |
-| Assignment outcomes carried per school | 5, each as a count and a published share | `src/homeroom/assignments.py` |
-| Values computed rather than copied | 0 (shares are read from the file, never divided out of counts) | `tests/test_assignments.py`, `tests/test_artifacts.py` |
-| Rendering cases covered by the fixture | 4 (reported, genuine zero, masked, missing) plus a wholly-withheld school | `fixtures/tamo.sample.txt` |
-| Drift refusals covered | 8 (missing column, renamed column, unreviewed aggregate level, non-numeric CDS, overlong CDS, unknown sentinel, percent-sign format, duplicate school row) | `tests/test_assignments.py` |
+| Chronic absenteeism file rows parsed | 341,490 | D3 `chronicabsenteeism25.txt`, acquired 2026-08-21 |
+| Reporting-category codes observed, all with reviewed names | 25 | D3; checked against CDE's file structure page (fsabd.asp) |
+| Rows carrying a mask on at least one of the three numeric cells | 104,469 of 341,490 (30.6%); masking is always all three cells together, never a subset | D3 |
+| Total chronic-absenteeism rate: reported / suppressed / not reported | 9,718 / 83 / 733 | `make data`, D1 + D2 + D3, across 10,534 active schools |
+| Join gap: absenteeism rows without a directory match | 263 | D1 + D3 |
+| Join gap: active schools without an absenteeism row | 733 | D1 + D3 |
+| Subgroup category suppressed most often, of schools with any row for it | `RI` (American Indian or Alaska Native): 451 reported, 9,350 suppressed (95.4%) | `make data` |
+| Subgroup category suppressed least often, of schools with any row for it | `TA` (all students): 9,718 reported, 83 suppressed (0.8%) | `make data` |
+| Chronic-absenteeism section rendered on Birch Lane Elementary's page | 4 tables (total, race/ethnicity, gender, student groups), 19 rows total, all four cell states present on one real school | `make site`, CDS 57726786056246 |
+| D3 figures computed rather than copied | 0 (the rate is read from `ChronicAbsenteeismRate`, never divided out of the count and eligible-enrollment columns) | `tests/test_absenteeism.py`, `tests/test_artifacts.py` |
+| WCAG violations with M3 present, axe-core A/AA plus best-practice | 0 across 6 rule sets, both languages | `tools/a11y.mjs`, fixture build with `--absenteeism` |
+| Page re-runs with D3 present producing different bytes | 0 | `tests/test_pages.py::test_absenteeism_reruns_are_byte_identical` |
+
+Grade-span categories (`GRTKKN`...`GR912`, 6 codes) are recognized so the real
+file parses without drift but are not rendered as a subgroup, the same choice D2
+makes for its own `AR_*` age-range codes; they are not counted in the table above.
+
+### D5a values (rebuilt against the real file, 2026-08-21)
+
+D5 was "awaiting acquisition" through M4; it has since been acquired and its
+schema verified against the real file (issue #5), and every figure below is
+measured against `tamo2324.txt` (the 2023-24 Teacher Assignment Monitoring
+Outcome file, 234,206,408 bytes, 1,528,796 rows, acquired 2026-08-21;
+PROVENANCE.md D5), not the synthetic fixture the parser was originally written
+against. The provisional contract did not survive contact with the real file:
+five outcomes should have been seven, one row per school should have been up to
+150, and the column names were wrong in every particular (PROVENANCE.md D5 has
+the full list). `src/homeroom/assignments.py` and `fixtures/tamo.sample.txt`
+were rewritten to match what follows. Acquired is still not published: no D5
+number about a real school reaches `make data`'s default invocation or any page,
+and that remains a separate, not-yet-made decision.
+
+| Value | Measured | Source |
+|-------|----------|--------|
+| D5 files acquired | 1 (`tamo2324.txt`, 2023-24) | PROVENANCE.md D5 |
+| D5 numbers published about a real school | 0 | not wired into `make data`'s or `make site`'s default invocation, by design |
+| Rows in the acquired file | 1,528,796, across 10,064 distinct schools (up to 150 rows per school: one per subject/grade-span/experience/credential combination) | D5 `tamo2324.txt` |
+| The one whole-school total row per school | Experience Level = Credential Level = `ALL`, Subject Area = `TA`; verified present exactly once for all 10,064 schools | D5, `src/homeroom/assignments.py` `school_outcomes` |
+| Assignment outcomes carried per school | 7 (`clear`, `out_of_field`, `intern`, `ineffective`, `incomplete`, `unknown`, `na`), not the 5 the provisional contract carried | `src/homeroom/assignments.py`, verified against the acquired header |
+| Masked cells found anywhere in the acquired file | 0 of 1,528,796 rows x 15 numeric columns; unlike D2 and D3, this file's own file-structure page states no small-cell suppression rule | D5, scanned 2026-08-21 |
+| Values computed rather than copied | 0 (shares are read from the file, never divided out of counts; the whole-school row is CDE's own aggregate, never summed here from the other ~149 rows) | `tests/test_assignments.py`, `tests/test_artifacts.py` |
+| Rendering cases covered by the fixture | 4 (reported, genuine zero, masked, missing) plus a wholly-withheld school and a distractor row proving the selector ignores non-total rows | `fixtures/tamo.sample.txt` |
+| Drift refusals covered | 14 (missing column, renamed column, unreviewed aggregate level, unreviewed charter value, unreviewed DASS value, unreviewed grade span, unreviewed experience level, unreviewed credential level, unreviewed subject area, non-numeric CDS, overlong CDS, unknown sentinel, percent-sign format, duplicate whole-school-total row) | `tests/test_assignments.py` |
 
 ### M4 measured values (2026-08-07)
 
@@ -160,9 +199,9 @@ so no D5 figure can reach a page; the pages say that in words instead.
 | Pages the accessibility gate checks | 6 (3 fixture schools x 2 languages) | `make pages` |
 | WCAG violations, axe-core A/AA plus best-practice | 0 across 6 rule sets, both languages | `tools/a11y.mjs` |
 | html-validate errors, conformance plus a11y presets | 0 | `make htmlvalidate` |
-| User-visible strings carried in both languages | 122 keys per locale, 244 strings (71 interface, 33 reporting categories, 14 grade spans, 4 subgroup families) | `src/homeroom/i18n.py` |
+| User-visible strings carried in both languages | 157 keys per locale, 314 strings total (81 interface, 33 reporting categories, 14 grade spans, 4 subgroup families, 25 chronic-absenteeism categories); 122 keys and 71 interface at M4, before D3 added its own 25-code catalog and 10 interface strings | `src/homeroom/i18n.py` |
 | Keys present in one locale and not the other | 0 | `tests/test_i18n.py` |
-| Spanish strings left identical to their English original | 2, both reviewed and named (the project's own name; CDE's Filipino category, the same word in Spanish) | `tests/test_i18n.py` |
+| Spanish strings left identical to their English original | 3, all reviewed and named (the project's own name; CDE's two different Filipino category codes, `RE_F` in D2 and `RF` in D3, each the same word in Spanish) | `tests/test_i18n.py` |
 | D5 numbers on any page, including when the parsed file is loaded into the renderer | 0 | `tests/test_pages.py` |
 | Page re-runs producing different bytes | 0 | `tests/test_pages.py`, plus a double build compared by hash in CI |
 | Branch coverage after M4 | 99% (floor is 85%) | `make test` |
@@ -178,10 +217,14 @@ Mirrors the README Standards Conformance table; never a silent skip.
 
 - Accessibility: applies as of M4, gates wired and merge-blocking (html-validate
   and axe-core over every built page in both languages, plus structure and
-  contrast checks in `make test`). What no headless gate settles is named in
-  README.md: layout, reflow, focus visibility in practice, and a screen-reader
-  walkthrough in both languages still need a person, and that walkthrough is not
-  yet done.
+  contrast checks in `make test`). Re-verified at M3 (2026-08-21) with the four
+  new chronic-absenteeism tables present in the fixture build: zero violations,
+  same six rule sets. What no headless gate settles is named in README.md and
+  tracked as RR-05 in `docs/audits/residual-risk-register.md`: layout, reflow,
+  focus visibility in practice, and a screen-reader walkthrough in both
+  languages still need a person, and that walkthrough is not yet done. M3
+  deliberately kept its new tables at the same seven columns as the existing
+  ones, rather than widening them, while this gate is open.
 - Internationalization: applies, and the parity gate is wired as of M4. Every
   user-visible string exists in English and Spanish, a missing key raises instead
   of falling back, and CDE's English-only school and district names are marked

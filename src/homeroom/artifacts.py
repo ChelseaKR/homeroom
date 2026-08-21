@@ -15,10 +15,10 @@ Two files land in the output directory:
     never impersonate acquired data.
 
 A source that was not supplied to the build is stated as absent rather than
-emitted as a field of zeros. Teacher assignment outcomes (D5) are optional input;
-without them, ``coverage.json`` records the source as unsupplied and no school
-carries a ``teacher_assignments`` block at all, so nothing in the artifact implies
-Homeroom looked and found nothing.
+emitted as a field of zeros. Teacher assignment outcomes (D5) and chronic
+absenteeism (D3) are both optional input; without either, ``coverage.json``
+records the source as unsupplied and no school carries the corresponding block at
+all, so nothing in the artifact implies Homeroom looked and found nothing.
 
 Determinism is a requirement, not a nicety: re-running on the same inputs must be
 byte-identical (sorted keys, CDS-ordered schools, no wall clock anywhere). The
@@ -34,10 +34,14 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from homeroom.absenteeism import TOTAL_CATEGORY as ABSENTEEISM_TOTAL_CATEGORY
 from homeroom.assignments import OUTCOME_NAMES, OUTCOMES
 from homeroom.enrollment import GRADE_COLUMNS, TOTAL_CATEGORY
 from homeroom.measures import Measure, MeasureStatus, coverage
 from homeroom.profiles import (
+    ABSENTEEISM_CATEGORY_NAMES,
+    ABSENTEEISM_SUBGROUP_CODES,
+    ABSENTEEISM_SUBGROUP_FAMILIES,
     CATEGORY_NAMES,
     SUBGROUP_CODES,
     SUBGROUP_FAMILIES,
@@ -52,9 +56,20 @@ DIRECTORY_ACCESS_DATE = "2026-08-07"
 ENROLLMENT_ACCESS_DATE = "2026-08-07"
 """When D2 (cdenroll2526.txt) was acquired. Mirrors PROVENANCE.md; tested for sync."""
 
-ASSIGNMENTS_ACCESS_DATE: str | None = None
-"""When D5 was acquired. ``None`` until it is; PROVENANCE.md says the same, and the
-two are tested for sync so a real build can never stamp a date nobody recorded."""
+ASSIGNMENTS_ACCESS_DATE: str | None = "2026-08-21"
+"""When the D5 file (``tamo2324.txt``) was downloaded and its schema verified
+against the real 2023-24 file. Mirrors PROVENANCE.md; tested for sync. Acquired is
+not the same fact as published: this date records that the file has been read and
+:mod:`homeroom.assignments` rewritten to match it (issue #5), not that any D5
+figure reaches ``make data``'s default invocation or a page -- it does not, and
+PROVENANCE.md and docs/ROADMAP.md both say so. Wiring D5 into the default build is
+a separate, not-yet-made decision."""
+
+ABSENTEEISM_ACCESS_DATE: str | None = "2026-08-21"
+"""When D3 (``chronicabsenteeism25.txt``, the 2024-25 file) was acquired. Mirrors
+PROVENANCE.md; tested for sync. Unlike D5, D3 is wired into `make data` and
+`make site`'s default invocation (Makefile): this is the first masked-heavy
+measure this project publishes end to end (M3, docs/ROADMAP.md)."""
 
 
 @dataclass(frozen=True)
@@ -109,8 +124,26 @@ def _assignments_json(profile: SchoolProfile) -> dict[str, object]:
     }
 
 
+def _absenteeism_json(profile: SchoolProfile) -> dict[str, object]:
+    """This school's published chronic-absenteeism rates, total and by subgroup.
+
+    Each is a copied ``ChronicAbsenteeismRate`` cell, never a count divided by an
+    enrollment figure this project holds separately.
+    """
+    return {
+        "total": measure_json(profile.chronic_absenteeism_rate),
+        "subgroups": {
+            family: {
+                code: measure_json(profile.chronic_absenteeism_subgroups[code])
+                for code in codes
+            }
+            for family, codes in ABSENTEEISM_SUBGROUP_FAMILIES.items()
+        },
+    }
+
+
 def _school_json(
-    profile: SchoolProfile, *, with_assignments: bool
+    profile: SchoolProfile, *, with_assignments: bool, with_absenteeism: bool
 ) -> dict[str, object]:
     school = profile.school
     payload: dict[str, object] = {
@@ -133,23 +166,38 @@ def _school_json(
     }
     if with_assignments:
         payload["teacher_assignments"] = _assignments_json(profile)
+    if with_absenteeism:
+        payload["chronic_absenteeism"] = _absenteeism_json(profile)
     return payload
 
 
 def _schools_payload(assembly: ProfileAssembly) -> dict[str, object]:
     named = (TOTAL_CATEGORY, *SUBGROUP_CODES)
     with_assignments = assembly.assignments_academic_year is not None
+    with_absenteeism = assembly.absenteeism_academic_year is not None
     payload: dict[str, object] = {
         "academic_year": assembly.academic_year,
         "reporting_categories": {code: CATEGORY_NAMES[code] for code in named},
         "schools": [
-            _school_json(profile, with_assignments=with_assignments)
+            _school_json(
+                profile,
+                with_assignments=with_assignments,
+                with_absenteeism=with_absenteeism,
+            )
             for profile in assembly.profiles
         ],
     }
     if with_assignments:
         payload["teacher_assignment_academic_year"] = assembly.assignments_academic_year
         payload["teacher_assignment_outcomes"] = dict(OUTCOME_NAMES)
+    if with_absenteeism:
+        payload["chronic_absenteeism_academic_year"] = (
+            assembly.absenteeism_academic_year
+        )
+        named_absenteeism = (ABSENTEEISM_TOTAL_CATEGORY, *ABSENTEEISM_SUBGROUP_CODES)
+        payload["chronic_absenteeism_categories"] = {
+            code: ABSENTEEISM_CATEGORY_NAMES[code] for code in named_absenteeism
+        }
     return payload
 
 
@@ -191,16 +239,29 @@ def _assignment_coverage(assembly: ProfileAssembly) -> dict[str, object]:
     }
 
 
+def _absenteeism_coverage(assembly: ProfileAssembly) -> dict[str, object]:
+    profiles = assembly.profiles
+    return {
+        "total": coverage(p.chronic_absenteeism_rate for p in profiles),
+        "subgroups": {
+            code: coverage(p.chronic_absenteeism_subgroups[code] for p in profiles)
+            for code in ABSENTEEISM_SUBGROUP_CODES
+        },
+    }
+
+
 def _coverage_payload(
     assembly: ProfileAssembly,
     *,
     directory_name: str,
     enrollment_name: str,
     assignments_name: str | None,
+    absenteeism_name: str | None,
     is_fixture: bool,
 ) -> dict[str, object]:
     profiles = assembly.profiles
-    supplied = assembly.assignments_academic_year is not None
+    assignments_supplied = assembly.assignments_academic_year is not None
+    absenteeism_supplied = assembly.absenteeism_academic_year is not None
     return {
         "is_fixture": is_fixture,
         "sources": {
@@ -213,8 +274,14 @@ def _coverage_payload(
                 "access_date": None if is_fixture else ENROLLMENT_ACCESS_DATE,
                 "academic_year": assembly.academic_year,
             },
+            "D3_chronic_absenteeism": {
+                "supplied": absenteeism_supplied,
+                "file": absenteeism_name,
+                "access_date": None if is_fixture else ABSENTEEISM_ACCESS_DATE,
+                "academic_year": assembly.absenteeism_academic_year,
+            },
             "D5_teacher_assignments": {
-                "supplied": supplied,
+                "supplied": assignments_supplied,
                 "file": assignments_name,
                 "access_date": None if is_fixture else ASSIGNMENTS_ACCESS_DATE,
                 "academic_year": assembly.assignments_academic_year,
@@ -226,6 +293,8 @@ def _coverage_payload(
             "active_schools_without_enrollment_rows": assembly.schools_without_enrollment,
             "assignment_rows_without_directory_match": assembly.unjoined_assignment_rows,
             "active_schools_without_assignment_rows": assembly.schools_without_assignments,
+            "absenteeism_rows_without_directory_match": assembly.unjoined_absenteeism_rows,
+            "active_schools_without_absenteeism_rows": assembly.schools_without_absenteeism,
         },
         "measures": {
             "total_enrollment": coverage(p.total_enrollment for p in profiles),
@@ -237,7 +306,12 @@ def _coverage_payload(
                 code: coverage(p.subgroups[code] for p in profiles)
                 for code in SUBGROUP_CODES
             },
-            "teacher_assignments": _assignment_coverage(assembly) if supplied else None,
+            "teacher_assignments": (
+                _assignment_coverage(assembly) if assignments_supplied else None
+            ),
+            "chronic_absenteeism": (
+                _absenteeism_coverage(assembly) if absenteeism_supplied else None
+            ),
         },
     }
 
@@ -254,8 +328,11 @@ def build_artifacts(
     out_dir: Path,
     is_fixture: bool,
     assignments: Path | None = None,
+    absenteeism: Path | None = None,
 ) -> ArtifactBuild:
-    assembly = assemble_profiles(directory, enrollment, assignments)
+    assembly = assemble_profiles(
+        directory, enrollment, assignments, absenteeism_path=absenteeism
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
     schools_path = out_dir / "schools.json"
     coverage_path = out_dir / "coverage.json"
@@ -267,6 +344,7 @@ def build_artifacts(
             directory_name=directory.name,
             enrollment_name=enrollment.name,
             assignments_name=assignments.name if assignments is not None else None,
+            absenteeism_name=absenteeism.name if absenteeism is not None else None,
             is_fixture=is_fixture,
         ),
     )
@@ -293,6 +371,12 @@ def main(argv: list[str] | None = None) -> int:
         help="path to the D5 teacher assignment monitoring file (optional)",
     )
     parser.add_argument(
+        "--absenteeism",
+        type=Path,
+        default=None,
+        help="path to the D3 chronic absenteeism file (optional)",
+    )
+    parser.add_argument(
         "--out", type=Path, required=True, help="output directory for JSON artifacts"
     )
     parser.add_argument(
@@ -305,6 +389,7 @@ def main(argv: list[str] | None = None) -> int:
         directory=args.directory,
         enrollment=args.enrollment,
         assignments=args.assignments,
+        absenteeism=args.absenteeism,
         out_dir=args.out,
         is_fixture=args.fixture,
     )
@@ -336,6 +421,18 @@ def main(argv: list[str] | None = None) -> int:
             "clear-assignment counts "
             + ", ".join(f"{status}={count}" for status, count in clear_counts.items())
             + f"; {assembly.schools_without_assignments} active schools without rows"
+        )
+    if assembly.absenteeism_academic_year is None:
+        print("chronic absenteeism: no D3 file supplied, nothing published")
+    else:
+        rate_counts = coverage(
+            profile.chronic_absenteeism_rate for profile in assembly.profiles
+        )
+        print(
+            f"chronic absenteeism: {assembly.absenteeism_academic_year}, "
+            "total-rate coverage "
+            + ", ".join(f"{status}={count}" for status, count in rate_counts.items())
+            + f"; {assembly.schools_without_absenteeism} active schools without rows"
         )
     print(f"wrote {build.schools_path} and {build.coverage_path}")
     return 0

@@ -36,13 +36,23 @@ from pathlib import Path
 
 import pytest
 
-from homeroom.artifacts import DIRECTORY_ACCESS_DATE, ENROLLMENT_ACCESS_DATE
+from homeroom.artifacts import (
+    ABSENTEEISM_ACCESS_DATE,
+    DIRECTORY_ACCESS_DATE,
+    ENROLLMENT_ACCESS_DATE,
+)
 from homeroom.assignments import OUTCOME_NAMES
-from homeroom.context import AggregateFigures, load_context
+from homeroom.context import (
+    AbsenteeismAggregate,
+    AggregateFigures,
+    load_absenteeism_context,
+    load_context,
+)
 from homeroom.i18n import LOCALES, Locale, format_number, text
 from homeroom.measures import MeasureStatus
 from homeroom.profiles import SchoolProfile, assemble_profiles
 from homeroom.render import (
+    ABSENTEEISM_URL,
     DARK,
     DIRECTORY_URL,
     ENROLLMENT_URL,
@@ -60,6 +70,7 @@ FIXTURES = ROOT / "fixtures"
 DIRECTORY = FIXTURES / "pubschls.sample.txt"
 ENROLLMENT = FIXTURES / "cdenroll.sample.txt"
 ASSIGNMENTS = FIXTURES / "tamo.sample.txt"
+ABSENTEEISM = FIXTURES / "chronicabsenteeism.sample.txt"
 
 EXAMPLE = "01100170112345"  # reported figures, a genuine zero, and withheld cells
 CHARTER = "01100170154321"  # every figure withheld
@@ -201,6 +212,21 @@ def parse(path: Path) -> Document:
 def built(tmp_path_factory: pytest.TempPathFactory) -> Path:
     out = tmp_path_factory.mktemp("pages")
     build_site(directory=DIRECTORY, enrollment=ENROLLMENT, out_dir=out, is_fixture=True)
+    return out
+
+
+@pytest.fixture(scope="module")
+def built_with_absenteeism(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The same build as ``built``, plus D3 (M3): every page carries a chronic
+    absenteeism section instead of the "not yet published" copy."""
+    out = tmp_path_factory.mktemp("pages-absenteeism")
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=True,
+        absenteeism=ABSENTEEISM,
+    )
     return out
 
 
@@ -622,6 +648,183 @@ def test_no_page_shows_a_teacher_assignment_figure_even_when_one_is_loaded() -> 
         for label in OUTCOME_NAMES.values():
             assert label not in document.body_text, (locale, label)
         assert profile.teacher_assignments.academic_year not in document.body_text
+
+
+# ----------------------------------------------------------------------------------
+# D3: the first masked-heavy measure, end to end (M3)
+# ----------------------------------------------------------------------------------
+
+
+def test_without_the_d3_file_pages_say_so(built: Path) -> None:
+    for _, locale, path in every_page(built):
+        assert text(locale, "not_yet_absenteeism") in parse(path).body_text
+
+
+def test_with_the_d3_file_pages_carry_the_section_not_the_not_yet_copy(
+    built_with_absenteeism: Path,
+) -> None:
+    for _, locale, path in every_page(built_with_absenteeism):
+        body = parse(path).body_text
+        assert text(locale, "absenteeism_heading") in body
+        assert text(locale, "absenteeism_intro") in body
+        assert text(locale, "not_yet_absenteeism") not in body
+        # The other "not yet" facts (D5, D4/D6) still apply and still appear.
+        assert text(locale, "not_yet_assignments") in body
+        assert text(locale, "not_yet_measures") in body
+
+
+def test_absenteeism_rates_carry_a_percent_sign(built_with_absenteeism: Path) -> None:
+    """A rate is not a count; the unit rides in the cell text itself so a reader
+    (or a screen reader) never has to infer it from the column header alone."""
+    document = parse(page(built_with_absenteeism, EXAMPLE, "en"))
+    numbers = [body for classes, body in document.cells if "m-number" in classes]
+    percentages = [body for body in numbers if body.rstrip().endswith("%")]
+    assert percentages
+    # And no enrollment count (this school's own m-number cells outside the
+    # absenteeism section) was accidentally given a percent sign.
+    assert any(not body.rstrip().endswith("%") for body in numbers)
+
+
+def test_absenteeism_withheld_and_nothing_cells_still_carry_no_digit(
+    built_with_absenteeism: Path,
+) -> None:
+    for _, _, path in every_page(built_with_absenteeism):
+        document = parse(path)
+        for state in ("m-withheld", "m-nothing"):
+            for body in cells_with(document, state):
+                assert not NUMBER.search(body), (path.name, state, body)
+
+
+def test_absenteeism_coverage_is_published_on_every_page(
+    built_with_absenteeism: Path,
+) -> None:
+    for _, locale, path in every_page(built_with_absenteeism):
+        body = parse(path).body_text
+        assert text(locale, "coverage_absenteeism_published") in body
+        assert text(locale, "coverage_absenteeism_withheld") in body
+        assert text(locale, "coverage_absenteeism_nothing") in body
+
+
+def test_absenteeism_names_its_source_file(built_with_absenteeism: Path) -> None:
+    for _, locale, path in every_page(built_with_absenteeism):
+        document = parse(path)
+        body = document.body_text
+        assert ABSENTEEISM.name in body
+        assert text(locale, "source_d3_name") in body
+        assert ABSENTEEISM_URL in document.hrefs
+
+
+def absenteeism_reported_values(profile: SchoolProfile) -> set[str]:
+    measures = [
+        profile.chronic_absenteeism_rate,
+        *profile.chronic_absenteeism_subgroups.values(),
+    ]
+    return {
+        format_number(measure.number())
+        for measure in measures
+        if measure.status is MeasureStatus.REPORTED
+    }
+
+
+def absenteeism_context_values(figures: AbsenteeismAggregate) -> set[str]:
+    return {
+        format_number(measure.number())
+        for measure in figures.categories.values()
+        if measure.status is MeasureStatus.REPORTED
+    }
+
+
+def absenteeism_coverage_numbers(cover: SiteCoverage) -> set[str]:
+    groups = [cover.absenteeism_total, *cover.absenteeism_subgroups.values()]
+    return {format_number(value) for group in groups for value in group.values()}
+
+
+def test_every_absenteeism_number_was_counted(built_with_absenteeism: Path) -> None:
+    """The D3 analogue of ``test_every_number_in_a_data_cell_was_counted``: every
+    digit on a page with chronic absenteeism data is a rate the pipeline read or a
+    coverage tally it counted, never a value Homeroom computed."""
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=ABSENTEEISM)
+    cover = site_coverage(assembly)
+    enrollment_counts = coverage_numbers(cover)
+    absenteeism_counts = absenteeism_coverage_numbers(cover)
+    context = load_context(ENROLLMENT)
+    absenteeism_context = load_absenteeism_context(ABSENTEEISM)
+    for profile in assembly.profiles:
+        allowed = (
+            enrollment_counts
+            | absenteeism_counts
+            | reported_values(profile)
+            | absenteeism_reported_values(profile)
+            | context_values(context.state)
+            | context_values(context.for_district(profile.school.cds_code))
+            | absenteeism_context_values(absenteeism_context.state)
+            | absenteeism_context_values(
+                absenteeism_context.for_district(profile.school.cds_code)
+            )
+        )
+        for locale in LOCALES:
+            document = parse(
+                page(built_with_absenteeism, profile.school.cds_code, locale)
+            )
+            for _, body in document.cells:
+                for found in NUMBER.findall(body):
+                    assert found in allowed, (profile.school.cds_code, locale, found)
+
+
+def test_absenteeism_reruns_are_byte_identical(tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=True,
+        absenteeism=ABSENTEEISM,
+    )
+    first = {p.name: p.read_bytes() for p in sorted(out.glob("*.html"))}
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=True,
+        absenteeism=ABSENTEEISM,
+    )
+    again = {p.name: p.read_bytes() for p in sorted(out.glob("*.html"))}
+    assert first == again
+
+
+def test_a_real_build_stamps_the_absenteeism_date_provenance_records(
+    tmp_path: Path,
+) -> None:
+    out = tmp_path / "site"
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=False,
+        cds_codes=(EXAMPLE,),
+        absenteeism=ABSENTEEISM,
+    )
+    for locale in LOCALES:
+        body = parse(out / page_name(EXAMPLE, locale)).body_text
+        assert ABSENTEEISM_ACCESS_DATE in body
+
+
+def test_absenteeism_source_url_matches_the_provenance_record() -> None:
+    provenance = (ROOT / "PROVENANCE.md").read_text(encoding="utf-8")
+    d3_row = next(line for line in provenance.splitlines() if line.startswith("| D3 |"))
+    assert ABSENTEEISM_URL in d3_row
+
+
+def test_absenteeism_context_year_never_borrows_enrollments_year(
+    built_with_absenteeism: Path,
+) -> None:
+    """D2 and D3 report on different cycles (2025-26 and 2024-25 in the
+    fixtures); the chronic-absenteeism captions must name D3's own year, never
+    D2's, the same way :mod:`homeroom.profiles` keeps the two years apart.
+    """
+    body = parse(page(built_with_absenteeism, EXAMPLE, "en")).body_text
+    assert "2024-25" in body
+    assert "chronic absenteeism at Example Elementary, 2025-26" not in body.lower()
 
 
 # ----------------------------------------------------------------------------------

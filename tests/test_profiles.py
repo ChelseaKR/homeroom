@@ -6,6 +6,9 @@ import pytest
 
 from homeroom.measures import Measure, MeasureStatus
 from homeroom.profiles import (
+    ABSENTEEISM_CATEGORY_NAMES,
+    ABSENTEEISM_SUBGROUP_CODES,
+    ABSENTEEISM_SUBGROUP_FAMILIES,
     CATEGORY_NAMES,
     SUBGROUP_CODES,
     SUBGROUP_FAMILIES,
@@ -18,6 +21,7 @@ FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 DIRECTORY = FIXTURES / "pubschls.sample.txt"
 ENROLLMENT = FIXTURES / "cdenroll.sample.txt"
 ASSIGNMENTS = FIXTURES / "tamo.sample.txt"
+ABSENTEEISM = FIXTURES / "chronicabsenteeism.sample.txt"
 
 EXAMPLE = "01100170112345"
 CHARTER = "01100170154321"
@@ -223,13 +227,13 @@ def test_without_the_d5_file_no_profile_claims_an_assignment_fact() -> None:
 
 def test_assignments_join_the_spine_on_cds_and_keep_their_own_year() -> None:
     assembly = assemble_profiles(DIRECTORY, ENROLLMENT, ASSIGNMENTS)
-    # Enrollment is 2025-26; assignment monitoring reports 2024-25. Both stand.
+    # Enrollment is 2025-26; assignment monitoring reports 2023-24. Both stand.
     assert assembly.academic_year == "2025-26"
-    assert assembly.assignments_academic_year == "2024-25"
+    assert assembly.assignments_academic_year == "2023-24"
     example = next(p for p in assembly.profiles if p.school.cds_code == EXAMPLE)
     assert example.teacher_assignments is not None
     assert example.teacher_assignments.cds_code == EXAMPLE
-    assert example.teacher_assignments.counts["clear"].number() == 34
+    assert example.teacher_assignments.counts["clear"].number() == 4.0
 
 
 def test_assignment_rendering_cases_survive_assembly() -> None:
@@ -239,7 +243,7 @@ def test_assignment_rendering_cases_survive_assembly() -> None:
     assert outcomes is not None
     assert outcomes.counts["intern"].is_zero
     assert outcomes.counts["ineffective"].status is MeasureStatus.SUPPRESSED
-    assert outcomes.counts["unknown"].status is MeasureStatus.NOT_REPORTED
+    assert outcomes.counts["na"].status is MeasureStatus.NOT_REPORTED
     charter = next(p for p in assembly.profiles if p.school.cds_code == CHARTER)
     assert charter.teacher_assignments is not None
     assert charter.teacher_assignments.total.status is MeasureStatus.SUPPRESSED
@@ -262,8 +266,114 @@ def test_closed_school_with_assignment_rows_still_gets_no_profile() -> None:
 
 def test_mixed_assignment_academic_years_are_drift(tmp_path: Path) -> None:
     header, *rows = ASSIGNMENTS.read_text(encoding="utf-8").splitlines()
-    rows[-1] = rows[-1].replace("2024-25", "2023-24", 1)
+    rows[-1] = rows[-1].replace("2023-24", "2022-23", 1)
     path = tmp_path / "tamo.txt"
     path.write_text("\n".join([header, *rows]) + "\n", encoding="utf-8")
     with pytest.raises(ProfileDriftError, match="academic years"):
         assemble_profiles(DIRECTORY, ENROLLMENT, path)
+
+
+# --- D3 chronic absenteeism (M3) -------------------------------------------
+
+
+def test_without_the_d3_file_no_profile_claims_an_absenteeism_fact() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT)
+    assert assembly.absenteeism_academic_year is None
+    assert assembly.unjoined_absenteeism_rows is None
+    assert assembly.schools_without_absenteeism is None
+    for profile in assembly.profiles:
+        assert profile.chronic_absenteeism_rate.status is MeasureStatus.NOT_REPORTED
+        assert all(
+            m.status is MeasureStatus.NOT_REPORTED
+            for m in profile.chronic_absenteeism_subgroups.values()
+        )
+
+
+def test_absenteeism_joins_the_spine_on_cds_and_keeps_its_own_year() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=ABSENTEEISM)
+    # Enrollment is 2025-26; chronic absenteeism reports 2024-25. Both stand.
+    assert assembly.academic_year == "2025-26"
+    assert assembly.absenteeism_academic_year == "2024-25"
+    example = next(p for p in assembly.profiles if p.school.cds_code == EXAMPLE)
+    assert example.chronic_absenteeism_rate.number() == 12.5
+
+
+def test_absenteeism_rendering_cases_survive_assembly() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=ABSENTEEISM)
+    example = next(p for p in assembly.profiles if p.school.cds_code == EXAMPLE)
+    # Reported (RA, a genuine zero rate), suppressed (RB), and not-reported (RH,
+    # never mentioned for this school) all present on one profile.
+    assert example.chronic_absenteeism_subgroups["RA"].is_zero
+    assert example.chronic_absenteeism_subgroups["RA"].status is MeasureStatus.REPORTED
+    assert (
+        example.chronic_absenteeism_subgroups["RB"].status is MeasureStatus.SUPPRESSED
+    )
+    assert not example.chronic_absenteeism_subgroups["RB"].is_zero
+    assert (
+        example.chronic_absenteeism_subgroups["RH"].status is MeasureStatus.NOT_REPORTED
+    )
+    charter = next(p for p in assembly.profiles if p.school.cds_code == CHARTER)
+    assert charter.chronic_absenteeism_rate.status is MeasureStatus.SUPPRESSED
+    absent = next(p for p in assembly.profiles if p.school.cds_code == NO_ENROLLMENT)
+    assert absent.chronic_absenteeism_rate.status is MeasureStatus.NOT_REPORTED
+
+
+def test_absenteeism_join_gaps_are_counted_in_both_directions() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=ABSENTEEISM)
+    # Shuttered School (closed) and Birch Lane (never in the directory fixture).
+    assert assembly.unjoined_absenteeism_rows == 2
+    # Sin Datos Middle is active and the absenteeism fixture never mentions it.
+    assert assembly.schools_without_absenteeism == 1
+
+
+def test_closed_school_with_absenteeism_rows_still_gets_no_profile() -> None:
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=ABSENTEEISM)
+    assert "01100170167890" not in {p.school.cds_code for p in assembly.profiles}
+
+
+def test_mixed_absenteeism_academic_years_are_drift(tmp_path: Path) -> None:
+    header, *rows = ABSENTEEISM.read_text(encoding="utf-8").splitlines()
+    rows[-1] = rows[-1].replace("2024-25", "2023-24", 1)
+    path = tmp_path / "chronicabsenteeism.txt"
+    path.write_text("\n".join([header, *rows]) + "\n", encoding="utf-8")
+    with pytest.raises(ProfileDriftError, match="academic years"):
+        assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=path)
+
+
+def test_absenteeism_unreviewed_category_code_is_drift(tmp_path: Path) -> None:
+    header = (
+        "Academic Year\tAggregate Level\tCounty Code\tDistrict Code\tSchool Code"
+        "\tCounty Name\tDistrict Name\tSchool Name\tCharter School\tDASS"
+        "\tReporting Category\tChronicAbsenteeismEligibleCumulativeEnrollment"
+        "\tChronicAbsenteeismCount\tChronicAbsenteeismRate\n"
+    )
+    row = "2024-25\tS\t01\t10017\t0112345\tYolo\tD\tS\tNo\tNo\tZZ\t10\t1\t10.0\n"
+    path = tmp_path / "chronicabsenteeism.txt"
+    path.write_text(header + row, encoding="utf-8")
+    with pytest.raises(ProfileDriftError, match="no reviewed display name"):
+        assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=path)
+
+
+def test_absenteeism_subgroup_families_cover_exactly_the_profiled_codes() -> None:
+    assert len(ABSENTEEISM_SUBGROUP_CODES) == len(set(ABSENTEEISM_SUBGROUP_CODES))
+    assert set(ABSENTEEISM_SUBGROUP_CODES) <= set(ABSENTEEISM_CATEGORY_NAMES)
+    assert all(name.strip() for name in ABSENTEEISM_CATEGORY_NAMES.values())
+    assert list(ABSENTEEISM_SUBGROUP_FAMILIES) == [
+        "race_ethnicity",
+        "gender",
+        "student_groups",
+    ]
+
+
+def test_absenteeism_grade_spans_are_recognized_but_not_subgroups() -> None:
+    assert "GR912" in ABSENTEEISM_CATEGORY_NAMES
+    assert "GR912" not in ABSENTEEISM_SUBGROUP_CODES
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=ABSENTEEISM)
+    example = next(p for p in assembly.profiles if p.school.cds_code == EXAMPLE)
+    assert "GR912" not in example.chronic_absenteeism_subgroups
+
+
+def test_absenteeism_codes_never_collide_with_d2s_own_codes() -> None:
+    """D3's ``RA`` (Asian) and D2's ``RE_A`` (also Asian) are different codes from
+    different files; the two catalogs must never be read as interchangeable."""
+    assert set(ABSENTEEISM_CATEGORY_NAMES).isdisjoint(set(CATEGORY_NAMES) - {"TA"})

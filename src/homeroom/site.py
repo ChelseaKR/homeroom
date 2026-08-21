@@ -26,11 +26,21 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
-from homeroom.artifacts import DIRECTORY_ACCESS_DATE, ENROLLMENT_ACCESS_DATE
-from homeroom.context import ContextDriftError, load_context
+from homeroom.artifacts import (
+    ABSENTEEISM_ACCESS_DATE,
+    DIRECTORY_ACCESS_DATE,
+    ENROLLMENT_ACCESS_DATE,
+)
+from homeroom.context import (
+    AbsenteeismContextDriftError,
+    ContextDriftError,
+    load_absenteeism_context,
+    load_context,
+)
 from homeroom.i18n import LOCALES
 from homeroom.profiles import ProfileAssembly, SchoolProfile, assemble_profiles
 from homeroom.render import (
+    ABSENTEEISM_URL,
     DIRECTORY_URL,
     ENROLLMENT_URL,
     SiteCoverage,
@@ -59,13 +69,17 @@ def sources(
     enrollment: Path,
     academic_year: str,
     is_fixture: bool,
+    absenteeism: Path | None = None,
+    absenteeism_academic_year: str | None = None,
 ) -> tuple[SourceRef, ...]:
     """The files this build read, with the dates PROVENANCE.md records.
 
     A fixture build stamps no date, because nobody downloaded a fixture. The same
-    rule governs ``coverage.json``; the two are tested to agree.
+    rule governs ``coverage.json``; the two are tested to agree. ``absenteeism`` is
+    optional, the same way the D3 source is everywhere else in this module: a
+    build with no D3 file names only D1 and D2.
     """
-    return (
+    refs = [
         SourceRef(
             key="d2",
             file_name=enrollment.name,
@@ -79,7 +93,18 @@ def sources(
             url=DIRECTORY_URL,
             access_date=None if is_fixture else DIRECTORY_ACCESS_DATE,
         ),
-    )
+    ]
+    if absenteeism is not None:
+        refs.append(
+            SourceRef(
+                key="d3",
+                file_name=absenteeism.name,
+                url=ABSENTEEISM_URL,
+                access_date=None if is_fixture else ABSENTEEISM_ACCESS_DATE,
+                academic_year=absenteeism_academic_year,
+            )
+        )
+    return tuple(refs)
 
 
 def _selected(
@@ -110,9 +135,15 @@ def build_site(
     out_dir: Path,
     is_fixture: bool,
     cds_codes: tuple[str, ...] = (),
+    absenteeism: Path | None = None,
 ) -> SiteBuild:
-    """Render every selected school in every locale. Returns what was written."""
-    assembly = assemble_profiles(directory, enrollment)
+    """Render every selected school in every locale. Returns what was written.
+
+    ``absenteeism`` (D3) is optional, mirroring how every other optional source in
+    this project works: left out, every page's chronic-absenteeism section is
+    replaced by the "not yet published" copy, rather than an empty table.
+    """
+    assembly = assemble_profiles(directory, enrollment, absenteeism_path=absenteeism)
     cover = site_coverage(assembly)
     context = load_context(enrollment)
     if context.academic_year != assembly.academic_year:
@@ -121,11 +152,26 @@ def build_site(
             f"{assembly.academic_year}; a page must not read one year's school "
             f"figures against another year's district and statewide figures"
         )
+    absenteeism_context = (
+        load_absenteeism_context(absenteeism) if absenteeism is not None else None
+    )
+    if (
+        absenteeism_context is not None
+        and absenteeism_context.academic_year != assembly.absenteeism_academic_year
+    ):
+        raise AbsenteeismContextDriftError(
+            f"absenteeism context covers {absenteeism_context.academic_year} but "
+            f"the profiles cover {assembly.absenteeism_academic_year}; a page must "
+            "not read one year's school figures against another year's district "
+            "and statewide figures"
+        )
     refs = sources(
         directory=directory,
         enrollment=enrollment,
         academic_year=assembly.academic_year,
         is_fixture=is_fixture,
+        absenteeism=absenteeism,
+        absenteeism_academic_year=assembly.absenteeism_academic_year,
     )
     schools = _selected(assembly, cds_codes)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -141,6 +187,7 @@ def build_site(
                     sources=refs,
                     is_fixture=is_fixture,
                     context=context,
+                    absenteeism_context=absenteeism_context,
                 ),
                 encoding="utf-8",
             )
@@ -170,6 +217,12 @@ def main(argv: list[str] | None = None) -> int:
         help="14-digit CDS code to render; repeatable. Omit to render every school",
     )
     parser.add_argument(
+        "--absenteeism",
+        type=Path,
+        default=None,
+        help="path to the D3 chronic absenteeism file (optional)",
+    )
+    parser.add_argument(
         "--fixture",
         action="store_true",
         help="mark output as built from committed fixtures, not acquired files",
@@ -181,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
         out_dir=args.out,
         is_fixture=args.fixture,
         cds_codes=tuple(args.cds),
+        absenteeism=args.absenteeism,
     )
     counts = build.coverage.total_enrollment
     print(
@@ -195,6 +249,15 @@ def main(argv: list[str] | None = None) -> int:
         + ", ".join(f"{status}={count}" for status, count in counts.items())
     )
     print("teacher assignments: no D5 file is read here, so no page carries one")
+    if build.coverage.absenteeism_supplied:
+        abd_counts = build.coverage.absenteeism_total
+        print(
+            "chronic absenteeism coverage across "
+            f"{build.coverage.schools} active schools: "
+            + ", ".join(f"{status}={count}" for status, count in abd_counts.items())
+        )
+    else:
+        print("chronic absenteeism: no D3 file given, no page carries one")
     for page in build.pages[:4]:
         print(f"wrote {page}")
     if len(build.pages) > 4:

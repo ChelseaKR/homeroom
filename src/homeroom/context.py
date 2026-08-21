@@ -3,8 +3,10 @@
 A school's enrollment count means little alone. Sixty students in a grade is
 ordinary in one district and the whole grade in another, and the README's promise
 is that each measure appears "beside the statewide and district context needed to
-read it". This module supplies that context, under one rule that decides
-everything else about how it is built:
+read it". This module supplies that context for both D2 (enrollment,
+:class:`EnrollmentContext`) and D3 (chronic absenteeism,
+:class:`AbsenteeismContext`), under one rule that decides everything else about
+how each is built:
 
 **Homeroom never adds school rows together to make a district or a state figure.**
 
@@ -28,9 +30,16 @@ or finds two.
 
 The context figures are :class:`~homeroom.measures.Measure` values like any
 other, so a masked district cell renders as withheld and a district that
-published nothing renders as nothing. Aggregate rows in the acquired file happen
+published nothing renders as nothing. Aggregate rows in the acquired D2 file happen
 never to mask their totals, but that is a property of one file and not a promise
 about the next one, so the type carries the possibility either way.
+
+D3's aggregate rows need one more piece of care than D2's: charter status and DASS
+(Dashboard Alternative School Status) are two *independent* dimensions in that file,
+each an ``All``/``Yes``/``No`` value, where D2 has only the one charter dimension.
+The genuine district- or state-wide rate is the row where both read ``All``;
+:func:`load_absenteeism_context` accepts no other, the same way :func:`load_context`
+accepts only D2's single ``ALL_CHARTER``.
 """
 
 from __future__ import annotations
@@ -38,6 +47,22 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from homeroom.absenteeism import (
+    ALL_VALUE as ABSENTEEISM_ALL,
+)
+from homeroom.absenteeism import (
+    DISTRICT_LEVEL as ABSENTEEISM_DISTRICT_LEVEL,
+)
+from homeroom.absenteeism import (
+    STATE_LEVEL as ABSENTEEISM_STATE_LEVEL,
+)
+from homeroom.absenteeism import (
+    TOTAL_CATEGORY as ABSENTEEISM_TOTAL_CATEGORY,
+)
+from homeroom.absenteeism import (
+    AbsenteeismDriftError,
+    parse_absenteeism,
+)
 from homeroom.enrollment import (
     ALL_CHARTER,
     DISTRICT_LEVEL,
@@ -172,5 +197,96 @@ def load_context(path: Path) -> EnrollmentContext:
             grades=state_grades,
             subgroups=state_subgroups,
         ),
+        academic_year=years.pop(),
+    )
+
+
+class AbsenteeismContextDriftError(AbsenteeismDriftError):
+    """D3's aggregate rows are not shaped the way this module was verified against."""
+
+
+@dataclass(frozen=True)
+class AbsenteeismAggregate:
+    """One entity's published chronic-absenteeism rates, by reporting category.
+
+    Every value is a :class:`~homeroom.measures.Measure`, so a withheld district
+    rate stays withheld all the way to the page, the same as :class:`AggregateFigures`.
+    """
+
+    cds_code: str
+    categories: dict[str, Measure] = field(default_factory=dict)
+
+    def category(self, code: str) -> Measure:
+        return self.categories.get(code, Measure.not_reported())
+
+
+@dataclass(frozen=True)
+class AbsenteeismContext:
+    """Every district's chronic-absenteeism rates, plus the state's, read from
+    CDE's own ``Charter School == All`` and ``DASS == All`` rows."""
+
+    districts: dict[str, AbsenteeismAggregate]
+    state: AbsenteeismAggregate
+    academic_year: str
+
+    def for_district(self, cds_code: str) -> AbsenteeismAggregate:
+        key = district_key(cds_code)
+        return self.districts.get(key, AbsenteeismAggregate(cds_code=key))
+
+
+def load_absenteeism_context(path: Path) -> AbsenteeismContext:
+    """Read district and statewide chronic-absenteeism rates from D3's own rows.
+
+    Only rows where both ``Charter School`` and ``DASS`` read ``All`` are read, at
+    district and state level: D3 crosses two independent All/Yes/No dimensions
+    where D2 has one, so both have to read ``All`` for the row to mean "every
+    school, regardless of charter or DASS status" rather than one slice of it. A
+    duplicate ``(entity, reporting category)`` pair is drift, the same rule
+    :func:`load_context` enforces for D2.
+    """
+    districts: dict[str, dict[str, Measure]] = {}
+    state_categories: dict[str, Measure] = {}
+    years: set[str] = set()
+    seen: set[tuple[str, str, str]] = set()
+
+    for row in parse_absenteeism(path):
+        if row.level not in (ABSENTEEISM_DISTRICT_LEVEL, ABSENTEEISM_STATE_LEVEL):
+            continue
+        if row.charter != ABSENTEEISM_ALL or row.dass != ABSENTEEISM_ALL:
+            continue
+        key = (row.level, row.cds_code, row.category)
+        if key in seen:
+            raise AbsenteeismContextDriftError(
+                f"{path.name}: {row.level}-level {row.cds_code} has more than one "
+                f"Charter School=DASS={ABSENTEEISM_ALL!r} row for category "
+                f"{row.category!r}; the file's grain is not what this module was "
+                "verified against"
+            )
+        seen.add(key)
+        years.add(row.academic_year)
+
+        if row.level == ABSENTEEISM_STATE_LEVEL:
+            state_categories[row.category] = row.rate
+            continue
+        districts.setdefault(row.cds_code, {})[row.category] = row.rate
+
+    if ABSENTEEISM_TOTAL_CATEGORY not in state_categories:
+        raise AbsenteeismContextDriftError(
+            f"{path.name}: no statewide Charter School=DASS={ABSENTEEISM_ALL!r} row "
+            f"for category {ABSENTEEISM_TOTAL_CATEGORY!r}; statewide context cannot "
+            "be published without it"
+        )
+    if len(years) != 1:
+        raise AbsenteeismContextDriftError(
+            f"{path.name}: aggregate rows span academic years {sorted(years)}; "
+            "context must come from one year"
+        )
+
+    return AbsenteeismContext(
+        districts={
+            code: AbsenteeismAggregate(cds_code=code, categories=categories)
+            for code, categories in districts.items()
+        },
+        state=AbsenteeismAggregate(cds_code=STATE_CDS, categories=state_categories),
         academic_year=years.pop(),
     )

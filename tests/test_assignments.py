@@ -1,8 +1,13 @@
 """Teacher assignment outcomes: every rendering case, and drift refusal.
 
-The fixture is synthetic. D5 has not been acquired, so these tests pin the parser's
-behaviour against the documented file structure rather than against a file in hand,
-and they are written to fail loudly if the real file turns out to disagree.
+The fixture mirrors the real 2023-24 Teacher Assignment Monitoring Outcome file
+acquired 2026-08-21 (``tamo2324.txt``, 234,206,408 bytes, 1,528,796 rows;
+PROVENANCE.md D5): the same column names, the same seven outcomes (not the five
+this module's provisional contract carried before acquisition), the same
+FTE-fractional values, and the same whole-school-total-row selection this parser
+was rewritten to make. The values themselves are still synthetic -- the fixture
+does not reproduce a real school -- but the shape is the acquired file's, not a
+guess.
 """
 
 from pathlib import Path
@@ -40,19 +45,28 @@ def write(tmp_path: Path, rows: str, *, header: str = HEADER) -> Path:
     return path
 
 
-def row(**overrides: str) -> str:
+def row(overrides: dict[str, str] | None = None) -> str:
+    """One school-level whole-school-total row. ``overrides`` replaces cells by
+    their real (spaced) column name, since those names are not valid keyword
+    identifiers."""
     cells = {
-        "AcademicYear": "2024-25",
-        "AggregateLevel": "S",
-        "CountyCode": "01",
-        "DistrictCode": "10017",
-        "SchoolCode": "0112345",
-        "TotalAssignments": "40",
+        "Academic Year": "2023-24",
+        "Aggregate Level": "S",
+        "County Code": "01",
+        "District Code": "10017",
+        "School Code": "0112345",
+        "Charter School": "No",
+        "DASS": "No",
+        "School Grade Span": "GRK6",
+        "Teacher Experience Level": "ALL",
+        "Teacher Credential Level": "ALL",
+        "Subject Area": "TA",
+        "Total FTE": "5.00",
     }
     for count, percent in OUTCOME_COLUMNS.values():
-        cells[count] = "0"
-        cells[percent] = "0.0"
-    cells.update(overrides)
+        cells[count] = "1.00"
+        cells[percent] = "20.0"
+    cells.update(overrides or {})
     return "\t".join(cells[column] for column in REQUIRED_COLUMNS) + "\n"
 
 
@@ -61,22 +75,30 @@ def row(**overrides: str) -> str:
 
 def test_fixture_parses_and_separates_aggregate_levels() -> None:
     rows = list(parse_assignments(FIXTURE))
-    assert [r.level for r in rows] == ["T", "D", "S", "S", "S", "S"]
+    assert [r.level for r in rows] == ["T", "D", "S", "S", "S", "S", "S"]
     assert all(len(r.cds_code) == 14 and r.cds_code.isdigit() for r in rows)
-    assert {r.academic_year for r in rows} == {"2024-25"}
+    assert {r.academic_year for r in rows} == {"2023-24"}
 
 
-def test_school_outcomes_keys_on_the_fourteen_digit_cds_only() -> None:
-    assert set(school_outcomes(FIXTURE)) == {EXAMPLE, CHARTER, CLOSED, UNJOINED}
+def test_school_outcomes_selects_only_the_whole_school_total_row() -> None:
+    """Example Elementary carries two school-level rows in the fixture: a
+    distractor (Experience=EXP, Credential=FC, Subject=MATH) and the whole-school
+    total (Experience=Credential=ALL, Subject=TA). Only the second is read."""
+    outcomes = school_outcomes(FIXTURE)
+    assert set(outcomes) == {EXAMPLE, CHARTER, CLOSED, UNJOINED}
+    example = outcomes[EXAMPLE]
+    assert example.subject_area == "TA"
+    assert example.experience_level == "ALL"
+    assert example.credential_level == "ALL"
+    assert example.total.number() == 5.0
 
 
 def test_normal_values_are_the_published_cells() -> None:
     example = school_outcomes(FIXTURE)[EXAMPLE]
-    assert example.total.number() == 40
-    assert example.counts["clear"].number() == 34
-    assert example.percents["clear"].number() == 85.0
-    assert example.counts["out_of_field"].number() == 4
-    assert example.percents["out_of_field"].number() == 10.0
+    assert example.counts["clear"].number() == 4.0
+    assert example.percents["clear"].number() == 80.0
+    assert example.counts["out_of_field"].number() == 1.0
+    assert example.percents["out_of_field"].number() == 20.0
 
 
 def test_a_published_zero_stays_a_zero() -> None:
@@ -97,9 +119,9 @@ def test_a_masked_outcome_stays_unreadable_never_zero() -> None:
 
 def test_a_missing_outcome_differs_from_a_masked_one() -> None:
     example = school_outcomes(FIXTURE)[EXAMPLE]
-    assert example.counts["unknown"].status is MeasureStatus.NOT_REPORTED
-    assert example.percents["unknown"].status is MeasureStatus.NOT_REPORTED
-    assert not example.counts["unknown"].is_zero
+    assert example.counts["na"].status is MeasureStatus.NOT_REPORTED
+    assert example.percents["na"].status is MeasureStatus.NOT_REPORTED
+    assert not example.counts["na"].is_zero
 
 
 def test_a_small_school_can_be_withheld_entirely() -> None:
@@ -109,25 +131,18 @@ def test_a_small_school_can_be_withheld_entirely() -> None:
     assert all(m.status is MeasureStatus.SUPPRESSED for m in charter.percents.values())
 
 
-def test_no_outcome_is_the_complement_of_a_masked_one() -> None:
-    """Example Elementary publishes 40 assignments with 34 + 4 + 0 visible.
-
-    The two withheld outcomes hold 2 assignments and 5.0 percent between them.
-    Neither number appears anywhere in the fixture, so if the parser ever reports
-    one it computed a value the state withheld.
+def test_the_distractor_row_never_leaks_into_the_selected_total() -> None:
+    """Example Elementary's fixture rows include a non-total row (Experience=EXP,
+    Credential=FC, Subject=MATH) with its own Total FTE of 2.00 and a 100 percent
+    "clear" share. If :func:`school_outcomes` ever selected that row instead of
+    the whole-school total, these values would appear where the real total's
+    (5.00 FTE, 80.0 percent clear) belong.
     """
-    reported = [
-        measure.number()
-        for outcomes in school_outcomes(FIXTURE).values()
-        for measure in (
-            outcomes.total,
-            *outcomes.counts.values(),
-            *outcomes.percents.values(),
-        )
-        if measure.status is MeasureStatus.REPORTED
-    ]
-    assert 2 not in reported
-    assert 5.0 not in reported
+    example = school_outcomes(FIXTURE)[EXAMPLE]
+    assert example.total.number() == 5.0
+    assert example.total.number() != 2.0
+    assert example.percents["clear"].number() == 80.0
+    assert example.percents["clear"].number() != 100.0
 
 
 def test_every_reported_value_is_verbatim_in_the_source_file() -> None:
@@ -154,7 +169,7 @@ def test_every_reported_value_is_verbatim_in_the_source_file() -> None:
 def test_missing_required_column_is_a_hard_failure(tmp_path: Path) -> None:
     path = tmp_path / "tamo.txt"
     path.write_text(
-        "AcademicYear\tAggregateLevel\tTotalAssignments\n2024-25\tS\t40\n",
+        "Academic Year\tAggregate Level\tTotal FTE\n2023-24\tS\t5.00\n",
         encoding="utf-8",
     )
     with pytest.raises(AssignmentDriftError, match="missing required columns"):
@@ -162,32 +177,68 @@ def test_missing_required_column_is_a_hard_failure(tmp_path: Path) -> None:
 
 
 def test_renamed_outcome_column_is_drift_not_a_silent_gap(tmp_path: Path) -> None:
-    header = HEADER.replace("ClearCount", "ClearlyAssignedCount")
+    header = HEADER.replace("Clear FTE (count)", "Clear FTE Count")
     path = write(tmp_path, row(), header=header)
-    with pytest.raises(AssignmentDriftError, match="ClearCount"):
+    with pytest.raises(AssignmentDriftError, match="Clear FTE"):
         list(parse_assignments(path))
 
 
 def test_unknown_aggregate_level_refuses(tmp_path: Path) -> None:
-    path = write(tmp_path, row(AggregateLevel="X"))
+    path = write(tmp_path, row({"Aggregate Level": "X"}))
     with pytest.raises(AssignmentDriftError, match="not one this parser reviewed"):
         list(parse_assignments(path))
 
 
+def test_unknown_charter_value_refuses(tmp_path: Path) -> None:
+    path = write(tmp_path, row({"Charter School": "Maybe"}))
+    with pytest.raises(AssignmentDriftError, match="Charter School"):
+        list(parse_assignments(path))
+
+
+def test_unknown_dass_value_refuses(tmp_path: Path) -> None:
+    path = write(tmp_path, row({"DASS": "Maybe"}))
+    with pytest.raises(AssignmentDriftError, match="DASS"):
+        list(parse_assignments(path))
+
+
+def test_unknown_grade_span_refuses(tmp_path: Path) -> None:
+    path = write(tmp_path, row({"School Grade Span": "GR13"}))
+    with pytest.raises(AssignmentDriftError, match="School Grade Span"):
+        list(parse_assignments(path))
+
+
+def test_unknown_experience_level_refuses(tmp_path: Path) -> None:
+    path = write(tmp_path, row({"Teacher Experience Level": "MID"}))
+    with pytest.raises(AssignmentDriftError, match="Teacher Experience Level"):
+        list(parse_assignments(path))
+
+
+def test_unknown_credential_level_refuses(tmp_path: Path) -> None:
+    path = write(tmp_path, row({"Teacher Credential Level": "PARTIAL"}))
+    with pytest.raises(AssignmentDriftError, match="Teacher Credential Level"):
+        list(parse_assignments(path))
+
+
+def test_unknown_subject_area_refuses(tmp_path: Path) -> None:
+    path = write(tmp_path, row({"Subject Area": "ZZZZ"}))
+    with pytest.raises(AssignmentDriftError, match="Subject Area"):
+        list(parse_assignments(path))
+
+
 def test_malformed_cds_code_refuses_rather_than_joins(tmp_path: Path) -> None:
-    path = write(tmp_path, row(SchoolCode="011234X"))
+    path = write(tmp_path, row({"School Code": "011234X"}))
     with pytest.raises(AssignmentDriftError, match="14-digit CDS"):
         list(parse_assignments(path))
 
 
 def test_overlong_cds_parts_refuse(tmp_path: Path) -> None:
-    path = write(tmp_path, row(CountyCode="011"))
+    path = write(tmp_path, row({"County Code": "011"}))
     with pytest.raises(AssignmentDriftError, match="14-digit CDS"):
         list(parse_assignments(path))
 
 
 def test_unknown_sentinel_refuses_rather_than_guesses(tmp_path: Path) -> None:
-    path = write(tmp_path, row(ClearCount="N/A"))
+    path = write(tmp_path, row({"Clear FTE (count)": "N/A"}))
     with pytest.raises(UnparseableCellError, match="not reviewed"):
         list(parse_assignments(path))
 
@@ -195,15 +246,31 @@ def test_unknown_sentinel_refuses_rather_than_guesses(tmp_path: Path) -> None:
 def test_a_percent_sign_is_an_unreviewed_format_not_a_number(tmp_path: Path) -> None:
     """If the acquired file writes shares as "85.0%", the build stops and the
     format gets reviewed. Stripping the sign here would be a guess."""
-    path = write(tmp_path, row(ClearPercent="85.0%"))
+    path = write(tmp_path, row({"Clear FTE (percent)": "85.0%"}))
     with pytest.raises(UnparseableCellError, match="not reviewed"):
         list(parse_assignments(path))
 
 
-def test_two_rows_for_one_school_is_drift(tmp_path: Path) -> None:
+def test_two_whole_school_total_rows_is_drift(tmp_path: Path) -> None:
     path = write(tmp_path, row() + row())
-    with pytest.raises(AssignmentDriftError, match="two school-level rows"):
+    with pytest.raises(AssignmentDriftError, match="two whole-school total"):
         school_outcomes(path)
+
+
+def test_a_second_row_that_is_not_a_total_row_is_not_drift(tmp_path: Path) -> None:
+    """Two school-level rows for one CDS is fine as long as at most one of them
+    is the whole-school total (Experience=Credential=ALL, Subject=TA)."""
+    distractor = row(
+        {
+            "Teacher Experience Level": "EXP",
+            "Teacher Credential Level": "FC",
+            "Subject Area": "MATH",
+        }
+    )
+    path = write(tmp_path, row() + distractor)
+    outcomes = school_outcomes(path)
+    assert set(outcomes) == {EXAMPLE}
+    assert outcomes[EXAMPLE].subject_area == "TA"
 
 
 # --- the column contract is the one thing to re-verify --------------------
@@ -212,6 +279,7 @@ def test_two_rows_for_one_school_is_drift(tmp_path: Path) -> None:
 def test_outcome_names_cover_every_outcome_and_read_as_plain_language() -> None:
     assert tuple(OUTCOME_NAMES) == OUTCOMES
     assert tuple(OUTCOME_COLUMNS) == OUTCOMES
+    assert len(OUTCOMES) == 7
     assert all(name.strip() and name[0].isupper() for name in OUTCOME_NAMES.values())
 
 
@@ -225,3 +293,10 @@ def test_required_columns_are_exactly_the_contract(tmp_path: Path) -> None:
     parsed = next(parse_assignments(path))
     assert set(parsed.counts) == set(OUTCOMES)
     assert set(parsed.percents) == set(OUTCOMES)
+
+
+def test_the_unknown_percent_columns_own_typo_is_read_verbatim() -> None:
+    """CDE's real header repeats "FTE" in this one column name. Confirmed against
+    the acquired file's own header row, not the file-structure page's prose."""
+    assert OUTCOME_COLUMNS["unknown"][1] == "Unknown FTE FTE (percent)"
+    assert "Unknown FTE FTE (percent)" in REQUIRED_COLUMNS

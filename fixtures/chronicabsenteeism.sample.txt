@@ -1,0 +1,12 @@
+Academic Year	Aggregate Level	County Code	District Code	School Code	County Name	District Name	School Name	Charter School	DASS	Reporting Category	ChronicAbsenteeismEligibleCumulativeEnrollment	ChronicAbsenteeismCount	ChronicAbsenteeismRate
+2024-25	T	00			State			All	All	TA	5000000	950000	19.0
+2024-25	T	00			State			All	All	RA	600000	44000	7.3
+2024-25	D	01	10017		Yolo	Davis Joint Unified		All	All	TA	8000	880	11.0
+2024-25	D	01	10017		Yolo	Davis Joint Unified		All	All	RA	1200	72	6.0
+2024-25	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	No	No	TA	96	12	12.5
+2024-25	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	No	No	RA	20	0	0.0
+2024-25	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	No	No	RB	*	*	*
+2024-25	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	No	No	SE	15	5	33.3
+2024-25	S	01	10017	0154321	Yolo	Davis Joint Unified	Ejemplo Charter Academy	Yes	No	TA	*	*	*
+2024-25	S	01	10017	0167890	Yolo	Davis Joint Unified	Shuttered School	No	No	TA	40	4	10.0
+2024-25	S	57	72678	6056246	Yolo	Davis Joint Unified	Birch Lane Elementary	No	No	TA	400	30	7.5

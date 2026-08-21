@@ -11,8 +11,10 @@ from pathlib import Path
 import pytest
 
 from homeroom.context import (
+    AbsenteeismContextDriftError,
     ContextDriftError,
     district_key,
+    load_absenteeism_context,
     load_context,
 )
 from homeroom.enrollment import EnrollmentDriftError, parse_enrollment, school_totals
@@ -204,3 +206,180 @@ def test_county_rows_are_not_mistaken_for_districts(tmp_path: Path) -> None:
     ctx = load_context(p)
     assert ctx.for_district("57726786056246").total.number() == 450
     assert all(f.total.number() != 99999 for f in ctx.districts.values())
+
+
+# --- D3 chronic absenteeism context: two independent All/Yes/No dimensions ------
+
+ABD_HEADER = (
+    "Academic Year\tAggregate Level\tCounty Code\tDistrict Code\tSchool Code"
+    "\tCounty Name\tDistrict Name\tSchool Name\tCharter School\tDASS"
+    "\tReporting Category\tChronicAbsenteeismEligibleCumulativeEnrollment"
+    "\tChronicAbsenteeismCount\tChronicAbsenteeismRate\n"
+)
+
+
+def abd_row(
+    *,
+    level: str,
+    charter: str,
+    dass: str,
+    category: str,
+    rate: str,
+    county: str = "01",
+    district: str = "10017",
+    school: str = "",
+    year: str = "2024-25",
+) -> str:
+    return (
+        f"{year}\t{level}\t{county}\t{district}\t{school}\tYolo\tDavis Joint Unified"
+        f"\tBirch Lane\t{charter}\t{dass}\t{category}\t100\t10\t{rate}\n"
+    )
+
+
+def write_abd(tmp_path: Path, rows: str) -> Path:
+    p = tmp_path / "chronicabsenteeism.txt"
+    p.write_text(ABD_HEADER + rows, encoding="utf-8")
+    return p
+
+
+ABD_STATE_TA = abd_row(
+    level="T",
+    charter="All",
+    dass="All",
+    category="TA",
+    rate="19.0",
+    county="00",
+    district="",
+)
+
+
+def test_absenteeism_context_requires_both_charter_and_dass_all(
+    tmp_path: Path,
+) -> None:
+    """D3 crosses two independent dimensions; only Charter=All AND DASS=All is
+    the genuine district-wide rate, the same failure mode D2's own Charter=ALL
+    test guards from the other direction."""
+    p = write_abd(
+        tmp_path,
+        abd_row(level="D", charter="Yes", dass="All", category="TA", rate="5.0")
+        + abd_row(level="D", charter="No", dass="All", category="TA", rate="12.0")
+        + abd_row(level="D", charter="All", dass="Yes", category="TA", rate="30.0")
+        + abd_row(level="D", charter="All", dass="All", category="TA", rate="11.0")
+        + ABD_STATE_TA,
+    )
+    district = load_absenteeism_context(p).for_district("01100170112345")
+    assert district.category("TA").number() == 11.0
+    assert district.category("TA").number() not in (5.0, 12.0, 30.0)
+
+
+def test_absenteeism_context_never_sums_school_rows(tmp_path: Path) -> None:
+    p = write_abd(
+        tmp_path,
+        abd_row(
+            level="S",
+            charter="No",
+            dass="No",
+            category="TA",
+            rate="10.0",
+            school="0000001",
+        )
+        + abd_row(
+            level="S",
+            charter="No",
+            dass="No",
+            category="TA",
+            rate="20.0",
+            school="0000002",
+        )
+        + abd_row(level="D", charter="All", dass="All", category="TA", rate="11.0")
+        + ABD_STATE_TA,
+    )
+    assert (
+        load_absenteeism_context(p)
+        .for_district("01100170000001")
+        .category("TA")
+        .number()
+        == 11.0
+    )
+
+
+def test_absenteeism_masked_district_and_state_rates_stay_withheld(
+    tmp_path: Path,
+) -> None:
+    p = write_abd(
+        tmp_path,
+        abd_row(level="D", charter="All", dass="All", category="RB", rate="*")
+        + abd_row(
+            level="T",
+            charter="All",
+            dass="All",
+            category="RB",
+            rate="*",
+            county="00",
+            district="",
+        )
+        + abd_row(level="D", charter="All", dass="All", category="TA", rate="11.0")
+        + ABD_STATE_TA,
+    )
+    ctx = load_absenteeism_context(p)
+    for measure in (
+        ctx.for_district("01100170112345").category("RB"),
+        ctx.state.category("RB"),
+    ):
+        assert measure.status is MeasureStatus.SUPPRESSED
+        assert not measure.is_zero
+        with pytest.raises(SuppressedValueError):
+            measure.number()
+
+
+def test_absenteeism_absent_category_is_nothing_published_not_zero(
+    tmp_path: Path,
+) -> None:
+    p = write_abd(
+        tmp_path,
+        abd_row(level="D", charter="All", dass="All", category="TA", rate="11.0")
+        + ABD_STATE_TA,
+    )
+    ctx = load_absenteeism_context(p)
+    absent = ctx.for_district("01100170112345").category("RW")
+    assert absent.status is MeasureStatus.NOT_REPORTED
+    assert not absent.is_zero
+
+
+def test_absenteeism_duplicate_all_rows_are_drift(tmp_path: Path) -> None:
+    p = write_abd(
+        tmp_path,
+        abd_row(level="D", charter="All", dass="All", category="TA", rate="11.0")
+        + abd_row(level="D", charter="All", dass="All", category="TA", rate="12.0")
+        + ABD_STATE_TA,
+    )
+    with pytest.raises(AbsenteeismContextDriftError, match="more than one"):
+        load_absenteeism_context(p)
+
+
+def test_absenteeism_missing_statewide_total_is_drift(tmp_path: Path) -> None:
+    p = write_abd(
+        tmp_path,
+        abd_row(level="D", charter="All", dass="All", category="TA", rate="11.0"),
+    )
+    with pytest.raises(AbsenteeismContextDriftError, match="no statewide"):
+        load_absenteeism_context(p)
+
+
+def test_absenteeism_aggregate_rows_spanning_two_years_are_drift(
+    tmp_path: Path,
+) -> None:
+    p = write_abd(
+        tmp_path,
+        ABD_STATE_TA
+        + abd_row(
+            level="D",
+            charter="All",
+            dass="All",
+            category="TA",
+            rate="11.0",
+            year="2023-24",
+        ),
+    )
+    with pytest.raises(AbsenteeismContextDriftError, match="academic years"):
+        load_absenteeism_context(p)

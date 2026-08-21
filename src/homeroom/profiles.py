@@ -33,6 +33,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from homeroom.absenteeism import SCHOOL_LEVEL as ABSENTEEISM_SCHOOL_LEVEL
+from homeroom.absenteeism import TOTAL_CATEGORY as ABSENTEEISM_TOTAL_CATEGORY
+from homeroom.absenteeism import AbsenteeismRow, parse_absenteeism
 from homeroom.assignments import AssignmentRow, school_outcomes
 from homeroom.directory import School, active_schools
 from homeroom.enrollment import (
@@ -118,6 +121,65 @@ SUBGROUP_CODES: tuple[str, ...] = tuple(
     code for family in SUBGROUP_FAMILIES.values() for code in family
 )
 
+ABSENTEEISM_CATEGORY_NAMES: dict[str, str] = {
+    "TA": "All students",
+    # Race/ethnicity. CDE's own file structure page (fsabd.asp) labels RD
+    # "Did not Report"; expanded here for the same reason D2's RE_D is, so it
+    # cannot be read as the not_reported measure status.
+    "RA": "Asian",
+    "RB": "African American",
+    "RD": "Race or ethnicity not reported",
+    "RF": "Filipino",
+    "RH": "Hispanic or Latino",
+    "RI": "American Indian or Alaska Native",
+    "RP": "Pacific Islander",
+    "RT": "Two or more races",
+    "RW": "White",
+    # Gender. GZ ("Missing Gender" in CDE's documentation) is not in this set:
+    # it never appeared in the acquired 2024-25 file (25 categories observed,
+    # none of them GZ), and this project adds a code only once it has been seen
+    # in an acquired file, the same rule D2's CATEGORY_NAMES follows. A future
+    # year publishing GZ is drift, correctly: it stops the build for review
+    # rather than silently carrying an unreviewed code through.
+    "GF": "Female",
+    "GM": "Male",
+    "GX": "Non-binary",
+    # Student groups.
+    "SD": "Students with disabilities",
+    "SE": "English learners",
+    "SF": "Foster youth",
+    "SH": "Homeless youth",
+    "SM": "Migrant youth",
+    "SS": "Socioeconomically disadvantaged",
+    # Grade spans: recognized so real data parses without drift, but not
+    # rendered as a subgroup measure (see ABSENTEEISM_SUBGROUP_FAMILIES below),
+    # the same treatment D2's age-range AR_* codes get.
+    "GRTKKN": "Grades TK-K",
+    "GR13": "Grades 1-3",
+    "GR46": "Grades 4-6",
+    "GR78": "Grades 7-8",
+    "GRTK8": "Grades TK/K-8",
+    "GR912": "Grades 9-12",
+}
+"""EN display name for every D3 reporting-category code observed in the acquired
+2024-25 chronic absenteeism file (25 codes, counted 2026-08-21; PROVENANCE.md D3).
+These are CDE's own codes for this file, distinct from D2's ``RE_*``/``GN_*``/``SG_*``
+codes for the same underlying groups (D2's ``RE_A`` is this file's ``RA``): the two
+files were built by different parts of CDE and never share a code."""
+
+ABSENTEEISM_SUBGROUP_FAMILIES: dict[str, tuple[str, ...]] = {
+    "race_ethnicity": ("RA", "RB", "RD", "RF", "RH", "RI", "RP", "RT", "RW"),
+    "gender": ("GF", "GM", "GX"),
+    "student_groups": ("SD", "SE", "SF", "SH", "SM", "SS"),
+}
+"""The D3 subgroup families a profile renders, keyed by artifact family name. Grade
+spans (``GRTKKN``...``GR912``) are recognized in :data:`ABSENTEEISM_CATEGORY_NAMES`
+but not rendered as a subgroup here, the same treatment D2 gives ``AR_*``."""
+
+ABSENTEEISM_SUBGROUP_CODES: tuple[str, ...] = tuple(
+    code for family in ABSENTEEISM_SUBGROUP_FAMILIES.values() for code in family
+)
+
 
 class ProfileDriftError(ValueError):
     """Source data no longer matches what profile assembly was verified against."""
@@ -131,6 +193,14 @@ class SchoolProfile:
     build. That is a different fact from a school the file covers with everything
     withheld, and the two never collapse: the first says Homeroom has no source,
     the second says the state published a mask.
+
+    ``chronic_absenteeism_rate`` and ``chronic_absenteeism_subgroups`` are always
+    ``Measure`` values, never ``None``: unlike D5, whether a D3 source was
+    supplied to this build at all is recorded once, at the assembly level
+    (``ProfileAssembly.absenteeism_academic_year``), not per school, the same
+    choice D2's own ``total_enrollment``/``subgroups`` already make. A school this
+    build's D3 source never mentions and a build given no D3 source at all both
+    read ``not_reported`` here; the assembly-level field is what tells them apart.
     """
 
     school: School
@@ -139,6 +209,8 @@ class SchoolProfile:
     grades: dict[str, Measure]
     subgroups: dict[str, Measure]
     teacher_assignments: AssignmentRow | None
+    chronic_absenteeism_rate: Measure
+    chronic_absenteeism_subgroups: dict[str, Measure]
 
 
 @dataclass(frozen=True)
@@ -152,6 +224,9 @@ class ProfileAssembly:
     assignments_academic_year: str | None
     unjoined_assignment_rows: int | None
     schools_without_assignments: int | None
+    absenteeism_academic_year: str | None
+    unjoined_absenteeism_rows: int | None
+    schools_without_absenteeism: int | None
 
 
 def _spine(directory_path: Path) -> dict[str, School]:
@@ -211,15 +286,49 @@ def _assignment_rows(
     return years.pop(), by_school
 
 
+def _absenteeism_rows(
+    absenteeism_path: Path,
+) -> tuple[str, dict[str, dict[str, AbsenteeismRow]]]:
+    """School-level D3 rows keyed by CDS code then category, plus the academic
+    year. Mirrors :func:`_school_rows`, D2's own version of the same join."""
+    years: set[str] = set()
+    by_school: dict[str, dict[str, AbsenteeismRow]] = {}
+    for row in parse_absenteeism(absenteeism_path):
+        if row.category not in ABSENTEEISM_CATEGORY_NAMES:
+            raise ProfileDriftError(
+                f"{absenteeism_path.name}: Reporting Category {row.category!r} has "
+                "no reviewed display name; upstream added a code this project has "
+                "not reviewed, so the build stops rather than guessing"
+            )
+        years.add(row.academic_year)
+        if row.level != ABSENTEEISM_SCHOOL_LEVEL:
+            continue
+        rows = by_school.setdefault(row.cds_code, {})
+        if row.category in rows:
+            raise ProfileDriftError(
+                f"{absenteeism_path.name}: CDS {row.cds_code} carries two "
+                f"{row.category!r} rows; the one-row-per-category layout changed"
+            )
+        rows[row.category] = row
+    if len(years) != 1:
+        raise ProfileDriftError(
+            f"{absenteeism_path.name} carries academic years {sorted(years)}; "
+            "profile assembly was verified against exactly one"
+        )
+    return years.pop(), by_school
+
+
 def _profile(
     school: School,
     rows: dict[str, EnrollmentRow],
     academic_year: str,
     assignments: AssignmentRow | None,
+    absenteeism_rows: dict[str, AbsenteeismRow],
 ) -> SchoolProfile:
     """Copy published cells onto a profile. Absent rows are not reported, because
     the state published nothing; they are never filled in from arithmetic."""
     total_row = rows.get(TOTAL_CATEGORY)
+    absenteeism_total = absenteeism_rows.get(ABSENTEEISM_TOTAL_CATEGORY)
     return SchoolProfile(
         school=school,
         academic_year=academic_year,
@@ -234,6 +343,17 @@ def _profile(
             for code in SUBGROUP_CODES
         },
         teacher_assignments=assignments,
+        chronic_absenteeism_rate=(
+            absenteeism_total.rate if absenteeism_total else Measure.not_reported()
+        ),
+        chronic_absenteeism_subgroups={
+            code: (
+                absenteeism_rows[code].rate
+                if code in absenteeism_rows
+                else Measure.not_reported()
+            )
+            for code in ABSENTEEISM_SUBGROUP_CODES
+        },
     )
 
 
@@ -241,6 +361,8 @@ def assemble_profiles(
     directory_path: Path,
     enrollment_path: Path,
     assignments_path: Path | None = None,
+    *,
+    absenteeism_path: Path | None = None,
 ) -> ProfileAssembly:
     """One profile per active school, in CDS order, with join gaps counted.
 
@@ -248,9 +370,10 @@ def assemble_profiles(
     rows whose CDS matches no active school (closed schools still reporting, or
     spine lag), and active schools the file never mentions.
 
-    ``assignments_path`` is optional because D5 is a separate acquisition. Left
-    out, the assignment counts come back ``None`` rather than zero: no source is
-    not the same claim as a source that covers nothing.
+    ``assignments_path`` and ``absenteeism_path`` are both optional, so a caller
+    that only has the directory and enrollment files can still build profiles.
+    Left out, the corresponding counts come back ``None`` rather than zero: no
+    source is not the same claim as a source that covers nothing.
     """
     spine = _spine(directory_path)
     academic_year, by_school = _school_rows(enrollment_path)
@@ -259,12 +382,18 @@ def assemble_profiles(
         if assignments_path is not None
         else (None, {})
     )
+    absenteeism_year, absenteeism_by_school = (
+        _absenteeism_rows(absenteeism_path)
+        if absenteeism_path is not None
+        else (None, {})
+    )
     profiles = [
         _profile(
             spine[cds],
             by_school.get(cds, {}),
             academic_year,
             assignments.get(cds) if assignments_path is not None else None,
+            absenteeism_by_school.get(cds, {}),
         )
         for cds in sorted(spine)
     ]
@@ -288,6 +417,25 @@ def assemble_profiles(
         schools_without_assignments=(
             sum(1 for cds in spine if cds not in assignments)
             if assignments_path is not None
+            else None
+        ),
+        absenteeism_academic_year=absenteeism_year,
+        unjoined_absenteeism_rows=(
+            sum(
+                1
+                for cds, rows in absenteeism_by_school.items()
+                if ABSENTEEISM_TOTAL_CATEGORY in rows and cds not in spine
+            )
+            if absenteeism_path is not None
+            else None
+        ),
+        schools_without_absenteeism=(
+            sum(
+                1
+                for cds in spine
+                if ABSENTEEISM_TOTAL_CATEGORY not in absenteeism_by_school.get(cds, {})
+            )
+            if absenteeism_path is not None
             else None
         ),
     )
