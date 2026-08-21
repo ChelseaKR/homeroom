@@ -6,6 +6,11 @@
 verify: sync lint format typecheck test audit pages
 
 sync:
+	# `--locked`, not `--frozen`. `--frozen` installs from uv.lock WITHOUT
+	# reading pyproject.toml, so it cannot see the two disagree and it exits 0
+	# on a drifted lock. `--locked` re-resolves against pyproject.toml and
+	# exits 1 when uv.lock no longer matches it, which is the gate this line
+	# is here to be.
 	uv sync --locked
 
 lint:

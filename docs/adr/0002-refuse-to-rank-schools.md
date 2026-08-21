@@ -1,4 +1,4 @@
-# 0000. Refuse to rank schools
+# 0002. Refuse to rank schools
 
 Status: Accepted
 Date: 2026-08-07
