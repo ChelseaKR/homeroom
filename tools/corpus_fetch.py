@@ -34,6 +34,7 @@ import html
 import http.client
 import json
 import re
+import ssl
 import urllib.parse
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -159,7 +160,11 @@ def fetch(url: str) -> bytes:
     parts = urllib.parse.urlsplit(url)
     if parts.scheme != "https" or parts.netloc != CDE_HOST:
         raise SystemExit(f"refusing to fetch a non-CDE URL: {url}")
-    connection = http.client.HTTPSConnection(CDE_HOST, timeout=60)
+    # Python 3.12 with an explicit default context: certificates and hostname
+    # are verified. The semgrep audit rule fires on the class name alone.
+    connection = http.client.HTTPSConnection(  # nosemgrep: python.lang.security.audit.httpsconnection-detected.httpsconnection-detected
+        CDE_HOST, timeout=60, context=ssl.create_default_context()
+    )
     try:
         connection.request("GET", parts.path or "/", headers={"User-Agent": USER_AGENT})
         response = connection.getresponse()
