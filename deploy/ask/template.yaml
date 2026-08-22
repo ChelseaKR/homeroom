@@ -7,22 +7,29 @@
 # owner's decision; nothing in this repository applies it. See README.md.
 #
 # Deploying (by a person, after that decision):
-#   ./deploy/ask/build.sh                       -> dist/ask-lambda.zip (code + bundle + SDK)
-#   aws s3 cp dist/ask-lambda.zip s3://<bucket>/ask/<sha>.zip
 #   aws cloudformation deploy --template-file deploy/ask/template.yaml \
 #     --stack-name homeroom-ask --capabilities CAPABILITY_IAM \
-#     --parameter-overrides CodeBucket=<bucket> CodeKey=ask/<sha>.zip \
-#       SiteOrigin=https://<site> Provider=bedrock Model=global.anthropic.claude-sonnet-4-6
+#     --parameter-overrides DeployFunction=false SiteOrigin=https://<site> \
+#       Provider=bedrock Model=<model> BedrockModelArns=<arns>
+#   ./deploy/ask/build.sh                       -> dist/ask-lambda.zip (code + bundle + SDK)
+#   aws s3 cp dist/ask-lambda.zip s3://<stack code bucket>/ask/<sha>.zip
+#   aws cloudformation deploy ... DeployFunction=true CodeKey=ask/<sha>.zip ...
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Homeroom ask service (ADR 0003). Unofficial; not affiliated with CDE.
 
 Parameters:
-  CodeBucket:
+  DeployFunction:
     Type: String
-    Description: S3 bucket holding the built zip (build.sh output).
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: >-
+      Two-phase deploy, so everything stays inside this one stack: phase one
+      ("false") creates only the private code bucket; a person uploads
+      build.sh's zip to it; phase two ("true") creates the function and URL.
   CodeKey:
     Type: String
-    Description: S3 key of the built zip.
+    Default: ""
+    Description: S3 key of the built zip inside the stack's own code bucket.
   SiteOrigin:
     Type: String
     Description: The only origin allowed to call (scheme + host, no path).
@@ -36,10 +43,12 @@ Parameters:
     Type: String
     Default: claude-sonnet-5
     Description: Model id. For bedrock, the inference profile id the account can invoke.
-  BedrockModelArn:
-    Type: String
-    Default: "arn:aws:bedrock:*::foundation-model/*"
-    Description: Narrow this to the exact model/profile ARN(s) before deploying.
+  BedrockModelArns:
+    Type: CommaDelimitedList
+    Description: >-
+      Exactly the ARNs the function may invoke: the inference-profile ARN and
+      the foundation-model ARN(s) it routes to. No default on purpose; a
+      wildcard here would be a wider grant than the one model the service runs.
   ApiKey:
     Type: String
     Default: ""
@@ -59,20 +68,40 @@ Parameters:
     Description: Hard ceiling on concurrent executions, which is the real cost bound.
   DailyInvocationAlarm:
     Type: Number
-    Default: 1000
-    Description: Alarm when invocations in 24h exceed this.
-  AlarmTopicArn:
-    Type: String
-    Default: ""
-    Description: Optional SNS topic for the alarm.
+    Default: 400
+    Description: Alarm when invocations in 24h exceed this (the daily cap).
 
 Conditions:
   UsesAnthropic: !Equals [!Ref Provider, anthropic]
-  HasAlarmTopic: !Not [!Equals [!Ref AlarmTopicArn, ""]]
+  FunctionPhase: !Equals [!Ref DeployFunction, "true"]
 
 Resources:
+  CodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-code-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-alarms"
+      # No subscription is created here: an alert address is the owner's to
+      # give. Until one is subscribed, the alarm still records its state in
+      # CloudWatch; subscribing later needs no stack change.
   Role:
     Type: AWS::IAM::Role
+    Condition: FunctionPhase
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -89,16 +118,18 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
-                Resource: !Ref BedrockModelArn
+                Resource: !Ref BedrockModelArns
 
   LogGroup:
     Type: AWS::Logs::LogGroup
+    Condition: FunctionPhase
     Properties:
       LogGroupName: !Sub "/aws/lambda/${AWS::StackName}"
       RetentionInDays: 14
 
   Function:
     Type: AWS::Lambda::Function
+    Condition: FunctionPhase
     DependsOn: LogGroup
     Properties:
       FunctionName: !Ref AWS::StackName
@@ -115,6 +146,11 @@ Resources:
       Environment:
         Variables:
           HOMEROOM_ASK_BUNDLE: /var/task/bundle
+          # Both data roots are named explicitly. The corpus default is derived
+          # from the source tree's shape, which the deployment package does not
+          # have; naming it here is what makes the package layout build.sh
+          # chooses the layout that runs.
+          HOMEROOM_ASK_CORPUS: /var/task/corpus
           HOMEROOM_ASK_PROVIDER: !Ref Provider
           HOMEROOM_ASK_MODEL: !Ref Model
           HOMEROOM_ASK_ORIGIN: !Ref SiteOrigin
@@ -124,6 +160,7 @@ Resources:
 
   Url:
     Type: AWS::Lambda::Url
+    Condition: FunctionPhase
     Properties:
       TargetFunctionArn: !GetAtt Function.Arn
       AuthType: NONE
@@ -136,14 +173,43 @@ Resources:
 
   UrlPermission:
     Type: AWS::Lambda::Permission
+    Condition: FunctionPhase
     Properties:
       FunctionName: !Ref Function
       Action: lambda:InvokeFunctionUrl
       Principal: "*"
       FunctionUrlAuthType: NONE
 
+  # A second grant, and it is not redundant. With only the InvokeFunctionUrl
+  # grant above, every request to the Function URL returned 403 Forbidden while
+  # the CORS preflight (which the URL service answers before the request reaches
+  # the function) returned 200 -- so the URL was configured correctly and the
+  # invoke itself was what was denied. This account also requires
+  # `lambda:InvokeFunction` before an unauthenticated caller can run the
+  # function. Measured on 2026-08-22 against a live deploy, not assumed.
+  #
+  # It is not narrowed by `FunctionUrlAuthType`, because Lambda rejects that
+  # property on any action but InvokeFunctionUrl ("FunctionUrlAuthType is only
+  # supported for lambda:InvokeFunctionUrl action"), and CloudFormation cannot
+  # express the `lambda:InvokedViaFunctionUrl` condition that would narrow it
+  # instead. What that costs is bounded: this function's URL is already public
+  # and unauthenticated by design (ADR 0003), so the only thing this grant adds
+  # is that a caller who already holds AWS credentials may reach the same
+  # handler through the Invoke API instead of through the URL. It is the same
+  # code, the same one-school-per-request shape, the same verifier, and the same
+  # reserved concurrency and daily cap bounding the spend. Nothing reachable
+  # this way is unreachable with curl.
+  UrlInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: FunctionPhase
+    Properties:
+      FunctionName: !Ref Function
+      Action: lambda:InvokeFunction
+      Principal: "*"
+
   InvocationAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: FunctionPhase
     Properties:
       AlarmDescription: Ask service invocations in a day exceeded the envelope.
       Namespace: AWS/Lambda
@@ -157,9 +223,16 @@ Resources:
       Threshold: !Ref DailyInvocationAlarm
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
-      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      AlarmActions: [!Ref AlarmTopic]
 
 Outputs:
+  CodeBucketName:
+    Value: !Ref CodeBucket
+    Description: Upload build.sh's zip here, then redeploy with DeployFunction=true.
+  AlarmTopicArn:
+    Value: !Ref AlarmTopic
+    Description: Subscribe an owner address to receive the daily-invocation alarm.
   FunctionUrl:
+    Condition: FunctionPhase
     Value: !GetAtt Url.FunctionUrl
     Description: Pass this to the site build as --ask-endpoint.

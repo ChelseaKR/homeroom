@@ -6,14 +6,19 @@
 #   corpus/            the committed CDE definitions (hash-checked at load)
 #   bundle/            the evidence bundle (index.json + schools/*.json), built
 #                      from the acquired files by `homeroom.ask.evidence`
-#   site-packages      the `anthropic` SDK and its dependencies for arm64
+#   site-packages      the `anthropic` SDK with its `bedrock` extra (boto3 and
+#                      botocore, which AnthropicBedrock signs requests with) and
+#                      the rest of its dependencies, for arm64
 #
 # Requires: uv, zip, and data/out/ask built from the acquired files
-# (`make data` then the evidence command in deploy/ask/README.md). The zip is
-# ~9 MB compressed (the bundle is 206 MB on disk and compresses to ~8 MB);
-# Lambda's limit is 250 MB unzipped, which the bundle's 206 MB plus the SDK
-# fits under, but not by much: if a fourth data source lands, move the bundle
-# to S3 and read one school per request instead of packaging it.
+# (`make data` then the evidence command in deploy/ask/README.md). Lambda's
+# limit is 250 MB unzipped and this package measures ~240 MB of it, almost all
+# of it the evidence bundle. That margin is thin on purpose-free grounds: it is
+# what is left, not what was chosen. A fourth data source, or anything that
+# grows the bundle, does not fit, and the fix is to move the bundle to S3 and
+# read one school per request (a small change to
+# `homeroom.ask.evidence.load_school`) rather than to drop schools or trim
+# data. The script prints the measured size so the margin is never a guess.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -29,9 +34,12 @@ PY
 
 rm -rf dist/ask-build dist/ask-lambda.zip
 mkdir -p dist/ask-build
+# The bedrock extra, not the bare SDK: `anthropic.AnthropicBedrock` signs with
+# botocore, and the Lambda runtime's own boto3 is an implicit dependency on a
+# version nobody here pinned.
 uv pip install --python 3.12 --target dist/ask-build \
   --python-platform aarch64-manylinux2014 --only-binary :all: \
-  "anthropic>=1.0,<2" >/dev/null
+  "anthropic[bedrock]>=1.0,<2" >/dev/null
 cp -R src/homeroom dist/ask-build/homeroom
 cp -R corpus dist/ask-build/corpus
 mkdir -p dist/ask-build/bundle
@@ -39,5 +47,20 @@ cp "$BUNDLE/index.json" dist/ask-build/bundle/
 cp -R "$BUNDLE/schools" dist/ask-build/bundle/schools
 find dist/ask-build -name "__pycache__" -type d -prune -exec rm -rf {} +
 ( cd dist/ask-build && zip -qr ../ask-lambda.zip . )
-du -sh dist/ask-build dist/ask-lambda.zip
-echo "built dist/ask-lambda.zip; nothing deployed"
+# Lambda measures the unzipped package, so measure that, not the directory's
+# disk usage: `du` rounds every file up to a block and overstates a tree of
+# 10,000 small JSON files by tens of megabytes. Sizing in python keeps this
+# script working anywhere that can already run the fixture check above.
+python3 - dist/ask-build <<'SIZE'
+import pathlib, sys
+limit = 250 * 1024 * 1024
+root = pathlib.Path(sys.argv[1])
+total = sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
+print(f"unzipped: {total} bytes ({total / 1048576:.1f} MB, "
+      f"{100 * total / limit:.1f}% of Lambda's 250 MB limit)")
+if total > limit:
+    sys.exit("package exceeds Lambda's 250 MB unzipped limit: move the bundle "
+             "to S3 and read one school per request; do not drop schools")
+SIZE
+du -sh dist/ask-lambda.zip
+echo "built dist/ask-lambda.zip"
