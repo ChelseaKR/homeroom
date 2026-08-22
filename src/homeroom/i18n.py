@@ -293,6 +293,18 @@ UI: dict[Locale, dict[str, str]] = {
             "in the directory file this build was made from, or the code may "
             "be mistyped."
         ),
+        # The same list of examples, said twice, because the two moments are
+        # different. This one is help, shown before anything is asked; the
+        # refusal below is an answer to a question that was actually asked and
+        # opens by saying so. The ask page used to show the refusal as its
+        # standing help text, which told every reader that their question was
+        # unclear before they had typed one.
+        "ask_page_examples": (
+            "You can ask about total enrollment, enrollment by grade or by "
+            "student group, chronic absenteeism overall or by student group, "
+            "how a figure compares with the district or the state, or what a "
+            "measure means and how it is calculated."
+        ),
         "ask_refusal_unclear": (
             "It is not clear which published figure the question is about. "
             "You can ask about total enrollment, enrollment by grade or by "
@@ -588,6 +600,16 @@ UI: dict[Locale, dict[str, str]] = {
             "así que no hay nada de dónde responder. Puede que la escuela haya "
             "cerrado, que no esté en el archivo del directorio con el que se "
             "hizo esta versión, o que el código esté mal escrito."
+        ),
+        # La misma lista de ejemplos, dicha dos veces, porque los dos momentos
+        # son distintos. Esta es la ayuda que se muestra antes de preguntar
+        # nada; la negativa de abajo responde a una pregunta que sí se hizo y
+        # empieza diciéndolo.
+        "ask_page_examples": (
+            "Puede preguntar por la matrícula total, la matrícula por grado o "
+            "por grupo de estudiantes, el ausentismo crónico en general o por "
+            "grupo de estudiantes, cómo se compara una cifra con el distrito o "
+            "con el estado, o qué significa una medida y cómo se calcula."
         ),
         "ask_refusal_unclear": (
             "No queda claro a qué cifra publicada se refiere la pregunta. Puede "

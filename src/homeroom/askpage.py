@@ -236,7 +236,7 @@ def render_ask_page(
             f"<p>{_esc(text(locale, 'footer_no_ranking'))}</p>\n"
             "</div>",
             f"<p>{_esc(text(locale, 'ask_page_intro'))}</p>",
-            f"<p>{_esc(text(locale, 'ask_refusal_unclear'))}</p>",
+            f"<p>{_esc(text(locale, 'ask_page_examples'))}</p>",
             '<form id="ask-form" class="ask-form" hidden>',
             f'<label for="ask-question">{_esc(text(locale, "ask_page_label_question"))}</label>',
             '<textarea id="ask-question" name="question" maxlength="600" required '

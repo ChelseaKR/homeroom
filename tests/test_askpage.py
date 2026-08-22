@@ -9,13 +9,14 @@ language, and the build is deterministic.
 
 from __future__ import annotations
 
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
 
 from homeroom.askpage import ask_page_name, render_ask_page
-from homeroom.i18n import LOCALES, Locale, text
+from homeroom.i18n import LOCALES, UI, Locale, text
 from homeroom.render import page_name
 from homeroom.site import build_site
 
@@ -161,7 +162,7 @@ def test_the_ask_page_says_what_it_is_in_its_own_language(with_ask: Path) -> Non
                 "ask_label_ai",
                 "footer_no_ranking",
                 "footer_unaffiliated",
-                "ask_refusal_unclear",
+                "ask_page_examples",
                 "ask_page_intro",
                 "ask_page_noscript",
                 "ask_page_label_question",
@@ -222,3 +223,34 @@ def test_render_ask_page_without_fixture_banner(with_ask: Path) -> None:
     assert ask_page_name(profile.school.cds_code, "es") == (
         f"ask/{profile.school.cds_code}.es.html"
     )
+
+
+def test_the_ask_page_says_nothing_untrue_before_a_question_is_asked() -> None:
+    """Standing help must not be a refusal, because a refusal answers something.
+
+    The page used to print `ask_refusal_unclear` as its help text, so every
+    reader was told "It is not clear which published figure the question is
+    about" before they had typed one. It is a fine sentence in reply to a
+    question nobody could interpret and a false one addressed to a person who
+    has not spoken yet -- and this project's whole claim is that it does not
+    put untrue sentences in front of families.
+    """
+    from homeroom.profiles import assemble_profiles
+
+    assembly = assemble_profiles(
+        FIXTURES / "pubschls.sample.txt", FIXTURES / "cdenroll.sample.txt"
+    )
+    profile = assembly.profiles[0]
+    for locale in LOCALES:
+        markup = render_ask_page(
+            profile, locale=locale, endpoint=ENDPOINT, is_fixture=False
+        )
+        # The refusals do ship on the page, inside the JSON the script reads,
+        # because the script is what renders them when one is actually earned.
+        # What must not happen is one being *displayed* before that. So this
+        # reads the document with every script element removed.
+        body = re.sub(r"<script\b.*?</script>", "", markup, flags=re.S)
+        assert text(locale, "ask_page_examples") in body, locale
+        for key, value in UI[locale].items():
+            if key.startswith("ask_refusal_"):
+                assert value not in body, (locale, key)
