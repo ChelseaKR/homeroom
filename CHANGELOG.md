@@ -63,6 +63,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the PRs that follow and is listed here as it does.
 
 ### Fixed
+- **The live ask page told every reader their question was unclear before they
+  had typed one.** It used the refusal string `ask_refusal_unclear` as its
+  standing help text, so the page opened with "It is not clear which published
+  figure the question is about" addressed to somebody who had not spoken yet.
+  The useful half of that string is the list of things you can ask about, so
+  the list is now its own key (`ask_page_examples`, both locales) and the
+  refusal stays a refusal. A test renders the page with every `<script>`
+  removed -- the refusals legitimately ship inside the JSON the script reads,
+  and the question is only ever whether one is *displayed* unearned -- and
+  asserts no refusal appears in what a reader sees. Found by looking at a
+  screenshot of the live page. One more bilingual string (193 keys per locale).
 - **The deployed ask page could not reach its service from a browser, and said
   so in the one string that hides why.** Both the Lambda Function URL's `Cors`
   configuration and the handler set `access-control-allow-origin`, so the
@@ -114,7 +125,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for, so a build without `--landing` is byte-identical to one from before it
   existed, which `tests/test_landing.py` asserts by diffing the two builds.
   html-validate and axe-core cover it in `make pages` (zero violations). Two
-  more bilingual strings (192 keys per locale).
+  more bilingual strings (193 keys per locale).
 - `homeroom.ask.http`: the HTTP edge of the ask service, a stdlib
   `ThreadingHTTPServer` for local use (`make ask-serve`) and an AWS Lambda
   Function URL handler, both thin over `AskService`: JSON in, the public JSON
@@ -144,7 +155,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requests on load and exactly one POST on submit, rendered as text; it runs
   in `make pages` beside html-validate and axe-core, which now cover the ask
   pages too (zero violations, both languages). Seventeen more fixed
-  bilingual strings (192 keys per locale).
+  bilingual strings (193 keys per locale).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
@@ -338,7 +349,7 @@ files a person downloaded from CDE's public data pages.
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 192 keys per locale, 384
+- English and Spanish as peers (`src/homeroom/i18n.py`): 193 keys per locale, 386
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
   and 10 interface strings at M3, and before the ask layer added 33 fixed
   interface strings under ADR 0003), covering every reporting category, grade span,
