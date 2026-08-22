@@ -208,6 +208,7 @@ td.c-district { border-left-color: var(--rule-strong); }
 .s-withheld { color: var(--withheld); font-style: italic; }
 .s-nothing { color: var(--nothing); }
 .coverage-note { color: var(--ink-2); font-size: .93rem; }
+.ask { margin: 0 0 1.5rem; }
 .sources dt { font-weight: 600; margin-top: .9rem; }
 .sources dd { margin: 0; color: var(--ink-2); }
 main { padding-bottom: 3rem; }
@@ -767,6 +768,16 @@ def _header(profile: SchoolProfile, locale: Locale) -> str:
     )
 
 
+def _ask_link(locale: Locale, href: str) -> str:
+    """The opt-in (ADR 0003): one plain link to the school's ask page.
+
+    No script, no form, no request. The page it points at is the only page in
+    the build that carries a script, and it makes no request until a question
+    is submitted. A build not given an endpoint never calls this.
+    """
+    return f'<p class="ask"><a href="{_esc(href)}">{_esc(text(locale, "ask_link"))}</a></p>'
+
+
 def render_school(
     profile: SchoolProfile,
     *,
@@ -776,6 +787,7 @@ def render_school(
     is_fixture: bool,
     context: EnrollmentContext | None = None,
     absenteeism_context: AbsenteeismContext | None = None,
+    ask_href: str | None = None,
 ) -> str:
     """One school, one language, as a complete standalone HTML document.
 
@@ -786,6 +798,9 @@ def render_school(
     absenteeism section itself only appears when ``cover.absenteeism_supplied``:
     a build with no D3 source says so in words in the "not yet" section instead
     of rendering an empty table.
+
+    ``ask_href`` adds the one link to the school's ask page (ADR 0003). Left
+    ``None``, the page is byte-identical to one rendered before that ADR.
     """
     school = profile.school
     district = (
@@ -819,6 +834,7 @@ def render_school(
         f"<h1>{_cde(school.name, locale)}</h1>",
         *([_fixture_banner(locale)] if is_fixture else []),
         _identity(profile, locale),
+        *([_ask_link(locale, ask_href)] if ask_href else []),
         _how_to_read(locale),
         _students_section(profile, locale, cover, district, state),
         _grades_section(profile, locale, cover, district, state),

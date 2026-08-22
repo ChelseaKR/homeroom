@@ -1,5 +1,6 @@
 .PHONY: verify sync lint format typecheck test audit data data-offline \
-        site site-offline pages node-sync htmlvalidate a11y node-audit
+        site site-offline pages node-sync htmlvalidate a11y ask-optin node-audit \
+        ask-bundle ask-serve
 
 # CI / `make verify` body — the two MUST stay byte-for-byte identical.
 # See STANDARDS/CODE-QUALITY-STANDARD.md §2 and .github/workflows/ci.yml.
@@ -48,14 +49,34 @@ data-offline:
 # family page has to get right first.
 SCHOOL ?= 57726786056246
 
+# The ask layer (ADR 0003) is opt-in at build time too. Set ASK_ENDPOINT to the
+# URL of a running ask service to add one link per school page and write the
+# ask pages under build/site/ask/; leave it empty (the default, because nothing
+# is deployed) and the build is byte-identical to one before ADR 0003.
+ASK_ENDPOINT ?=
+
 site:
-	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out build/site
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out build/site $(if $(ASK_ENDPOINT),--ask-endpoint $(ASK_ENDPOINT),)
+
+# The evidence bundle the ask service reads: one small file per school, from
+# the same acquired files and the same assembly code as the pages.
+ask-bundle:
+	uv run python -m homeroom.ask.evidence --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --out data/out/ask
+
+# Serve the ask service locally. Needs HOMEROOM_ASK_PROVIDER (and, for bedrock,
+# HOMEROOM_ASK_MODEL and AWS_REGION) in the environment; without a provider it
+# answers "unavailable" and the page stands.
+ask-serve:
+	HOMEROOM_ASK_BUNDLE=data/out/ask uv run --extra ask --extra ask-bedrock python -m homeroom.ask.http
 
 # The same renderer over committed fixtures: every school, both languages, every
 # rendering case (published, genuine zero, withheld, nothing published), no
-# acquired file, no network. This is what the gates below read.
+# acquired file, no network. This is what the gates below read. The fixture
+# build is given a placeholder ask endpoint (an .invalid name, which can never
+# resolve) so the ask pages exist to be gated; tools/ask-optin.mjs proves they
+# request nothing until a question is submitted.
 site-offline:
-	uv run python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --out build/site-offline
+	uv run python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --ask-endpoint https://ask.example.invalid --out build/site-offline
 
 # The accessibility gate the README's standards table promises from the first
 # school page. Builds the pages from fixtures, then checks the markup two ways:
@@ -65,16 +86,23 @@ site-offline:
 # again in `test`, so `make verify` still has a floor if the node toolchain is
 # unavailable. What none of this can do is look at the pages; README.md names what
 # still needs a person.
-pages: site-offline node-sync htmlvalidate a11y node-audit
+pages: site-offline node-sync htmlvalidate a11y ask-optin node-audit
 
 node-sync:
 	npm ci
 
 htmlvalidate:
-	npx html-validate "build/site-offline/*.html"
+	npx html-validate "build/site-offline/**/*.html"
 
 a11y:
 	node tools/a11y.mjs build/site-offline
+	node tools/a11y.mjs build/site-offline/ask
+
+# The ask page is the one page that carries a script. This loads each one in a
+# DOM with every network path stubbed and asserts zero requests on load and
+# exactly one POST on submit, rendered as text only.
+ask-optin:
+	node tools/ask-optin.mjs build/site-offline
 
 node-audit:
 	npm audit --audit-level=high

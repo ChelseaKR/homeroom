@@ -182,6 +182,18 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     built M3 has had a browser available to attempt even a keyboard-only pass —
     stated here rather than left implicit, so automated coverage is never read
     as a stand-in for the human step it explicitly is not.
+  - AUTO (in place, ADR 0003, 2026-08-22): the ask page is the first page with
+    an interactive control. It is a native form (labelled textarea, submit
+    button), a `noscript` note, an `aria-live="polite"` answer region, and a
+    focusable answer heading that receives focus when an answer lands, so a
+    screen reader is told an answer arrived. html-validate and axe-core run
+    over the ask pages in both languages in `make pages` (zero violations),
+    and `tools/ask-optin.mjs` exercises the form in a DOM. What this adds to
+    the open walkthrough (RR-05, issue #6): whether the answer region reads
+    sensibly with a screen reader, whether the citation links are usable by
+    keyboard in practice, and how the form reflows on a phone. None of that
+    has been tried by a person; no session that built it had a browser or a
+    screen reader. Issue #6 stays open and now covers the ask page too.
 
 ## F. Security
 
