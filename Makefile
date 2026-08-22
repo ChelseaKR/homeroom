@@ -11,7 +11,7 @@ sync:
 	# on a drifted lock. `--locked` re-resolves against pyproject.toml and
 	# exits 1 when uv.lock no longer matches it, which is the gate this line
 	# is here to be.
-	uv sync --locked
+	uv sync --locked --extra ask
 
 lint:
 	uv run ruff check .

@@ -14,6 +14,14 @@ authors = [
 readme = "README.md"
 dependencies = []
 
+[project.optional-dependencies]
+# The ask layer (ADR 0003). The core package stays stdlib-only; homeroom.ask
+# imports the SDK lazily and only when a provider is configured.
+ask = ["anthropic>=1.0,<2"]
+# Amazon Bedrock through the same SDK (adds boto3). Install for live
+# evaluation runs against Bedrock; not needed for `make verify`.
+ask-bedrock = ["anthropic[bedrock]>=1.0,<2"]
+
 [dependency-groups]
 dev = [
   "ruff>=0.15.0",
