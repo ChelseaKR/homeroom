@@ -43,8 +43,9 @@
    sentence is verified against those records before display and withheld
    otherwise; the refusal strings are fixed; the daily cap and per-client limit
    bound cost; nothing is stored or logged. The provider's retention of the
-   request while it is processed is a subprocessor relationship that a
-   deployment must document.
+   request while it is processed is a subprocessor relationship, documented
+   in the subprocessor record in `docs/RESPONSIBLE-TECH-AUDITS.md` (Privacy),
+   owner-approved 2026-08-22.
 
 ## STRIDE table
 

@@ -103,6 +103,39 @@ this framework to a repo", step 2).
     PROVENANCE.md is the data inventory. This becomes wrong, and a DPIA becomes
     owed, if any non-public or individual-level data ever enters scope.
 
+### Subprocessor record (ADR 0003 ask service)
+
+The ask service sends data to exactly one subprocessor, and only when a reader
+opts in by submitting a question on an ask page. Recorded here before any
+family-facing exposure, per the deployment runbook (`deploy/ask/README.md`).
+
+- **Subprocessor:** Amazon Web Services — Amazon Bedrock (region `us-west-2`),
+  running an Anthropic Claude model. The model actually deployed is named in
+  `deploy/ask/README.md` and in every evaluation results file; on the record
+  date it is `global.anthropic.claude-sonnet-4-6` (the account's Sonnet 5
+  entitlement had not cleared; see `evals/results/`).
+- **What is sent, per request:** the reader's question text, and the published
+  evidence bundle for the one school the page is about (already-public CDE
+  aggregate figures, the same ones on the page). Nothing else.
+- **What is never sent:** no name, no account, no email, no address (IP or
+  postal), no cookie, no identifier of the reader; the service has none of
+  these to send. The rate-limit key is a salted hash that never leaves the
+  service process.
+- **What is never stored:** the service keeps no request body, writes no
+  question to disk or logs (the HTTP access log is silenced;
+  `tests/test_ask_http.py` asserts the question appears in no output), and
+  returns nothing it did not compute for that request.
+- **Retention at the subprocessor:** per AWS's Amazon Bedrock service terms,
+  Bedrock does not store or log prompts and completions for on-demand
+  inference and does not use them to train models, and Anthropic does not
+  receive them. The request exists at AWS for the duration of processing.
+- **Basis:** the reader's explicit opt-in action (typing and submitting a
+  question on a page labeled as AI, unofficial, and answered from published
+  data). No question is sent on page load; `tools/ask-optin.mjs` proves it.
+- **Recorded:** 2026-08-22. **Owner sign-off:** approved by Chelsea Kelly-Reif,
+  2026-08-22 (deployment authorization, relayed with the site origin
+  decision).
+
 ## D. Transparency
 
 - Commitments: every figure traces to a named public file with an access date
