@@ -1,0 +1,51 @@
+Chronic Absenteeism Data
+
+Downloadable data files containing Chronic Absenteeism data by race/ethnicity, gender, student group, and grade span. "Eligible" cumulative enrollment, chronic absenteeism counts, and chronic absenteeism rate data are provided.
+
+Files include state, county, district, and school-level data. Refer to the file structure for further details regarding the file contents. Data are not included for districts and independently reporting charter schools (IRCs) that did not certify their
+
+California Longitudinal Pupil Achievement Data System (CALPADS) End-of-Year 3 submission.
+
+Note: To protect student privacy, data are suppressed (*) on the Chronic Absenteeism downloadable files if the cell size within a selected student population (Chronic Absenteeism Eligible Cumulative Enrollment) is 10 or less. Additionally, for Race/Ethnicity, "Not Reported" is suppressed, regardless of actual cell size, if the student population for one or more other race/ethnicity groups is suppressed.
+
+PLEASE BE ADVISED: The COVID-19 pandemic resulted in statewide physical school closures in February/March 2020 followed by the widespread implementation of distance learning during the 2020–21 academic year. The
+
+California Department of Education (CDE) has determined that absenteeism data are not valid and reliable for the 2019–20 academic year; therefore, the CDE has not processed these data and they are unavailable for public release. The CDE recommends caution when comparing absenteeism data across academic years. For more information about the impact of COVID-19 on data reporting, please visit the CDE COVID-19 and Data Reporting web page.
+
+Year of Data
+
+File Structure
+
+chronicabsenteeism25(TXT; 33MB; Updated 13-Mar-2026)
+
+File Structure: Chronic Absenteeism Data
+
+chronicabsenteeism24(TXT; 33MB; Posted 21-Nov-2024)
+
+File Structure: Chronic Absenteeism Data
+
+chronicabsenteeism23(TXT; 32MB; Posted 18-Oct-2023)
+
+File Structure: Chronic Absenteeism Data
+
+chronicabsenteeism22(TXT; 32MB; Updated 18-Oct-2023)
+
+File Structure: Chronic Absenteeism Data
+
+chronicabsenteeism21(TXT; 24MB; Posted 07-Jan-2022)
+
+File Structure: Chronic Absenteeism Data
+
+chronicabsenteeism19(TXT; 22MB; Updated 07-Jan-2022)
+
+File Structure: Chronic Absenteeism Data
+
+chronicabsenteeism18(TXT; 22MB; Updated 07-Jan-2022)
+
+File Structure: Chronic Absenteeism Data
+
+chronicabsenteeism17(TXT; 22MB; Updated 07-Jan-2022)
+
+File Structure: Chronic Absenteeism Data
+
+Instructions: Click on the file name you wish to download and save the file to your computer. To view the file, open the file in a database or spreadsheet program.

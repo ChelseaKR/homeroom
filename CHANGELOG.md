@@ -23,6 +23,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `SECURITY.md`, `CONTRIBUTING.md`, and a new `AGENTS.md`); the code lands in
   the PRs that follow and is listed here as it does.
 
+### Added
+- `corpus/`: the text of six CDE pages (chronic absenteeism file structure and
+  download page, the Child Welfare & Attendance page with the statutory
+  definition of a chronic absentee, the Census Day enrollment file structure
+  and download page, the public-schools directory file structure), retrieved
+  by the new `tools/corpus_fetch.py` with URL, retrieval date, the page's own
+  "Last Reviewed" date, and SHA-256 of both the HTML received and the text
+  committed, in `corpus/manifest.json`. `homeroom.ask.corpus` loads them,
+  refuses a file whose hash no longer matches the manifest, and decides
+  whether a quote is verbatim (whitespace and typographic marks normalised,
+  every word checked, quotes under four words refused). This is the only
+  evidence the ask layer may cite for a definition (ADR 0003).
+
 ### Fixed
 - A cell that is not a published number could become one. `parse_cell` handed
   anything that was not `*` or empty straight to `float`, and `float` accepts a

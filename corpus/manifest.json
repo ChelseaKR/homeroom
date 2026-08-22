@@ -1,0 +1,74 @@
+{
+  "cwa": {
+    "url": "https://www.cde.ca.gov/ls/ai/cw/",
+    "title": "Child Welfare & Attendance (California definition of chronic absentee)",
+    "measures": [
+      "absenteeism"
+    ],
+    "retrieved": "2026-08-22",
+    "last_reviewed_per_page": "Wednesday, April 01, 2026",
+    "sha256_html": "b4f39fe6642f4b297ee33c208b71d654855f6757f0ba380c05284d4d1bf9d86b",
+    "sha256_text": "ee4201bcc5c283339c02e07b8f7803213499eb3a41ba06fee649e4970291c139",
+    "passages": 58
+  },
+  "filesabd": {
+    "url": "https://www.cde.ca.gov/ds/ad/filesabd.asp",
+    "title": "Chronic Absenteeism Data (downloadable files)",
+    "measures": [
+      "absenteeism"
+    ],
+    "retrieved": "2026-08-22",
+    "last_reviewed_per_page": "Tuesday, April 07, 2026",
+    "sha256_html": "63b4dd083701f216d9bf263c68b8d15539a93acecf5a094d983314dde5c2de48",
+    "sha256_text": "5052e1aeac6e193a68654428f0baf9a585a537a65b42eef968f7372c6ae1880e",
+    "passages": 26
+  },
+  "filesenrcensus": {
+    "url": "https://www.cde.ca.gov/ds/ad/filesenrcensus.asp",
+    "title": "Census Day Enrollment Data (downloadable files)",
+    "measures": [
+      "enrollment"
+    ],
+    "retrieved": "2026-08-22",
+    "last_reviewed_per_page": "Thursday, April 16, 2026",
+    "sha256_html": "50b1e210b14a493b23f0ef31b85feefe1f81ddcd160f5f965abe8a6004b6b21a",
+    "sha256_text": "114dd7a02b63b9662cbb260d06096393b66d77d005af19cce2da6f1026ee92e6",
+    "passages": 17
+  },
+  "fsabd": {
+    "url": "https://www.cde.ca.gov/ds/ad/fsabd.asp",
+    "title": "File Structure: Chronic Absenteeism Data",
+    "measures": [
+      "absenteeism"
+    ],
+    "retrieved": "2026-08-22",
+    "last_reviewed_per_page": "Thursday, April 30, 2026",
+    "sha256_html": "1a15267e79deb94a61f6ebf27edcd96864acfbf0b7fb1c595d85871843b195b4",
+    "sha256_text": "5c693bafda85aa5a59cd43c164048da598b3dc2d056b136ce07964d20c98fdc4",
+    "passages": 95
+  },
+  "fsenrcensus": {
+    "url": "https://www.cde.ca.gov/ds/ad/fsenrcensus.asp",
+    "title": "File Structure: Census Day Enrollment Data",
+    "measures": [
+      "enrollment"
+    ],
+    "retrieved": "2026-08-22",
+    "last_reviewed_per_page": "Tuesday, February 17, 2026",
+    "sha256_html": "fb5795a40552f165ae3d936d0f28fc7a9f5c310704e09a23014a34fa1e45099d",
+    "sha256_text": "8b2ff986e5b30308247a6e32b7788e14d0bba47fbd25b8953f69601a1a073ace",
+    "passages": 118
+  },
+  "fspubschls": {
+    "url": "https://www.cde.ca.gov/ds/si/ds/fspubschls.asp",
+    "title": "File Structure: Public Schools and Districts",
+    "measures": [
+      "directory"
+    ],
+    "retrieved": "2026-08-22",
+    "last_reviewed_per_page": "Wednesday, August 27, 2025",
+    "sha256_html": "859abedf44b22f87d4cd4157c9a71e866b78dc60f5a0ab98dad1ad42658f196c",
+    "sha256_text": "57f441d9c566576e18dda16147da3df0a55aeeafa01144d2adb8e1858e74016a",
+    "passages": 140
+  }
+}

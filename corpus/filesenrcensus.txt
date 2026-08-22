@@ -1,0 +1,33 @@
+Census Day Enrollment Data
+
+Downloadable data files containing annual Census Day Transitional Kindergarten/Kindergarten–12 (TK/K–12) enrollment data disaggregated by grade, race/ethnicity, gender, and other student details.
+
+The official annual enrollment is a single-day snapshot of the total number of TK/K–12 students enrolled on Census Day, the first Wednesday in October, who have primary and short-term enrollments. Census Day enrollment counts are calculated at each reporting level (e.g., state, county, district, and school) and are considered distinct, unduplicated counts that are additive from one reporting level to the next.
+
+The file includes state, county, district, and school-level data. Refer to the file structure for further details regarding the file's contents. Data are not included for districts and independently reporting charter schools (IRCs) that did not certify their annual Fall 1 data submission in the California Longitudinal Pupil Achievement Data System (CALPADS).
+
+Note: The historical school-level Census Day enrollment for previous years has been consolidated and moved to the new Enrollment by School (1981–2022) web page in order to prevent confusion due to the significant differences between the old data files and the new data provided below. These changes include, but are not limited to, changes in the file structure, the levels of available aggregate data, and the addition of the Transitional Kindergarten grade beginning in 2023–24. To protect student privacy, data may be suppressed (*) on the CDEnroll downloadable files based on a combination of factors, including but not limited to the cell sizes at the school-level and within selected student populations that are 10 or fewer, not including race/ethnicity or age range.
+
+Year of Data
+
+File Structure
+
+CDEnroll2526(TXT; 31MB; Posted 16-Apr-2026)
+
+Record Count: 269,090
+
+File Structure: Census Day Enrollment Data
+
+CDEnroll2425(TXT; 31MB; Posted 21-May-2025)
+
+Record Count: 269,158
+
+File Structure: Census Day Enrollment Data
+
+CDEnroll2324(TXT; 31MB; Updated 22-May-2024)
+
+Record Count: 267,762
+
+File Structure: Census Day Enrollment Data
+
+Instructions: Select the text (TXT) file you wish to download and save the file to your computer. To view the data, import and format the text (TXT) file in a database or spreadsheet program.
