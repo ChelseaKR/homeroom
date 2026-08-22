@@ -90,6 +90,8 @@ def test_number_forms_are_exact_not_rounded() -> None:
         "The state withheld it to protect privacy.",
         "CDE did not publish a figure for this group.",
         "No figure is published for this school.",
+        "The rate for this school has not been published.",
+        "This figure is not available for the school.",
         "El estado no publicó esta cifra.",
         "Esta cifra fue retenida para proteger la privacidad.",
         "No se publicó ningún dato para este grupo.",
@@ -141,3 +143,23 @@ def test_an_explicit_negation_of_the_zero_reading_is_not_a_value() -> None:
 )
 def test_spanish_ways_of_saying_the_file_has_nothing(sentence: str) -> None:
     assert says_not_published(sentence), sentence
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "The state withholds it to protect privacy, not because the number is zero.",
+        "It is not possible to say whether the rate is zero, small, or large.",
+        "Withheld to protect privacy, not because no students were absent.",
+        "A withheld figure does not mean zero students.",
+        "Retenido para proteger la privacidad, no porque haya cero estudiantes.",
+        "No es posible saber si hay cero estudiantes ausentes.",
+    ],
+)
+def test_a_denial_of_the_zero_reading_is_not_a_value(sentence: str) -> None:
+    assert not renders_absence_as_value(sentence), sentence
+
+
+def test_withholds_and_suppresses_are_absence_phrases() -> None:
+    assert says_not_published("The state withholds figures like this one.")
+    assert says_not_published("CDE suppresses the cell.")

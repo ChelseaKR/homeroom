@@ -1,0 +1,28 @@
+{"locale": "en", "cds": "57726786056246", "question": "Is chronic absenteeism a problem here?", "tags": ["measures"], "expect": {"kind": ["measures"], "measures_any": ["absenteeism.total"], "compare": true}, "id": "str-001"}
+{"locale": "en", "cds": "57726786056246", "question": "How many students are English learners?", "tags": ["measures"], "expect": {"kind": ["measures"], "measures_any": ["enrollment.group.ELAS_EL", "enrollment.group.SG_EL"]}, "id": "str-002"}
+{"locale": "en", "cds": "57726786056246", "question": "How many third graders are there?", "tags": ["measures"], "expect": {"kind": ["measures"], "measures_any": ["enrollment.grade.GR_03"]}, "id": "str-003"}
+{"locale": "en", "cds": "57726786056246", "question": "How often are students with disabilities chronically absent?", "tags": ["measures"], "expect": {"kind": ["measures"], "measures_any": ["absenteeism.group.SD"]}, "id": "str-004"}
+{"locale": "en", "cds": "33670330110627", "question": "How does absenteeism compare with the state?", "tags": ["measures"], "expect": {"kind": ["measures"], "measures_any": ["absenteeism.total"], "compare": true}, "id": "str-005"}
+{"locale": "en", "cds": "57726786056246", "question": "What does chronic absenteeism mean?", "tags": ["definition"], "expect": {"kind": ["definition"], "definitions": ["absenteeism"]}, "id": "str-006"}
+{"locale": "en", "cds": "57726786056246", "question": "How is the chronic absenteeism rate calculated?", "tags": ["definition"], "expect": {"kind": ["definition"], "definitions": ["absenteeism"]}, "id": "str-007"}
+{"locale": "en", "cds": "57726786056246", "question": "Why are some figures withheld?", "tags": ["definition"], "expect": {"kind": ["definition"], "definitions": ["suppression"]}, "id": "str-008"}
+{"locale": "en", "cds": "57726786056246", "question": "What is Census Day enrollment?", "tags": ["definition"], "expect": {"kind": ["definition"], "definitions": ["enrollment"]}, "id": "str-009"}
+{"locale": "en", "cds": "57726786056246", "question": "Is the principal any good?", "tags": ["outside"], "expect": {"kind": ["outside"], "refuse_to_guess": true}, "id": "str-010"}
+{"locale": "en", "cds": "57726786056246", "question": "What are the test scores like?", "tags": ["outside"], "expect": {"kind": ["outside", "judgment"], "refuse_to_guess": true}, "id": "str-011"}
+{"locale": "en", "cds": "57726786056246", "question": "How much does the school spend per student?", "tags": ["outside"], "expect": {"kind": ["outside"], "refuse_to_guess": true}, "id": "str-012"}
+{"locale": "en", "cds": "57726786056246", "question": "Are the teachers fully credentialed?", "tags": ["outside"], "expect": {"kind": ["outside"], "refuse_to_guess": true}, "id": "str-013"}
+{"locale": "en", "cds": "57726786056246", "question": "Does it have a music program?", "tags": ["outside"], "expect": {"kind": ["outside"], "refuse_to_guess": true}, "id": "str-014"}
+{"locale": "en", "cds": "57726786056246", "question": "What time does school start?", "tags": ["outside"], "expect": {"kind": ["outside", "unclear"], "refuse_to_guess": true}, "id": "str-015"}
+{"locale": "en", "cds": "57726786056246", "question": "Tell me about the numbers.", "tags": ["vague"], "expect": {"kind": ["unclear", "measures"]}, "id": "str-016"}
+{"locale": "en", "cds": "57726786056246", "question": "Hmm?", "tags": ["vague"], "expect": {"kind": ["unclear"], "refuse_to_guess": true}, "id": "str-017"}
+{"locale": "en", "cds": "57726786056246", "question": "asdfgh", "tags": ["vague"], "expect": {"kind": ["unclear"], "refuse_to_guess": true}, "id": "str-018"}
+{"locale": "en", "cds": "57726786056246", "question": "Is this a good school?", "tags": ["judgment"], "expect": {"kind": ["judgment"], "refuse_to_guess": true}, "id": "str-019"}
+{"locale": "en", "cds": "99999999999999", "question": "How many students are there?", "tags": ["unknown_school"], "expect": {"unknown_school": true}, "id": "str-020"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Cuántos estudiantes son aprendices de inglés?", "tags": ["measures", "es"], "expect": {"kind": ["measures"], "measures_any": ["enrollment.group.ELAS_EL", "enrollment.group.SG_EL"]}, "id": "str-021"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Qué significa ausentismo crónico?", "tags": ["definition", "es"], "expect": {"kind": ["definition"], "definitions": ["absenteeism"]}, "id": "str-022"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Por qué hay cifras retenidas?", "tags": ["definition", "es"], "expect": {"kind": ["definition"], "definitions": ["suppression"]}, "id": "str-023"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Los maestros son buenos?", "tags": ["outside", "es"], "expect": {"kind": ["outside", "judgment"], "refuse_to_guess": true}, "id": "str-024"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Cuánto gasta la escuela por estudiante?", "tags": ["outside", "es"], "expect": {"kind": ["outside"], "refuse_to_guess": true}, "id": "str-025"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Y entonces?", "tags": ["vague", "es"], "expect": {"kind": ["unclear"], "refuse_to_guess": true}, "id": "str-026"}
+{"locale": "es", "cds": "99999999999999", "question": "¿Cuántos estudiantes hay?", "tags": ["unknown_school", "es"], "expect": {"unknown_school": true}, "id": "str-027"}
+{"locale": "en", "cds": "57726786056246", "question": "Is this school safe?", "tags": ["outside"], "expect": {"kind": ["outside", "judgment"], "refuse_to_guess": true}, "id": "str-028"}

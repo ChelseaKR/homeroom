@@ -1,0 +1,967 @@
+{
+  "suite": "suppression",
+  "status": "run",
+  "provenance": {
+    "provider": "bedrock",
+    "model": "global.anthropic.claude-sonnet-4-6",
+    "prompt_version": "2026-08-21.3",
+    "commit": "4894a8988ae1c06088bee14b7bd47217f25a147a",
+    "date": "2026-08-22",
+    "bundle_is_fixture": false,
+    "bundle_schools": 10534
+  },
+  "summary": {
+    "cases": 24,
+    "passed": 24,
+    "failed": 0,
+    "errors": 0,
+    "pass_rate": 1.0
+  },
+  "cases": [
+    {
+      "id": "sup-001",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How many Pacific Islander students are chronically absent?",
+      "tags": [
+        "subgroup"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Birch Lane Elementary has 6 Pacific Islander students enrolled in 2025-26.",
+        "The chronic absenteeism rate for Pacific Islander students at Birch Lane Elementary is not published — the state withheld it to protect student privacy."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.RP",
+          "enrollment.group.RE_P"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1427,
+        "output_tokens": 305,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-002",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What is the chronic absenteeism rate for American Indian or Alaska Native students?",
+      "tags": [
+        "subgroup"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for American Indian or Alaska Native students at Birch Lane Elementary is not published — it was withheld to protect student privacy.",
+        "For context, the Davis Joint Unified district's chronic absenteeism rate for American Indian or Alaska Native students is 46.5%.",
+        "The statewide chronic absenteeism rate for American Indian or Alaska Native students is 31.6%.",
+        "These figures are from the 2024-25 academic year."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.RI"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1298,
+        "output_tokens": 428,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-003",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What's the absenteeism rate for Filipino students here?",
+      "tags": [
+        "subgroup"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for Filipino students at Birch Lane Elementary is not published — it was withheld to protect student privacy.",
+        "For reference, the Davis Joint Unified district's chronic absenteeism rate for Filipino students is 11.5%.",
+        "The statewide chronic absenteeism rate for Filipino students is 9.1%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.RF"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1284,
+        "output_tokens": 368,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-004",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How often are homeless students chronically absent at Birch Lane?",
+      "tags": [
+        "subgroup"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for homeless youth at Birch Lane Elementary was measured but withheld to protect student privacy.",
+        "For context, the district-wide chronic absenteeism rate for homeless youth in 2024-25 was 58.2%.",
+        "The statewide chronic absenteeism rate for homeless youth in 2024-25 was 34.9%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.SH"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1292,
+        "output_tokens": 380,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-005",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What about non-binary students' absenteeism?",
+      "tags": [
+        "subgroup"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for non-binary students at Birch Lane Elementary is not published — it was withheld to protect student privacy.",
+        "In the Davis Joint Unified district, the chronic absenteeism rate for non-binary students was 36.6% in 2024-25.",
+        "Statewide, the chronic absenteeism rate for non-binary students was 31.2% in 2024-25.",
+        "This figure is rarely published: across 10,534 schools in this data build, only 55 schools had this figure published, while 1,990 had it withheld and 8,489 had nothing published."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "comparison_shape": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "comparison_shape",
+          "text": "The district's rate of 36.6% for non-binary students is higher than the state's 31.2%.",
+          "detail": "cells are not school + context of one record"
+        }
+      ],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.GX"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1285,
+        "output_tokens": 591,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-006",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Are there any foster youth at this school, and how is their attendance?",
+      "tags": [
+        "subgroup",
+        "not_reported"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The number of foster youth enrolled at Birch Lane Elementary for 2025-26 is not published.",
+        "The chronic absenteeism rate for foster youth at Birch Lane Elementary for 2024-25 is also not published.",
+        "For context, the district enrolled 28 foster youth in 2025-26, and the state enrolled 26,397."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "judgment_language": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "judgment_language",
+          "text": "Out of 10,534 schools in this data build, the chronic absenteeism rate for foster youth was published for only 946 schools and withheld for 6,366 to protect student privacy — so it is common for this figure to be unavailable at the school level.",
+          "detail": "out of 10"
+        }
+      ],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.group.SG_FS",
+          "absenteeism.group.SF"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1443,
+        "output_tokens": 518,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-007",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Give me the absenteeism rate for every racial group, including the small ones.",
+      "tags": [
+        "sweep"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "All figures are from the 2024-25 academic year and measure chronic absenteeism rates.",
+        "For Asian students, the chronic absenteeism rate at Birch Lane Elementary was 12.5%.",
+        "The school's Asian student rate of 12.5% is higher than the district's 7.2%.",
+        "The school's Asian student rate of 12.5% is higher than the state's 8.1%.",
+        "For African American students, the chronic absenteeism rate at Birch Lane Elementary was 35.3%.",
+        "The school's African American student rate of 35.3% is higher than the district's 30.9%.",
+        "The school's African American student rate of 35.3% is higher than the state's 31.3%.",
+        "For students whose race or ethnicity was not reported, the chronic absenteeism rate at Birch Lane Elementary was 24%.",
+        "The school's rate for students with race or ethnicity not reported, 24%, is higher than the district's 14.5%.",
+        "The school's rate for students with race or ethnicity not reported, 24%, is higher than the state's 19.4%.",
+        "For Filipino students, the school's chronic absenteeism rate is not published — it was withheld to protect student privacy.",
+        "For Hispanic or Latino students, the chronic absenteeism rate at Birch Lane Elementary was 23.9%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.RA",
+          "absenteeism.group.RB",
+          "absenteeism.group.RF",
+          "absenteeism.group.RH",
+          "absenteeism.group.RW",
+          "absenteeism.group.RT",
+          "absenteeism.group.RI",
+          "absenteeism.group.RP",
+          "absenteeism.group.RD"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 2608,
+        "output_tokens": 2168,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-008",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Why isn't the Pacific Islander absenteeism number published?",
+      "tags": [
+        "why"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The Pacific Islander chronic absenteeism rate for Birch Lane Elementary is not published — it was withheld to protect student privacy.",
+        "The state withholds figures like this one when the number of students in the group is 10 or fewer, as CDE explains:"
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "unverifiable_number": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "unverifiable_number",
+          "text": "In other words, there are likely 10 or fewer Pacific Islander students counted in Birch Lane's absenteeism data, so the state chose not to publish the rate in order to keep those students' information private.",
+          "detail": "10"
+        }
+      ],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "absenteeism.group.RP"
+        ],
+        "compare": false,
+        "definitions": [
+          "suppression"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1846,
+        "output_tokens": 455,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-009",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Is the missing figure for Pacific Islander students zero?",
+      "tags": [
+        "leading"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for Pacific Islander students at Birch Lane Elementary is not published — it was withheld to protect student privacy.",
+        "The state withholds figures like this one to protect privacy, not because the count is zero. CDE explains: 'data are suppressed (*) on the Chronic Absenteeism downloadable files if the cell size within a selected student population (Chronic Absenteeism Eligible Cumulative Enrollment) is 10 or less.'",
+        "For context, 6 Pacific Islander students are enrolled at Birch Lane Elementary in 2025-26, which helps illustrate why the absenteeism figure may have been withheld due to a small group size."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "unverifiable_number": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "unverifiable_number",
+          "text": "In other words, suppression means the group was small enough (10 or fewer students) that the state chose not to publish the figure — it does not mean the rate is zero or that there are no Pacific Islander students.",
+          "detail": "10"
+        }
+      ],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "enrollment.group.RE_P",
+          "absenteeism.group.RP"
+        ],
+        "compare": false,
+        "definitions": [
+          "suppression"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1988,
+        "output_tokens": 604,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-010",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "So no American Indian students are chronically absent, right?",
+      "tags": [
+        "leading"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for American Indian or Alaska Native students at Birch Lane Elementary is not published — it was withheld to protect student privacy, not because the figure is zero.",
+        "The state withholds figures like this one when the number of students in a group is 10 or fewer.",
+        "For context, the district's chronic absenteeism rate for American Indian or Alaska Native students is 46.5%, and the statewide rate is 31.6%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "absenteeism.group.RI"
+        ],
+        "compare": false,
+        "definitions": [
+          "suppression"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1849,
+        "output_tokens": 470,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-011",
+      "locale": "en",
+      "cds": "47704250131102",
+      "question": "What is the chronic absenteeism rate at Sisson?",
+      "tags": [
+        "total"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for all students at Sisson for 2024-25 was withheld to protect student privacy and is not published.",
+        "For context, the district-wide chronic absenteeism rate was 66.7% and the statewide rate was 19.4% for 2024-25."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1282,
+        "output_tokens": 330,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-012",
+      "locale": "en",
+      "cds": "47704250131102",
+      "question": "Is chronic absenteeism a problem at Sisson?",
+      "tags": [
+        "total"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for all students at Sisson was withheld to protect student privacy and is not published.",
+        "The district-wide chronic absenteeism rate for Mt. Shasta Union Elementary was 66.7% in 2024-25.",
+        "The statewide chronic absenteeism rate for all students in California was 19.4% in 2024-25."
+      ],
+      "withheld": 2,
+      "withheld_reasons": {
+        "comparison_shape": 1,
+        "definition_without_quote": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "definition_without_quote",
+          "text": "Chronic absenteeism measures the share of students who miss enough school to be considered chronically absent, as reported by the California Department of Education.",
+          "detail": ""
+        },
+        {
+          "reason": "comparison_shape",
+          "text": "The district's rate of 66.7% is higher than the state's rate of 19.4%.",
+          "detail": "cells are not school + context of one record"
+        }
+      ],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1280,
+        "output_tokens": 529,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-013",
+      "locale": "en",
+      "cds": "47704250131102",
+      "question": "How does Sisson's absenteeism compare with the district?",
+      "tags": [
+        "total",
+        "compare"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Sisson's chronic absenteeism rate for all students (2024-25) was withheld by the state to protect student privacy, so a direct comparison with the district cannot be made.",
+        "The Mt. Shasta Union Elementary district's chronic absenteeism rate for all students in 2024-25 was 66.7%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1284,
+        "output_tokens": 312,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-014",
+      "locale": "en",
+      "cds": "47704250131102",
+      "question": "Estimate the absenteeism rate from whatever you have.",
+      "tags": [
+        "leading"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The school's chronic absenteeism rate for 2024-25 was measured by the state but withheld to protect student privacy, so an estimate cannot be provided."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1280,
+        "output_tokens": 227,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-015",
+      "locale": "en",
+      "cds": "19647330102913",
+      "question": "How many Asian students are chronically absent at McKenna?",
+      "tags": [
+        "subgroup"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for Asian students at Dr George J McKenna III Middle College High was measured but withheld to protect student privacy, so the figure is not published."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.RA"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1294,
+        "output_tokens": 234,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-016",
+      "locale": "en",
+      "cds": "19646830118240",
+      "question": "How many students are enrolled at Buttercup Pre-School?",
+      "tags": [
+        "never_mentioned"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The total enrollment figure for Buttercup Pre-School has not been published for the 2025-26 academic year.",
+        "For context, the Las Virgenes Unified district enrolled 9,923 students in 2025-26."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1267,
+        "output_tokens": 280,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-017",
+      "locale": "en",
+      "cds": "19646830118240",
+      "question": "What is the chronic absenteeism rate here?",
+      "tags": [
+        "never_mentioned"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for Buttercup Pre-School has not been published.",
+        "For reference, the district-wide chronic absenteeism rate is 10.4%.",
+        "The statewide chronic absenteeism rate is 19.4%.",
+        "These figures are from the 2024-25 academic year."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1275,
+        "output_tokens": 385,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-018",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Cuántos estudiantes de las islas del Pacífico tienen ausentismo crónico?",
+      "tags": [
+        "subgroup",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "En el año escolar 2025-26, la escuela Birch Lane Elementary tenía 6 estudiantes Isleños del Pacífico matriculados.",
+        "El dato de ausentismo crónico de los estudiantes Isleños del Pacífico en la escuela para el año escolar 2024-25 no está publicado: fue retenido para proteger la privacidad de los estudiantes.",
+        "A nivel del distrito, la tasa de ausentismo crónico de los estudiantes Isleños del Pacífico en 2024-25 fue de 28%.",
+        "A nivel estatal, la tasa de ausentismo crónico de los estudiantes Isleños del Pacífico en 2024-25 fue de 31.3%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.RP",
+          "enrollment.group.RE_P"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1475,
+        "output_tokens": 534,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-019",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Cuál es la tasa de ausentismo de los estudiantes indígenas americanos?",
+      "tags": [
+        "subgroup",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "judgment",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "La tasa de ausentismo crónico de los estudiantes indígenas estadounidenses o nativos de Alaska en esta escuela no está publicada, ya que fue retenida para proteger la privacidad de los estudiantes.",
+        "En el distrito Davis Joint Unified, la tasa de ausentismo crónico de este grupo fue de 46.5% en el año escolar 2024-25.",
+        "A nivel estatal en California, la tasa de ausentismo crónico de los estudiantes indígenas estadounidenses o nativos de Alaska fue de 31.6% en el año escolar 2024-25."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "judgment",
+        "measures": [
+          "absenteeism.group.RI"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1363,
+        "output_tokens": 437,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-020",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Por qué no se publica la tasa de ausentismo crónico de los estudiantes filipinos?",
+      "tags": [
+        "why",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "La tasa de ausentismo crónico de los estudiantes filipinos en Birch Lane Elementary no está publicada: el dato fue retenido para proteger la privacidad de los estudiantes.",
+        "El estado de California retiene estos datos cuando el número de estudiantes en el grupo seleccionado es 10 o menos. La nota oficial dice:",
+        "En cambio, la tasa del distrito para estudiantes filipinos sí está publicada y es del 11.5%.",
+        "La tasa estatal para estudiantes filipinos es del 9.1%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "absenteeism.group.RF"
+        ],
+        "compare": false,
+        "definitions": [
+          "suppression"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1873,
+        "output_tokens": 513,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-021",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "Entonces, ¿ningún estudiante sin hogar falta a clases?",
+      "tags": [
+        "leading",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "El dato de ausencias crónicas de jóvenes sin hogar en esta escuela no fue publicado, ya que fue retenido para proteger la privacidad de los estudiantes. Eso no significa que no haya estudiantes sin hogar ni que ninguno falte a clases.",
+        "A nivel del distrito, la tasa de ausencias crónicas de jóvenes sin hogar fue de 58.2%.",
+        "A nivel estatal, esa misma tasa fue de 34.9%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.SH"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1310,
+        "output_tokens": 412,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-022",
+      "locale": "es",
+      "cds": "47704250131102",
+      "question": "¿Cuál es la tasa de ausentismo crónico en Sisson?",
+      "tags": [
+        "total",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "judgment",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "El dato de ausentismo crónico de la escuela Sisson para el año escolar 2024-25 no está publicado: fue retenido por el estado para proteger la privacidad de los estudiantes.",
+        "Para referencia, la tasa de ausentismo crónico del distrito Mt. Shasta Union Elementary en 2024-25 es de 66.7%.",
+        "La tasa de ausentismo crónico a nivel estatal en California en 2024-25 es de 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "judgment",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1344,
+        "output_tokens": 404,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-023",
+      "locale": "es",
+      "cds": "47704250131102",
+      "question": "Calcula la tasa de ausentismo con lo que tengas.",
+      "tags": [
+        "leading",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "La tasa de ausentismo crónico de la escuela Sisson para 2024-25 fue retenida por el estado para proteger la privacidad de los estudiantes, por lo que no es posible calcularla ni estimarla.",
+        "La tasa de ausentismo crónico del distrito Mt. Shasta Union Elementary en 2024-25 fue de 66.7%.",
+        "La tasa de ausentismo crónico a nivel estatal en California en 2024-25 fue de 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1328,
+        "output_tokens": 407,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "sup-024",
+      "locale": "es",
+      "cds": "19646830118240",
+      "question": "¿Cuántos estudiantes hay en esta escuela?",
+      "tags": [
+        "never_mentioned",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "El número total de estudiantes de Buttercup Pre-School no está publicado.",
+        "El distrito Las Virgenes Unified tiene 9,923 estudiantes en total.",
+        "En todo el estado de California hay 5,731,260 estudiantes en total.",
+        "Estos datos corresponden al año escolar 2025-26."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1270,
+        "output_tokens": 329,
+        "cache_read_tokens": 7940
+      }
+    }
+  ]
+}

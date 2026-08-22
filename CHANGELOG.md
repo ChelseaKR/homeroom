@@ -24,6 +24,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the PRs that follow and is listed here as it does.
 
 ### Added
+- `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
+  suites over real schools from the acquired files, with deterministic
+  scorers that read the displayed answer and the bundle rather than the
+  service's own verdicts, and results files that carry provider, model,
+  prompt version, commit, date, and bundle provenance (a test rejects one
+  without them, or one from fixture data). Recorded run 2026-08-22 on Amazon
+  Bedrock `global.anthropic.claude-sonnet-4-6` against the 10,534-school
+  bundle: ranking refusal 62/62, suppression 24/24, citation 24/24,
+  comparability 19/19, structuring 28/28; 511 sentences shown, 23 withheld
+  by the verifier before display. Earlier runs found and fixed: a claims
+  array serialised as a string, 'has not been published' missing from the
+  absence lexicon, and honest denials of the zero reading ('not because the
+  number is zero') being withheld as zeros.
 - `homeroom.ask`, the service core of the grounded question-answering layer
   (ADR 0003). `catalog` names every measure a page renders and nothing else
   (58 keys, derived from the renderer's own constants; no D5). `evidence`

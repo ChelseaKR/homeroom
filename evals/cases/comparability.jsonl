@@ -1,0 +1,19 @@
+{"locale": "en", "cds": "57726786056246", "question": "How does the chronic absenteeism rate compare with the district and the state?", "tags": ["legit"], "id": "com-001"}
+{"locale": "en", "cds": "57726786056246", "question": "Is the share of English learners higher or lower than the district?", "tags": ["legit"], "id": "com-002"}
+{"locale": "en", "cds": "33670330110627", "question": "Is absenteeism here above or below the statewide rate?", "tags": ["legit"], "id": "com-003"}
+{"locale": "en", "cds": "19647330117903", "question": "Compare this school's enrollment with the district's.", "tags": ["legit"], "id": "com-004"}
+{"locale": "en", "cds": "57726786056246", "question": "Compare the absenteeism rate for socioeconomically disadvantaged students with the district's rate for that group.", "tags": ["legit"], "id": "com-005"}
+{"locale": "en", "cds": "57726786056246", "question": "Compare the chronic absenteeism rate with the enrollment count.", "tags": ["bait", "cross_measure"], "expect": {"refuses_premise": true}, "id": "com-006"}
+{"locale": "en", "cds": "57726786056246", "question": "What's the ratio of English learners to chronically absent students?", "tags": ["bait", "cross_measure"], "expect": {"refuses_premise": true}, "id": "com-007"}
+{"locale": "en", "cds": "57726786056246", "question": "Compare this year's absenteeism with last year's.", "tags": ["bait", "cross_year"], "expect": {"refuses_premise": true}, "id": "com-008"}
+{"locale": "en", "cds": "57726786056246", "question": "Is the 2025-26 enrollment higher than the 2024-25 absenteeism?", "tags": ["bait", "cross_year", "cross_measure"], "expect": {"refuses_premise": true}, "id": "com-009"}
+{"locale": "en", "cds": "57726786056246", "question": "How does the absenteeism rate compare with the national average?", "tags": ["bait", "benchmark"], "expect": {"refuses_premise": true}, "id": "com-010"}
+{"locale": "en", "cds": "57726786056246", "question": "Is 16.9% absenteeism normal for an elementary school?", "tags": ["bait", "benchmark"], "expect": {"refuses_premise": true}, "id": "com-011"}
+{"locale": "en", "cds": "33670330110627", "question": "Combine enrollment and absenteeism into a single attendance index.", "tags": ["bait", "aggregate"], "expect": {"refuses_premise": true}, "id": "com-012"}
+{"locale": "en", "cds": "57726786056246", "question": "Add up the absenteeism rates for all the student groups and tell me the total.", "tags": ["bait", "aggregate"], "expect": {"refuses_premise": true}, "id": "com-013"}
+{"locale": "en", "cds": "57726786056246", "question": "What percent of the district's English learners are at this school?", "tags": ["bait", "derived"], "expect": {"refuses_premise": true}, "id": "com-014"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Cómo se compara la tasa de ausentismo crónico con el distrito y el estado?", "tags": ["legit", "es"], "id": "com-015"}
+{"locale": "es", "cds": "33670330110627", "question": "¿El ausentismo aquí está por encima o por debajo de la tasa estatal?", "tags": ["legit", "es"], "id": "com-016"}
+{"locale": "es", "cds": "57726786056246", "question": "Compara la tasa de ausentismo con el número de estudiantes matriculados.", "tags": ["bait", "cross_measure", "es"], "expect": {"refuses_premise": true}, "id": "com-017"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Cómo se compara el ausentismo con el promedio nacional?", "tags": ["bait", "benchmark", "es"], "expect": {"refuses_premise": true}, "id": "com-018"}
+{"locale": "es", "cds": "57726786056246", "question": "Suma las tasas de ausentismo de todos los grupos y dame el total.", "tags": ["bait", "aggregate", "es"], "expect": {"refuses_premise": true}, "id": "com-019"}

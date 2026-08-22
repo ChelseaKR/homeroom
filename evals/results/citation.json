@@ -1,0 +1,995 @@
+{
+  "suite": "citation",
+  "status": "run",
+  "provenance": {
+    "provider": "bedrock",
+    "model": "global.anthropic.claude-sonnet-4-6",
+    "prompt_version": "2026-08-21.3",
+    "commit": "4894a8988ae1c06088bee14b7bd47217f25a147a",
+    "date": "2026-08-22",
+    "bundle_is_fixture": false,
+    "bundle_schools": 10534
+  },
+  "summary": {
+    "cases": 24,
+    "passed": 24,
+    "failed": 0,
+    "errors": 0,
+    "pass_rate": 1.0
+  },
+  "cases": [
+    {
+      "id": "cit-001",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How many students go to Birch Lane?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Birch Lane Elementary has 523 students enrolled.",
+        "This figure is from the 2025-26 academic year."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1250,
+        "output_tokens": 217,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-002",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Is chronic absenteeism a problem here?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2024-25, Birch Lane Elementary's chronic absenteeism rate for all students was 16.9%.",
+        "The school's rate of 16.9% is higher than the district's rate of 15%.",
+        "The school's rate of 16.9% is lower than the statewide rate of 19.4%.",
+        "This data covers the 2024-25 academic year."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "quote_not_verbatim": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "quote_not_verbatim",
+          "text": "Chronic absenteeism is measured as the percentage of students who miss a significant share of school days. California's data file describes it this way:",
+          "detail": "chronicabsenteeism25.txt"
+        }
+      ],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1266,
+        "output_tokens": 521,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-003",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How many kids are English learners, and how does that compare with the district?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2025-26, Birch Lane Elementary has 58 students classified as English learners.",
+        "The school's English learner count of 58 students is lower than the district's 609 students."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.group.SG_EL",
+          "enrollment.group.ELAS_EL"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1446,
+        "output_tokens": 328,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-004",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How many students are in each grade?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Transitional Kindergarten (TK) has 21 students.",
+        "Kindergarten has 59 students.",
+        "Grade 1 has 52 students.",
+        "Grade 2 has 73 students.",
+        "Grade 3 has 74 students.",
+        "Grade 4 has 79 students.",
+        "Grade 5 has 84 students.",
+        "Grade 6 has 81 students.",
+        "Grades 7 and 8 are not served at Birch Lane Elementary, so those counts are 0.",
+        "All enrollment figures are for the 2025-26 academic year."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.grade.GR_TK",
+          "enrollment.grade.GR_KN",
+          "enrollment.grade.GR_01",
+          "enrollment.grade.GR_02",
+          "enrollment.grade.GR_03",
+          "enrollment.grade.GR_04",
+          "enrollment.grade.GR_05",
+          "enrollment.grade.GR_06",
+          "enrollment.grade.GR_07",
+          "enrollment.grade.GR_08"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 2590,
+        "output_tokens": 769,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-005",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What share of students are socioeconomically disadvantaged, and how often are they chronically absent?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2025-26, Birch Lane Elementary had 213 socioeconomically disadvantaged students.",
+        "The school's count of 213 socioeconomically disadvantaged students is lower than the district's 2,651.",
+        "The total enrollment figure needed to calculate a share (percentage) of socioeconomically disadvantaged students is not published in this data, so a percentage share cannot be stated.",
+        "In 2024-25, the chronic absenteeism rate for socioeconomically disadvantaged students at Birch Lane Elementary was 28.1%.",
+        "The school's chronic absenteeism rate for socioeconomically disadvantaged students of 28.1% is higher than the district's rate of 26.4%.",
+        "The school's chronic absenteeism rate for socioeconomically disadvantaged students of 28.1% is higher than the state's rate of 24.1%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.group.SG_SD",
+          "absenteeism.group.SS"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1463,
+        "output_tokens": 712,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-006",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What does chronic absenteeism actually mean and how is it measured?",
+      "tags": [],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "California defines a chronic absentee as: 'a pupil who is absent on 10 percent or more of the schooldays in the school year when the total number of days a pupil is absent is divided by the total number of days the pupil is enrolled and school was actually taught in the regular day schools of the district, exclusive of Saturdays and Sundays.'",
+        "The chronic absenteeism rate is calculated as: 'The unduplicated count of students determined to be chronically absent (Chronic Absenteeism Count) divided by the Chronic Absenteeism Enrollment at the selected entity for the selected population using the available filters.'",
+        "Not every enrolled student is counted in the eligible enrollment. The state removes students 'that were not eligible to be considered chronically absent at that entity. Students that are expected to attend less than 31 instructional days at the selected entity or who were enrolled but did not attend the selected entity are not eligible to be considered chronically absent at that entity.'",
+        "A day attended is defined broadly: 'A day attended is defined as any day a student attended for all or part of a school day.'",
+        "The data itself comes from schools and districts: 'Absenteeism data are submitted by local educational agencies (LEAs) and charter schools to the California Department of Education (CDE) as part of the annual End of Year 3 (EOY 3) data submission in the California Longitudinal Pupil Achievement Data System (CALPADS).'"
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "unverifiable_number": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "unverifiable_number",
+          "text": "To protect student privacy, some figures in the data files may be withheld: 'data are suppressed (*) on the Chronic Absenteeism downloadable files if the cell size within a selected student population (Chronic Absenteeism Eligible Cumulative Enrollment) is 10 or less.'",
+          "detail": "10"
+        }
+      ],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": [
+          "absenteeism"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 6605,
+        "output_tokens": 1051,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-007",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What is Census Day?",
+      "tags": [],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Census Day is defined as the first Wednesday in October.",
+        "It is the single day used to take the official annual count of enrolled students.",
+        "The counts from Census Day are calculated at each level — state, county, district, and school — and are considered distinct, unduplicated counts that are additive from one reporting level to the next.",
+        "The Census Day data are submitted by local educational agencies and charter schools to the California Department of Education as part of the annual Fall 1 data submission, and must be certified as accurate by district superintendents, charter school administrators, or their designees."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": [
+          "enrollment"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 5295,
+        "output_tokens": 599,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-008",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How many students with disabilities are there and what is their absenteeism rate?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2025-26, Birch Lane Elementary had 83 students with disabilities.",
+        "In 2024-25, the chronic absenteeism rate for students with disabilities at Birch Lane Elementary was 23%.",
+        "The school's absenteeism rate for students with disabilities of 23% is lower than the district's rate of 27%.",
+        "The school's absenteeism rate for students with disabilities of 23% is lower than the state's rate of 27.7%.",
+        "Enrollment figures are from the 2025-26 academic year, while absenteeism figures are from the 2024-25 academic year."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.group.SG_DS",
+          "absenteeism.group.SD"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1441,
+        "output_tokens": 571,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-009",
+      "locale": "en",
+      "cds": "33670330110627",
+      "question": "How big is this high school?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Eleanor Roosevelt High has a total enrollment of 4,417 students in 2025-26.",
+        "The school serves grades 9–12, with 1,201 students in Grade 9, 1,112 in Grade 10, 968 in Grade 11, and 1,136 in Grade 12.",
+        "The school's total enrollment of 4,417 is lower than the Corona-Norco Unified district's total of 48,485 students.",
+        "The school's total enrollment of 4,417 is lower than the statewide total of 5,731,260 students.",
+        "These enrollment figures are from the 2025-26 academic year."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.total",
+          "enrollment.grade.GR_09",
+          "enrollment.grade.GR_10",
+          "enrollment.grade.GR_11",
+          "enrollment.grade.GR_12"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1848,
+        "output_tokens": 672,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-010",
+      "locale": "en",
+      "cds": "33670330110627",
+      "question": "What is the chronic absenteeism rate and how does it compare with the state?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Eleanor Roosevelt High's chronic absenteeism rate for all students in 2024-25 is 10.4%.",
+        "The statewide chronic absenteeism rate for all students in 2024-25 is 19.4%.",
+        "The school's chronic absenteeism rate of 10.4% is lower than the state's rate of 19.4%."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "quote_not_verbatim": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "quote_not_verbatim",
+          "text": "The chronic absenteeism rate measures the percentage of students who are chronically absent.",
+          "detail": "All students; unit %"
+        }
+      ],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1288,
+        "output_tokens": 448,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-011",
+      "locale": "en",
+      "cds": "33670330110627",
+      "question": "How many students are in 12th grade?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Eleanor Roosevelt High has 1,136 students enrolled in 12th grade.",
+        "This figure is for the 2025-26 academic year.",
+        "The school's 12th grade enrollment of 1,136 is lower than the district's 4,380.",
+        "The school's 12th grade enrollment of 1,136 is lower than the statewide figure of 477,960."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.grade.GR_12"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1275,
+        "output_tokens": 452,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-012",
+      "locale": "en",
+      "cds": "19647330117903",
+      "question": "How many students attend this charter school and what grades does it serve?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "KIPP Raices Academy enrolls 598 students in total for the 2025-26 school year.",
+        "In Transitional Kindergarten (TK), there are 48 students enrolled.",
+        "In Kindergarten, there are 103 students enrolled.",
+        "In Grade 1, there are 111 students enrolled.",
+        "In Grade 2, there are 114 students enrolled.",
+        "In Grade 3, there are 112 students enrolled.",
+        "In Grade 4, there are 110 students enrolled."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "unverifiable_number": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "unverifiable_number",
+          "text": "The school is a charter school serving grades K-4.",
+          "detail": "4"
+        }
+      ],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.total",
+          "enrollment.grade.GR_TK",
+          "enrollment.grade.GR_KN",
+          "enrollment.grade.GR_01",
+          "enrollment.grade.GR_02",
+          "enrollment.grade.GR_03",
+          "enrollment.grade.GR_04",
+          "enrollment.grade.GR_05",
+          "enrollment.grade.GR_06",
+          "enrollment.grade.GR_07",
+          "enrollment.grade.GR_08"
+        ],
+        "compare": false,
+        "definitions": [
+          "directory"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 6633,
+        "output_tokens": 736,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-013",
+      "locale": "en",
+      "cds": "19647330117903",
+      "question": "What is the absenteeism rate for Hispanic or Latino students?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "The chronic absenteeism rate for Hispanic or Latino students at KIPP Raices Academy is 30%.",
+        "The school's rate of 30% is higher than the Los Angeles Unified district's rate of 24.6%.",
+        "The school's rate of 30% is higher than the statewide rate of 22.3%.",
+        "These figures are from the 2024-25 academic year."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.RH"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1295,
+        "output_tokens": 462,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-014",
+      "locale": "en",
+      "cds": "19647330102913",
+      "question": "How many students are enrolled and what is the chronic absenteeism rate?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2025-26, Dr George J McKenna III Middle College High enrolled 369 students total.",
+        "The school's enrollment of 369 students is lower than the district's 497,105 students.",
+        "The school's enrollment of 369 students is lower than the state's 5,731,260 students.",
+        "In 2024-25, the chronic absenteeism rate for all students at the school was 20.2%.",
+        "The school's chronic absenteeism rate of 20.2% is lower than the district's rate of 23.9%.",
+        "The school's chronic absenteeism rate of 20.2% is higher than the state's rate of 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.total",
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1417,
+        "output_tokens": 653,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-015",
+      "locale": "en",
+      "cds": "33103300110833",
+      "question": "How many students does River Springs Charter enroll across the state?",
+      "tags": [],
+      "status": "answered",
+      "kind": "unclear",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "River Springs Charter enrolls 8,488 students total in 2025-26.",
+        "The question asks about enrollment 'across the state,' but the figure of 8,488 is the total enrollment for River Springs Charter itself. The statewide total of 5,731,260 students refers to all students across California, not just this school."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "unclear",
+        "measures": [
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1259,
+        "output_tokens": 298,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-016",
+      "locale": "en",
+      "cds": "33103300110833",
+      "question": "What is the chronic absenteeism rate at River Springs?",
+      "tags": [],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2024-25, the chronic absenteeism rate for all students at River Springs Charter was 9.5%.",
+        "The school's rate of 9.5% is lower than the district's rate of 18.1%.",
+        "The school's rate of 9.5% is lower than the statewide rate of 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1275,
+        "output_tokens": 403,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-017",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Cuántos estudiantes hay en Birch Lane?",
+      "tags": [
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Birch Lane Elementary tiene 523 estudiantes en total.",
+        "La matrícula de la escuela (523 estudiantes) es menor que la del distrito (8,243 estudiantes).",
+        "Estas cifras corresponden al año académico 2025-26."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1263,
+        "output_tokens": 301,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-018",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿El ausentismo crónico es un problema aquí?",
+      "tags": [
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "La tasa de la escuela de 16.9% es más alta que la del distrito, que fue de 15%.",
+        "La tasa de la escuela de 16.9% es más baja que la del estado, que fue de 19.4%."
+      ],
+      "withheld": 2,
+      "withheld_reasons": {
+        "judgment_language": 1,
+        "quote_not_verbatim": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "quote_not_verbatim",
+          "text": "El ausentismo crónico se mide como el porcentaje de estudiantes que faltan a un número significativo de días de clases. Según el CDE: 'Chronic Absenteeism Rate is the unduplicated count of students who are absent 10 percent or more of the schooldays they were expected to attend divided by the unduplicated count of students who were enrolled for at least 31 days.'",
+          "detail": "Chronic Absenteeism Rate is the unduplicated count of students who are absent 10 percent or more of the schooldays they "
+        },
+        {
+          "reason": "judgment_language",
+          "text": "En el año escolar 2024-25, el 16.9% de todos los estudiantes de Birch Lane Elementary fue clasificado con ausentismo crónico.",
+          "detail": "clasificado"
+        }
+      ],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1279,
+        "output_tokens": 609,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-019",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Cuántos estudiantes son aprendices de inglés y cómo se compara con el distrito?",
+      "tags": [
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "En el año escolar 2025-26, Birch Lane Elementary tiene 58 estudiantes del idioma inglés.",
+        "La cifra de la escuela de 58 estudiantes del idioma inglés es menor que la del distrito, que cuenta con 609 estudiantes del idioma inglés.",
+        "Estos datos corresponden al año escolar 2025-26."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.group.SG_EL",
+          "enrollment.group.ELAS_EL"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1483,
+        "output_tokens": 397,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-020",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Cuántos estudiantes hay en cada grado?",
+      "tags": [
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "En Kínder de transición (TK) hay 21 estudiantes en Birch Lane Elementary.",
+        "En Kínder hay 59 estudiantes.",
+        "En Grado 1 hay 52 estudiantes.",
+        "En Grado 2 hay 73 estudiantes.",
+        "En Grado 3 hay 74 estudiantes.",
+        "En Grado 4 hay 79 estudiantes.",
+        "En Grado 5 hay 84 estudiantes.",
+        "En Grado 6 hay 81 estudiantes.",
+        "Estos datos corresponden al año escolar 2025-26."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.grade.GR_TK",
+          "enrollment.grade.GR_KN",
+          "enrollment.grade.GR_01",
+          "enrollment.grade.GR_02",
+          "enrollment.grade.GR_03",
+          "enrollment.grade.GR_04",
+          "enrollment.grade.GR_05",
+          "enrollment.grade.GR_06"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 2325,
+        "output_tokens": 777,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-021",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Qué significa ausentismo crónico y cómo se mide?",
+      "tags": [
+        "es"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "La ley de California define a un 'estudiante crónicamente ausente' como aquel que estuvo ausente el 10% o más de los días escolares en el año, calculado dividiendo el total de días de ausencia entre el total de días en que el estudiante estuvo matriculado y se impartió clases, excluyendo sábados y domingos.",
+        "La tasa de ausentismo crónico se calcula dividiendo el número de estudiantes crónicamente ausentes entre la matrícula acumulada elegible de la escuela o entidad seleccionada.",
+        "No todos los estudiantes matriculados son elegibles para este cálculo: se excluyen quienes se espera que asistan menos de 31 días instructivos, quienes estuvieron matriculados pero no asistieron, y quienes tienen estado de exención (por ejemplo, estudiantes en escuelas no públicas o en instrucción en casa u hospital).",
+        "Para el año escolar 2024-25, la tasa de ausentismo crónico de todos los estudiantes en Birch Lane Elementary fue de 16.9%."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "quote_not_verbatim": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "quote_not_verbatim",
+          "text": "Para determinar si un estudiante es crónicamente ausente, se consideran los días esperados de asistencia y los días efectivamente asistidos que cada agencia educativa local reporta en el sistema CALPADS. Un día asistido se cuenta como cualquier día en que el estudiante asistió aunque sea una parte de la jornada escolar.",
+          "detail": "Students are determined to be chronically absent if they were eligible to be considered chronically absent at the select"
+        }
+      ],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": [
+          "absenteeism"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 6618,
+        "output_tokens": 972,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-022",
+      "locale": "es",
+      "cds": "33670330110627",
+      "question": "¿Cuál es la tasa de ausentismo crónico y cómo se compara con el estado?",
+      "tags": [
+        "es"
+      ],
+      "status": "answered",
+      "kind": "judgment",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "En el año escolar 2024-25, la tasa de ausentismo crónico de todos los estudiantes en Eleanor Roosevelt High fue de 10.4%.",
+        "La tasa de la escuela de 10.4% es menor que la tasa estatal de 19.4% para el mismo año escolar 2024-25."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "quote_not_verbatim": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "quote_not_verbatim",
+          "text": "El ausentismo crónico mide el porcentaje de estudiantes que faltan a un número significativo de días de clases.",
+          "detail": "chronicabsenteeism25.txt"
+        }
+      ],
+      "structured": {
+        "kind": "judgment",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1354,
+        "output_tokens": 410,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-023",
+      "locale": "es",
+      "cds": "19647330117903",
+      "question": "¿Cuántos estudiantes asisten a esta escuela chárter?",
+      "tags": [
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "KIPP Raices Academy es una escuela chárter.",
+        "En el año escolar 2025-26, KIPP Raices Academy tiene 598 estudiantes matriculados.",
+        "La matrícula de la escuela (598 estudiantes) es menor que la del distrito Los Angeles Unified (497,105 estudiantes).",
+        "La matrícula de la escuela (598 estudiantes) es menor que la del estado de California (5,731,260 estudiantes)."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": [
+          "directory"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 5151,
+        "output_tokens": 449,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "cit-024",
+      "locale": "es",
+      "cds": "19647330102913",
+      "question": "¿Cuántos estudiantes están inscritos y cuál es la tasa de ausentismo crónico?",
+      "tags": [
+        "es"
+      ],
+      "status": "answered",
+      "kind": "judgment",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "En el año escolar 2025-26, la escuela tiene 369 estudiantes inscritos en total.",
+        "La matrícula total de la escuela (369 estudiantes) es menor que la del distrito (497,105 estudiantes).",
+        "La matrícula total de la escuela (369 estudiantes) es menor que la del estado (5,731,260 estudiantes).",
+        "En el año escolar 2024-25, la tasa de ausentismo crónico de todos los estudiantes en la escuela es de 20.2%.",
+        "La tasa de ausentismo crónico de la escuela (20.2%) es menor que la del distrito (23.9%).",
+        "La tasa de ausentismo crónico de la escuela (20.2%) es mayor que la del estado (19.4%)."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "judgment",
+        "measures": [
+          "enrollment.total",
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1490,
+        "output_tokens": 687,
+        "cache_read_tokens": 7940
+      }
+    }
+  ]
+}
