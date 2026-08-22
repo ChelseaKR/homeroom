@@ -117,7 +117,8 @@ def number_forms(value: float) -> set[str]:
 
 
 _NOT_PUBLISHED = re.compile(
-    r"not published|withheld|did not publish|does not publish|not release|"
+    r"not published|withh[eo]ld(?:s|ing)?|did not publish|does not publish|not release|"
+    r"suppress(?:es|ed|ion)|"
     r"not been (?:published|reported|released|made public)|"
     r"isn't published|is not (?:published|available|reported)|"
     r"no (?:\w+ ){0,2}figure|no published|was not reported|not reported|"
@@ -141,8 +142,7 @@ def says_not_published(text: str) -> bool:
 
 _ABSENCE_AS_VALUE = re.compile(
     r"\b(?:zero|none(?! (?:was|is|were|are) (?:published|reported))|nobody|"
-    r"(?<!not because there are )(?<!not because there were )(?<!not that there are )"
-    r"(?:no students|no pupils|no children)|"
+    r"no students|no pupils|no children|"
     r"cero|nadie|no hay (?:estudiantes|alumnos|ni[nñ][oa]s)|"
     r"ning[uú]n(?:[oa]s?)? (?:estudiantes?|alumn[oa]s?|ni[nñ][oa]s?))\b|"
     r"(?<![\d.,])0(?![\d,]|\.\d)",
@@ -154,14 +154,38 @@ The guard runs only on sentences that cite a withheld or unpublished cell, so
 a genuine published zero, cited as the reported cell it is, is never caught.
 """
 
+_NEGATION_CUE = re.compile(
+    r"(?:not because|not that|not mean|does not mean|doesn't mean|do not mean|"
+    r"cannot say|can't say|not possible to say|not known|whether|rather than|"
+    r"not necessarily|not the same as|is not (?:a )?zero|"
+    r"no porque|no significa|no quiere decir|no es posible saber|"
+    r"no se puede saber|no se sabe|si (?:es|hay|son)|en lugar de|"
+    r"no necesariamente|no es lo mismo que|no es cero)",
+    re.IGNORECASE,
+)
+"""What may precede a zero-word in a sentence that denies the zero reading.
+
+"Withheld to protect privacy, not because there are no students" and "it is
+not possible to say whether the rate is zero" are the honest answers to "so
+it's zero, right?", and they have to name the thing they deny. A zero-word
+with one of these cues in the 80 characters before it is a denial, not a
+value. Anything else that says zero about a withheld cell is withheld.
+"""
+
 
 def renders_absence_as_value(text: str) -> bool:
     """True if a sentence turns an absent figure into a zero or a "none".
 
     Numbers are not checked here: the verifier checks every number in every
-    sentence against the cells it cites, and a withheld cell allows none.
+    sentence against the cells it cites, and a withheld cell allows none. A
+    zero-word preceded by a negation cue (:data:`_NEGATION_CUE`) is a denial
+    of the zero reading and is allowed.
     """
-    return _ABSENCE_AS_VALUE.search(text) is not None
+    for match in _ABSENCE_AS_VALUE.finditer(text):
+        before = text[max(0, match.start() - 80) : match.start()]
+        if not _NEGATION_CUE.search(before):
+            return True
+    return False
 
 
 def year_tokens(year: str) -> set[str]:
