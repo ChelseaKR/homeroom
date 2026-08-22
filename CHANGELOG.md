@@ -63,6 +63,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the PRs that follow and is listed here as it does.
 
 ### Fixed
+- **The deployed ask page could not reach its service from a browser, and said
+  so in the one string that hides why.** Both the Lambda Function URL's `Cors`
+  configuration and the handler set `access-control-allow-origin`, so the
+  response carried it twice (`https://homeroom.chelseakr.com,
+  https://homeroom.chelseakr.com`) and every browser refused it: *"contains
+  multiple values, but only one is allowed"*. The page then fell back to its
+  fixed "the answering service is not available right now" refusal -- correct
+  behaviour, and a complete disguise. `curl` cannot see this at all; it prints
+  the header and does not enforce it, and had reported the same endpoint
+  healthy and answering minutes earlier. Found by loading the live page in a
+  real browser. The template no longer declares CORS on the URL: the handler is
+  the single source, and it is the same code that enforces the origin
+  server-side, which is the check that actually refuses anybody. Preflight now
+  reaches the function, which already handled `OPTIONS`.
+  `tests/test_deploy_template.py` gates that and ten other things a green
+  `cloudformation deploy` does not prove.
 - **Three things the ask service's deployment shape got wrong, each found by
   deploying it rather than by reading it** (2026-08-22, the day the owner
   authorized hosting). (1) `homeroom.ask.corpus` locates the corpus by walking
