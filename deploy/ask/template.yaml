@@ -1,0 +1,165 @@
+# Prepared deployment shape for the ask service (ADR 0003). NOT APPLIED.
+#
+# One Lambda function behind a Function URL, CORS locked to the site's origin,
+# cost bounded three ways: reserved concurrency (at most N requests in flight),
+# the service's own per-client rate limit and daily cap (env below), and a
+# CloudWatch alarm on daily invocations. Whether to create this stack is the
+# owner's decision; nothing in this repository applies it. See README.md.
+#
+# Deploying (by a person, after that decision):
+#   ./deploy/ask/build.sh                       -> dist/ask-lambda.zip (code + bundle + SDK)
+#   aws s3 cp dist/ask-lambda.zip s3://<bucket>/ask/<sha>.zip
+#   aws cloudformation deploy --template-file deploy/ask/template.yaml \
+#     --stack-name homeroom-ask --capabilities CAPABILITY_IAM \
+#     --parameter-overrides CodeBucket=<bucket> CodeKey=ask/<sha>.zip \
+#       SiteOrigin=https://<site> Provider=bedrock Model=global.anthropic.claude-sonnet-4-6
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Homeroom ask service (ADR 0003). Unofficial; not affiliated with CDE.
+
+Parameters:
+  CodeBucket:
+    Type: String
+    Description: S3 bucket holding the built zip (build.sh output).
+  CodeKey:
+    Type: String
+    Description: S3 key of the built zip.
+  SiteOrigin:
+    Type: String
+    Description: The only origin allowed to call (scheme + host, no path).
+    AllowedPattern: "^https://[A-Za-z0-9.-]+$"
+  Provider:
+    Type: String
+    AllowedValues: [bedrock, anthropic]
+    Default: bedrock
+    Description: bedrock uses the function's IAM role (no key); anthropic needs ApiKey.
+  Model:
+    Type: String
+    Default: claude-sonnet-5
+    Description: Model id. For bedrock, the inference profile id the account can invoke.
+  BedrockModelArn:
+    Type: String
+    Default: "arn:aws:bedrock:*::foundation-model/*"
+    Description: Narrow this to the exact model/profile ARN(s) before deploying.
+  ApiKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: Anthropic API key, only when Provider=anthropic. Never committed anywhere.
+  DailyCap:
+    Type: Number
+    Default: 400
+    Description: Model calls per UTC day, per warm container (two per answered question).
+  PerMinute:
+    Type: Number
+    Default: 6
+    Description: Requests per client per minute.
+  ReservedConcurrency:
+    Type: Number
+    Default: 2
+    Description: Hard ceiling on concurrent executions, which is the real cost bound.
+  DailyInvocationAlarm:
+    Type: Number
+    Default: 1000
+    Description: Alarm when invocations in 24h exceed this.
+  AlarmTopicArn:
+    Type: String
+    Default: ""
+    Description: Optional SNS topic for the alarm.
+
+Conditions:
+  UsesAnthropic: !Equals [!Ref Provider, anthropic]
+  HasAlarmTopic: !Not [!Equals [!Ref AlarmTopicArn, ""]]
+
+Resources:
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: bedrock-invoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+                Resource: !Ref BedrockModelArn
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}"
+      RetentionInDays: 14
+
+  Function:
+    Type: AWS::Lambda::Function
+    DependsOn: LogGroup
+    Properties:
+      FunctionName: !Ref AWS::StackName
+      Runtime: python3.12
+      Architectures: [arm64]
+      Handler: homeroom.ask.http.lambda_handler
+      Role: !GetAtt Role.Arn
+      MemorySize: 512
+      Timeout: 40
+      ReservedConcurrentExecutions: !Ref ReservedConcurrency
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Environment:
+        Variables:
+          HOMEROOM_ASK_BUNDLE: /var/task/bundle
+          HOMEROOM_ASK_PROVIDER: !Ref Provider
+          HOMEROOM_ASK_MODEL: !Ref Model
+          HOMEROOM_ASK_ORIGIN: !Ref SiteOrigin
+          HOMEROOM_ASK_DAILY_CAP: !Ref DailyCap
+          HOMEROOM_ASK_PER_MINUTE: !Ref PerMinute
+          ANTHROPIC_API_KEY: !If [UsesAnthropic, !Ref ApiKey, !Ref AWS::NoValue]
+
+  Url:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt Function.Arn
+      AuthType: NONE
+      InvokeMode: BUFFERED
+      Cors:
+        AllowOrigins: [!Ref SiteOrigin]
+        AllowMethods: [POST]
+        AllowHeaders: [content-type]
+        MaxAge: 600
+
+  UrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Function
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+  InvocationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Ask service invocations in a day exceeded the envelope.
+      Namespace: AWS/Lambda
+      MetricName: Invocations
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref Function
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: !Ref DailyInvocationAlarm
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+
+Outputs:
+  FunctionUrl:
+    Value: !GetAtt Url.FunctionUrl
+    Description: Pass this to the site build as --ask-endpoint.
