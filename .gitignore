@@ -1,6 +1,9 @@
 data/raw/
 data/out/
 build/
+# The Lambda package build.sh produces: a quarter of a gigabyte of
+# dependencies and a copy of the evidence bundle, rebuilt on demand.
+dist/
 node_modules/
 __pycache__/
 .venv/

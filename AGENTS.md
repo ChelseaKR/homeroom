@@ -10,7 +10,9 @@ California public school data, joined from CDE's own published files into
 plain-language bilingual school pages. It refuses to rank schools (ADR 0002).
 A suppressed measure renders as *not published*, never as zero. A number that
 cannot be shown honestly is not shown at all. Unofficial; not affiliated with
-the State of California or any district. In development; nothing is hosted.
+the State of California or any district. In development, and live at
+https://homeroom.chelseakr.com since 2026-08-22: one school, both languages,
+with the ask service running. Real families can now read what this builds.
 
 As of ADR 0003 it also carries an optional, opt-in AI question-answering layer
 (`src/homeroom/ask/`). Everything below binds that layer first.
@@ -71,7 +73,13 @@ As of ADR 0003 it also carries an optional, opt-in AI question-answering layer
 - Evaluation results are committed only from a live run and carry provider,
   model, prompt version, commit, and date. A suite that did not run says
   `not_run`. Never fabricate a number.
-- Deployment is an owner decision. Prepare templates; never apply them.
+- Deployment is an owner decision. It was made on 2026-08-22 and the stack
+  `homeroom-ask` is applied in `us-west-2`; `deploy/ask/README.md` records the
+  parameters and the rollback. That decision covers this shape at this cost
+  envelope. Widening it -- a larger model, a higher cap, a second region, a new
+  subprocessor -- is a fresh decision, and the subprocessor record in
+  `docs/RESPONSIBLE-TECH-AUDITS.md` has to move before the exposure does, not
+  after.
 
 ## Workflow
 

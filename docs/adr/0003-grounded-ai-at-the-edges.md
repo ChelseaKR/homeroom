@@ -148,7 +148,10 @@ Consequential choices:
   the stable system prompt is cached with the provider.
 - **Nothing here deploys.** A deployment shape (one function with a public URL,
   cost-bounded, CORS locked to the site's origin) is prepared as a template and
-  a runbook and is not applied. Whether the service is exposed to real families
+  a runbook and was applied on 2026-08-22 by the owner's decision (stack
+  `homeroom-ask`, us-west-2, Bedrock `global.anthropic.claude-sonnet-4-6`;
+  parameters and rollback in `deploy/ask/README.md`). Whether the service is
+  exposed to real families
   is the owner's decision, the same as whether the pages are.
 - **The evaluation is model-independent and committed.** Five suites live with
   their harness: ranking refusal, suppression fidelity, citation grounding,

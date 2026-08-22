@@ -1,0 +1,80 @@
+# Publish `site/` to GitHub Pages at https://homeroom.chelseakr.com.
+#
+# This workflow builds nothing. It cannot: the pages are rendered from CDE
+# files that are acquired by hand into `data/raw/`, which is never in git, and
+# CI never touches the network (AGENTS.md, PROVENANCE.md). So the rendered
+# pages are committed -- `make publish ASK_ENDPOINT=<the stack's FunctionUrl>`
+# writes them -- and this workflow uploads that directory as-is.
+#
+# What that buys is worth the oddity of committed HTML: the bytes reviewed in a
+# pull request are exactly the bytes served, and `tests/test_published_site.py`
+# gates them in `make verify` on a runner with no acquired file present.
+#
+# It runs after ci succeeds on main rather than on the push itself, so a commit
+# that fails the accessibility, parity or published-site gates is never the one
+# that reaches families. `workflow_dispatch` re-publishes the current main on
+# demand -- useful after a Pages setting changes, since nothing else would.
+#
+# Every action is pinned to the full 40-char commit SHA of its tag, each one
+# verified against the tag with `gh api repos/OWNER/REPO/commits/TAG` on
+# 2026-08-22, per SECURITY-AND-SUPPLY-CHAIN-STANDARD §6.
+name: pages
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+# Never let two publishes race; never cancel one in flight, because a cancelled
+# deploy-pages can leave the site on a half-uploaded artifact.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # A failed ci run must not publish. workflow_dispatch has no ci run attached
+    # and is a deliberate act by a person, so it is allowed through.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # workflow_run checks out the default branch's tip by default, which
+          # is not necessarily the commit ci just passed. Publish the commit
+          # that was actually verified.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          persist-credentials: false
+
+      - name: The published directory must exist and name its domain
+        # Cheap, and it catches the two ways this deploy goes wrong silently: a
+        # commit that dropped `site/`, and a `site/` with no CNAME, which
+        # unsets the custom domain in Pages and moves the site to github.io
+        # without failing anything.
+        run: |
+          set -euo pipefail
+          test -f site/index.html || { echo "site/index.html is missing; run make publish" >&2; exit 1; }
+          test -f site/CNAME || { echo "site/CNAME is missing; publishing would unset the custom domain" >&2; exit 1; }
+          echo "publishing $(find site -name '*.html' | wc -l | tr -d ' ') pages for $(cat site/CNAME)"
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

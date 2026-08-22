@@ -6,6 +6,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **The site is live at <https://homeroom.chelseakr.com>, and the ask service
+  behind it is deployed** (2026-08-22, by the owner's decision). Nothing in this
+  project had ever been hosted; every document said so, and now none of them do.
+  What is published is one school -- Birch Lane Elementary in Davis Joint
+  Unified, in English and Spanish -- with an ask page for each language wired to
+  a running service, and a landing page that says it is one school out of the
+  10,534 the pipeline profiles rather than implying the state is covered.
+  - **Static hosting on GitHub Pages**, custom domain with HTTPS enforced, and a
+    Route 53 CNAME. Zero AWS cost for the site itself.
+  - **The rendered pages are committed to `site/` and the workflow builds
+    nothing.** It cannot: `data/raw/` is never in git and CI never touches the
+    network. That trade is what `tests/test_published_site.py` exists to make
+    safe -- it reads the published bytes on a runner with no acquired file and
+    checks the claims that do not need the source data: the domain is named, no
+    page carries the fixture banner, every internal link resolves to a file that
+    exists, no page reaches off-origin except the ask page's one https endpoint,
+    every ask-page script is inline, both languages are present for every
+    school, and the no-ranking and non-affiliation notices are on every page.
+  - `make publish` renders and stamps `CNAME`; `.github/workflows/pages.yml`
+    publishes after ci succeeds on main, or on demand, and refuses to publish a
+    tree with no `index.html` or no `CNAME` (a missing CNAME silently unsets the
+    custom domain).
+  - **The ask service** runs as CloudFormation stack `homeroom-ask` in
+    `us-west-2` on Bedrock `global.anthropic.claude-sonnet-4-6`, the model the
+    recorded evaluations name: reserved concurrency 2, a daily cap of 400 model
+    calls, six requests per client per minute, a CloudWatch alarm at 400 daily
+    invocations to an SNS topic in the same stack, 14-day logs, and no request
+    body ever logged. Verified live rather than by reading configuration: a real
+    question returns cited figures; a ranking-bait question returns the fixed
+    refusal and no ordering; a POST from a foreign origin is refused 403 by the
+    handler, not only by CORS.
+  - Recorded as applied in `deploy/ask/README.md` (stack, region, ARN, Function
+    URL, parameters, rollback) and in the ADR, the ROADMAP, the risk register
+    and the README. What is still open is written down too: nobody is subscribed
+    to the alarm topic, there is no account budget by design, the daily cap is
+    per warm container rather than a shared ledger, and no person has read the
+    Spanish narration as a Spanish speaker.
+
 ### Changed
 - **Direction: a grounded AI question-answering layer, by the owner's
   direction (ADR 0003, 2026-08-21).** Until now this project had no prompt,

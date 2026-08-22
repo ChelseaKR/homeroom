@@ -1,12 +1,23 @@
-# Prepared deployment shape for the ask service (ADR 0003). NOT APPLIED.
+# Deployment shape for the ask service (ADR 0003). APPLIED 2026-08-22 as stack
+# `homeroom-ask` in us-west-2, by the owner's decision. README.md in this
+# directory records the parameters as applied, the rollback, and what is still
+# open. Nothing in this repository applies it; a person does, with the commands
+# below.
 #
-# One Lambda function behind a Function URL, CORS locked to the site's origin,
-# cost bounded three ways: reserved concurrency (at most N requests in flight),
-# the service's own per-client rate limit and daily cap (env below), and a
-# CloudWatch alarm on daily invocations. Whether to create this stack is the
-# owner's decision; nothing in this repository applies it. See README.md.
+# One Lambda function behind a Function URL, CORS and a server-side origin check
+# locked to the site's origin, cost bounded three ways: reserved concurrency (at
+# most N requests in flight), the service's own per-client rate limit and daily
+# cap (env below), and a CloudWatch alarm on daily invocations to an SNS topic
+# created here.
 #
-# Deploying (by a person, after that decision):
+# Deploying (by a person):
+#
+# Pass parameters from a file, not the Key=Value shorthand: BedrockModelArns is
+# a list, and escaping its commas as \, puts the backslashes into the ARNs. The
+# stack still deploys green and every question then returns "unavailable".
+#   aws cloudformation deploy ... --parameter-overrides file://params.json
+#
+# The two phases, in order:
 #   aws cloudformation deploy --template-file deploy/ask/template.yaml \
 #     --stack-name homeroom-ask --capabilities CAPABILITY_IAM \
 #     --parameter-overrides DeployFunction=false SiteOrigin=https://<site> \

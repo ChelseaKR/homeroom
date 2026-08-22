@@ -38,10 +38,16 @@ stated. No composite score, no ranking, ever (ADR 0000). No account, no tracking
 
 ## Observability
 
-Tier C (library/CLI) per `STANDARDS/OBSERVABILITY-STANDARD.md` §0: a local
-pipeline with no hosted service or frontend. OTel is documented out of scope for
-this tier; opt-in `--log-format json` is the entry point if a service surface ever
-appears. Tiers A/B: N/A until something is hosted.
+Tier C (library/CLI) per `STANDARDS/OBSERVABILITY-STANDARD.md` §0 for the
+pipeline, which is where the work is. As of 2026-08-22 there is also a hosted
+surface: a static site on GitHub Pages, which emits nothing because it is files,
+and one Lambda, whose observability is deliberately thin -- the runtime's
+START/END/REPORT lines and a 14-day retention, with no request body and no
+question ever logged (that is a privacy requirement, not an oversight; see
+`docs/RESPONSIBLE-TECH-AUDITS.md`). What is watched instead is spend and volume:
+a CloudWatch alarm on daily invocations against the approved envelope. OTel
+stays out of scope; opt-in `--log-format json` is the entry point if the
+pipeline ever needs it.
 
 ## Quality targets
 
@@ -62,7 +68,7 @@ gate, byte-for-byte identical locally and in CI.
 | M3 (done 2026-08-21) | Suppression showcase | A committed artifact demonstrating null-never-zero rendering: masked cells shown as "not published", coverage stats published beside the data (`docs/SUPPRESSION-SHOWCASE.md`) |
 | M4 (done 2026-08-08) | First bilingual school page, with district and statewide context | One real school rendered EN/ES from acquired data (Birch Lane Elementary, Davis Joint Unified, CDS 57726786056246); a11y and EN/ES parity gates wired and merge-blocking from this milestone; each measure sits beside its district and statewide figure, read from CDE's own `Charter=ALL` aggregate rows and never summed from schools |
 | D5a (rebuilt against the real file 2026-08-21) | D5 teacher assignment monitoring parser | Parser, spine join, artifact and coverage output built and verified against the real acquired 2023-24 file; every rendering case and the drift refusals covered; no D5 number published on any page or in `make data`'s default invocation, and PROVENANCE says why |
-| A1 (built 2026-08-22, ADR 0003; not deployed) | Grounded ask layer | One school per request; structuring, narration, verifier; fixed bilingual refusals; corpus of CDE definitions with hashes and retrieval dates; five committed evaluation suites with provenance-stamped results (157/157 on Bedrock claude-sonnet-4-6, 2026-08-22, real data; 23 of 534 model sentences withheld by the verifier); opt-in ask page that makes no request until a question is submitted, proven in a DOM; school pages byte-identical to a build without it; deployment shape prepared and not applied |
+| A1 (built and deployed 2026-08-22, ADR 0003) | Grounded ask layer | One school per request; structuring, narration, verifier; fixed bilingual refusals; corpus of CDE definitions with hashes and retrieval dates; five committed evaluation suites with provenance-stamped results (157/157 on Bedrock claude-sonnet-4-6, 2026-08-22, real data; 23 of 534 model sentences withheld by the verifier); opt-in ask page that makes no request until a question is submitted, proven in a DOM; school pages byte-identical to a build without it; deployed 2026-08-22 as CloudFormation stack `homeroom-ask` in us-west-2 on Bedrock `global.anthropic.claude-sonnet-4-6`, verified live (cited answer, ranking bait refused, foreign origin rejected) |
 | M5 | D4, D6 | Dashboard indicators and per-pupil spending joined where published. (D5 is acquired and schema-verified as of D5a; publishing it on a page is a separate decision this roadmap has not made, tracked at issue level rather than promised a milestone here) |
 
 ## Metrics ledger
@@ -238,6 +244,11 @@ Mirrors the README Standards Conformance table; never a silent skip.
   a prompt, retrieval, and model-version surface, evaluated by the five suites
   in `evals/`; results carry provider, model, prompt version, commit, and date.
   AI-assisted development is separately disclosed in the README.
-- Observability Tiers A/B: N/A while nothing is hosted (Tier C declared above).
+- Observability Tiers A/B: partially applicable since 2026-08-22, when the site
+  and the ask service were deployed. What is in place is the invocation alarm and
+  the cost envelope; what is not is a latency or error-rate objective, a dashboard,
+  or any tracing. The constraint that shapes it is that the one hosted route must
+  not log what it is asked, so the usual request-level telemetry is unavailable by
+  design and anything added has to work from counts alone.
   The ask service (ADR 0003) becomes a Tier A/B surface if and when it is
   deployed; the prepared deployment shape names the counters it would emit.
