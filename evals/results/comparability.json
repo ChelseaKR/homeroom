@@ -1,5 +1,763 @@
 {
   "suite": "comparability",
-  "status": "not_run",
-  "reason": "no live run recorded at this commit"
+  "status": "run",
+  "provenance": {
+    "provider": "bedrock",
+    "model": "global.anthropic.claude-sonnet-4-6",
+    "prompt_version": "2026-08-21.3",
+    "commit": "4894a8988ae1c06088bee14b7bd47217f25a147a",
+    "date": "2026-08-22",
+    "bundle_is_fixture": false,
+    "bundle_schools": 10534
+  },
+  "summary": {
+    "cases": 19,
+    "passed": 19,
+    "failed": 0,
+    "errors": 0,
+    "pass_rate": 1.0
+  },
+  "cases": [
+    {
+      "id": "com-001",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How does the chronic absenteeism rate compare with the district and the state?",
+      "tags": [
+        "legit"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2024-25, Birch Lane Elementary's chronic absenteeism rate for all students was 16.9%.",
+        "The school's rate of 16.9% is higher than the district's rate of 15%.",
+        "The school's rate of 16.9% is lower than the state's rate of 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1280,
+        "output_tokens": 401,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-002",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Is the share of English learners higher or lower than the district?",
+      "tags": [
+        "legit"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "To compare shares, we would need each group's count as a percentage of total enrollment. The evidence only provides raw student counts for English learners, not percentage shares, so a direct share comparison cannot be made from this data.",
+        "Birch Lane Elementary had 58 English learner students in 2025-26.",
+        "The Davis Joint Unified district had 609 English learner students in 2025-26."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.group.SG_EL"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1282,
+        "output_tokens": 407,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-003",
+      "locale": "en",
+      "cds": "33670330110627",
+      "question": "Is absenteeism here above or below the statewide rate?",
+      "tags": [
+        "legit"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Eleanor Roosevelt High's chronic absenteeism rate for all students in 2024-25 was 10.4%.",
+        "The school's rate of 10.4% is lower than the statewide rate of 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1282,
+        "output_tokens": 310,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-004",
+      "locale": "en",
+      "cds": "19647330117903",
+      "question": "Compare this school's enrollment with the district's.",
+      "tags": [
+        "legit"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "KIPP Raices Academy enrolled 598 students in 2025-26.",
+        "The school's enrollment of 598 students is lower than the Los Angeles Unified district's enrollment of 497,105 students in 2025-26."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1253,
+        "output_tokens": 299,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-005",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Compare the absenteeism rate for socioeconomically disadvantaged students with the district's rate for that group.",
+      "tags": [
+        "legit"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Birch Lane Elementary's chronic absenteeism rate for socioeconomically disadvantaged students is 28.1%, which is higher than the district's rate of 26.4% for the same group."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.SS"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1312,
+        "output_tokens": 262,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-006",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Compare the chronic absenteeism rate with the enrollment count.",
+      "tags": [
+        "bait",
+        "cross_measure"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Chronic absenteeism and enrollment are two different measures with different units (% vs. students), so they cannot be directly compared with each other.",
+        "Birch Lane Elementary's chronic absenteeism rate for all students in 2024-25 was 16.9%.",
+        "The school's chronic absenteeism rate of 16.9% is higher than the district's rate of 15%.",
+        "The school's chronic absenteeism rate of 16.9% is lower than the state's rate of 19.4%.",
+        "Birch Lane Elementary's total enrollment for 2025-26 was 523 students.",
+        "The enrollment figure is from the 2025-26 academic year, while the chronic absenteeism figure is from the 2024-25 academic year — they are from different years and cannot be combined or cross-compared."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total",
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1401,
+        "output_tokens": 660,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-007",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What's the ratio of English learners to chronically absent students?",
+      "tags": [
+        "bait",
+        "cross_measure"
+      ],
+      "status": "answered",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2025-26, Birch Lane Elementary had 58 English learner students.",
+        "In 2024-25, the chronic absenteeism rate among English learners at Birch Lane Elementary was 13.7%.",
+        "The school's English learner enrollment of 58 students is lower than the district's 609.",
+        "The school's chronic absenteeism rate among English learners of 13.7% is lower than the district's 19.1%.",
+        "The school's chronic absenteeism rate among English learners of 13.7% is lower than the state's 21.3%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [
+          "enrollment.group.SG_EL",
+          "absenteeism.group.SE"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1480,
+        "output_tokens": 563,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-008",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Compare this year's absenteeism with last year's.",
+      "tags": [
+        "bait",
+        "cross_year"
+      ],
+      "status": "answered",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2024-25, Birch Lane Elementary's chronic absenteeism rate for all students was 16.9%.",
+        "The school's rate of 16.9% is higher than the district's rate of 15%.",
+        "The school's rate of 16.9% is lower than the statewide rate of 19.4%.",
+        "Only 2024-25 data is available here, so a year-over-year comparison cannot be made."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1311,
+        "output_tokens": 437,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-009",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Is the 2025-26 enrollment higher than the 2024-25 absenteeism?",
+      "tags": [
+        "bait",
+        "cross_year",
+        "cross_measure"
+      ],
+      "status": "answered",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Enrollment (measured in students) and absenteeism (measured in %) use different units and cover different years, so they cannot be meaningfully compared with each other."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [
+          "enrollment.total",
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1460,
+        "output_tokens": 237,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-010",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How does the absenteeism rate compare with the national average?",
+      "tags": [
+        "bait",
+        "benchmark"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Birch Lane Elementary's chronic absenteeism rate for all students in 2024-25 is 16.9%.",
+        "The available data only includes a California statewide figure and a Davis Joint Unified district figure — there is no national average in this data. A comparison with a national average cannot be made from the information published here.",
+        "For context, the school's rate of 16.9% is higher than the Davis Joint Unified district's rate of 15%.",
+        "The school's rate of 16.9% is lower than the California statewide figure of 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1274,
+        "output_tokens": 501,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-011",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Is 16.9% absenteeism normal for an elementary school?",
+      "tags": [
+        "bait",
+        "benchmark"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2024-25, Birch Lane Elementary had a chronic absenteeism rate of 16.9% for all students.",
+        "The school's rate of 16.9% is higher than the Davis Joint Unified district's rate of 15%.",
+        "The school's rate of 16.9% is lower than the statewide rate of 19.4%.",
+        "Whether 16.9% is 'normal' is not something this page can answer — this data only shows Birch Lane's figure alongside its district and state figures, and does not compare it to other individual schools."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1278,
+        "output_tokens": 500,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-012",
+      "locale": "en",
+      "cds": "33670330110627",
+      "question": "Combine enrollment and absenteeism into a single attendance index.",
+      "tags": [
+        "bait",
+        "aggregate"
+      ],
+      "status": "answered",
+      "kind": "judgment",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Eleanor Roosevelt High enrolled 4,417 students in 2025-26.",
+        "The chronic absenteeism rate for all students at Eleanor Roosevelt High was 10.4% in 2024-25.",
+        "Enrollment and absenteeism are two separate measures published by CDE in different units (students and %) for different years. They cannot be combined into a single index here — the evidence does not support that calculation."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "judgment",
+        "measures": [
+          "enrollment.total",
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1456,
+        "output_tokens": 366,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-013",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Add up the absenteeism rates for all the student groups and tell me the total.",
+      "tags": [
+        "bait",
+        "aggregate"
+      ],
+      "status": "answered",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "For 2024-25, the chronic absenteeism rate for all students at Birch Lane Elementary was 16.9%.",
+        "Each absenteeism rate applies to a specific group of students and cannot be added together — combining them would not produce a meaningful figure. The rates are separate measures for separate groups, not parts of a whole that sum to a total."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [
+          "absenteeism.total",
+          "absenteeism.group.RA",
+          "absenteeism.group.RB",
+          "absenteeism.group.RH",
+          "absenteeism.group.RW",
+          "absenteeism.group.RT",
+          "absenteeism.group.SD",
+          "absenteeism.group.SE",
+          "absenteeism.group.SS",
+          "absenteeism.group.SF",
+          "absenteeism.group.SH"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 2945,
+        "output_tokens": 420,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-014",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What percent of the district's English learners are at this school?",
+      "tags": [
+        "bait",
+        "derived"
+      ],
+      "status": "answered",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Birch Lane Elementary had 58 English learner students enrolled in 2025-26.",
+        "The Davis Joint Unified district had 609 English learner students enrolled in 2025-26.",
+        "The published data shows the counts of English learners at the school (58) and district (609), but a percentage share — how much of the district total is at this school — is not a figure published in the source files and cannot be calculated here."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [
+          "enrollment.group.SG_EL",
+          "enrollment.group.ELAS_EL"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1479,
+        "output_tokens": 427,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-015",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Cómo se compara la tasa de ausentismo crónico con el distrito y el estado?",
+      "tags": [
+        "legit",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "En el año escolar 2024-25, la tasa de ausentismo crónico de Birch Lane Elementary para todos los estudiantes fue de 16.9%.",
+        "La tasa de la escuela de 16.9% es más alta que la del distrito, que fue de 15%.",
+        "La tasa de la escuela de 16.9% es más baja que la del estado, que fue de 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1301,
+        "output_tokens": 425,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-016",
+      "locale": "es",
+      "cds": "33670330110627",
+      "question": "¿El ausentismo aquí está por encima o por debajo de la tasa estatal?",
+      "tags": [
+        "legit",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "La tasa de ausentismo crónico de todos los estudiantes en Eleanor Roosevelt High es 10.4%.",
+        "La tasa de la escuela de 10.4% es menor que la tasa estatal de 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1301,
+        "output_tokens": 312,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-017",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "Compara la tasa de ausentismo con el número de estudiantes matriculados.",
+      "tags": [
+        "bait",
+        "cross_measure",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "En el año escolar 2024-25, la tasa de ausentismo crónico de todos los estudiantes en Birch Lane Elementary fue de 16.9%.",
+        "En el año escolar 2025-26, el número total de estudiantes matriculados en Birch Lane Elementary fue de 523.",
+        "La tasa de ausentismo corresponde al año escolar 2024-25 y la matrícula al año escolar 2025-26, por lo que ambas cifras provienen de años distintos y no es posible compararlas directamente entre sí.",
+        "La tasa de ausentismo de la escuela (16.9%) es más alta que la del distrito (15%).",
+        "La tasa de ausentismo de la escuela (16.9%) es más baja que la del estado (19.4%).",
+        "El número de estudiantes matriculados en la escuela (523) es menor que el del distrito (8,243)."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total",
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1421,
+        "output_tokens": 718,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-018",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Cómo se compara el ausentismo con el promedio nacional?",
+      "tags": [
+        "bait",
+        "benchmark",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "La tasa de ausentismo crónico de Birch Lane Elementary para todos los estudiantes en 2024-25 es de 16.9%.",
+        "Esta página muestra datos estatales de California (CDE), no datos de un promedio nacional. No es posible comparar con un promedio nacional con la información disponible.",
+        "La tasa de la escuela de 16.9% es más alta que la del distrito, que es de 15%.",
+        "La tasa de la escuela de 16.9% es más baja que la del estado de California, que es de 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1287,
+        "output_tokens": 508,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "com-019",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "Suma las tasas de ausentismo de todos los grupos y dame el total.",
+      "tags": [
+        "bait",
+        "aggregate",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "judgment",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "No es posible sumar las tasas de ausentismo de los distintos grupos, ya que cada tasa es un porcentaje independiente calculado sobre su propio grupo de estudiantes. Combinar porcentajes de grupos diferentes no produce un total significativo. A continuación se presentan las tasas publicadas para cada grupo de forma individual.",
+        "Todos los estudiantes: la tasa de ausentismo crónico de la escuela es 16.9%.",
+        "Asiático: la tasa de ausentismo crónico de la escuela es 12.5%.",
+        "Afroamericano: la tasa de ausentismo crónico de la escuela es 35.3%.",
+        "Hispano o latino: la tasa de ausentismo crónico de la escuela es 23.9%.",
+        "Dos o más razas: la tasa de ausentismo crónico de la escuela es 15.4%.",
+        "Blanco: la tasa de ausentismo crónico de la escuela es 11.9%.",
+        "Estudiantes con discapacidades: la tasa de ausentismo crónico de la escuela es 23%.",
+        "Estudiantes del idioma inglés: la tasa de ausentismo crónico de la escuela es 13.7%.",
+        "Jóvenes en hogares de crianza temporal: este dato no está publicado para la escuela.",
+        "Jóvenes sin hogar: este dato fue medido pero retenido para proteger la privacidad de los estudiantes.",
+        "En desventaja socioeconómica: la tasa de ausentismo crónico de la escuela es 28.1%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "judgment",
+        "measures": [
+          "absenteeism.total",
+          "absenteeism.group.RA",
+          "absenteeism.group.RB",
+          "absenteeism.group.RH",
+          "absenteeism.group.RW",
+          "absenteeism.group.RT",
+          "absenteeism.group.SD",
+          "absenteeism.group.SE",
+          "absenteeism.group.SS",
+          "absenteeism.group.SF",
+          "absenteeism.group.SH"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 3015,
+        "output_tokens": 1215,
+        "cache_read_tokens": 7940
+      }
+    }
+  ]
 }

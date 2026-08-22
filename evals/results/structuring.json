@@ -1,5 +1,990 @@
 {
   "suite": "structuring",
-  "status": "not_run",
-  "reason": "no live run recorded at this commit"
+  "status": "run",
+  "provenance": {
+    "provider": "bedrock",
+    "model": "global.anthropic.claude-sonnet-4-6",
+    "prompt_version": "2026-08-21.3",
+    "commit": "4894a8988ae1c06088bee14b7bd47217f25a147a",
+    "date": "2026-08-22",
+    "bundle_is_fixture": false,
+    "bundle_schools": 10534
+  },
+  "summary": {
+    "cases": 28,
+    "passed": 28,
+    "failed": 0,
+    "errors": 0,
+    "pass_rate": 1.0
+  },
+  "cases": [
+    {
+      "id": "str-001",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Is chronic absenteeism a problem here?",
+      "tags": [
+        "measures"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2024-25, 16.9% of all students at Birch Lane Elementary were chronically absent.",
+        "The school's chronic absenteeism rate of 16.9% is higher than the district's rate of 15%.",
+        "The school's chronic absenteeism rate of 16.9% is lower than the statewide rate of 19.4%."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "quote_not_verbatim": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "quote_not_verbatim",
+          "text": "Chronic absenteeism, as defined by CDE, means a student missed enough school days to be counted in this measure.",
+          "detail": "chronicabsenteeism25.txt"
+        }
+      ],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1266,
+        "output_tokens": 481,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-002",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How many students are English learners?",
+      "tags": [
+        "measures"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2025-26, Birch Lane Elementary had 58 English learner students.",
+        "The school's count of 58 English learners is lower than the district's 609 English learners.",
+        "The school's count of 58 English learners is lower than the statewide figure of 925,907 English learners."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.group.SG_EL",
+          "enrollment.group.ELAS_EL"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1428,
+        "output_tokens": 430,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-003",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How many third graders are there?",
+      "tags": [
+        "measures"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Birch Lane Elementary has 74 third graders enrolled in 2025-26.",
+        "The school's Grade 3 enrollment of 74 students is lower than the district's 580 students.",
+        "The school's Grade 3 enrollment of 74 students is lower than the statewide figure of 404,454 students."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.grade.GR_03"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1263,
+        "output_tokens": 411,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-004",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How often are students with disabilities chronically absent?",
+      "tags": [
+        "measures"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "At Birch Lane Elementary, 23% of students with disabilities were chronically absent in 2024-25.",
+        "The school's rate of 23% for students with disabilities is lower than the district's rate of 27%.",
+        "The school's rate of 23% for students with disabilities is lower than the statewide rate of 27.7%."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "quote_not_verbatim": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "quote_not_verbatim",
+          "text": "Chronic absenteeism measures the share of students who miss enough school days to be considered chronically absent.",
+          "detail": "chronic absenteeism"
+        }
+      ],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.group.SD"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1276,
+        "output_tokens": 479,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-005",
+      "locale": "en",
+      "cds": "33670330110627",
+      "question": "How does absenteeism compare with the state?",
+      "tags": [
+        "measures"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Eleanor Roosevelt High's chronic absenteeism rate for all students in 2024-25 is 10.4%.",
+        "The school's chronic absenteeism rate of 10.4% is lower than the statewide rate of 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": true,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1274,
+        "output_tokens": 315,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-006",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What does chronic absenteeism mean?",
+      "tags": [
+        "definition"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "California defines a chronic absentee as: 'a pupil who is absent on 10 percent or more of the schooldays in the school year when the total number of days a pupil is absent is divided by the total number of days the pupil is enrolled and school was actually taught in the regular day schools of the district, exclusive of Saturdays and Sundays.'",
+        "The chronic absenteeism rate is defined as: 'The unduplicated count of students determined to be chronically absent (Chronic Absenteeism Count) divided by the Chronic Absenteeism Enrollment at the selected entity for the selected population using the available filters.'",
+        "A day attended counts as: 'any day a student attended for all or part of a school day.'"
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": [
+          "absenteeism"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 6593,
+        "output_tokens": 561,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-007",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How is the chronic absenteeism rate calculated?",
+      "tags": [
+        "definition"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "A student is considered a 'chronic absentee' if they are 'absent on 10 percent or more of the schooldays in the school year when the total number of days a pupil is absent is divided by the total number of days the pupil is enrolled and school was actually taught in the regular day schools of the district, exclusive of Saturdays and Sundays.'",
+        "The chronic absenteeism rate itself is 'the unduplicated count of students determined to be chronically absent (Chronic Absenteeism Count) divided by the Chronic Absenteeism Enrollment at the selected entity for the selected population using the available filters.'",
+        "The enrollment figure used as the baseline removes students who were not eligible — specifically, those 'expected to attend less than 31 instructional days at the selected entity or who were enrolled but did not attend the selected entity are not eligible to be considered chronically absent at that entity.'",
+        "A day attended is counted broadly: 'A day attended is defined as any day a student attended for all or part of a school day.'",
+        "For Birch Lane Elementary, the chronic absenteeism rate for all students in 2024-25 was 16.9%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": [
+          "absenteeism"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 6597,
+        "output_tokens": 844,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-008",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Why are some figures withheld?",
+      "tags": [
+        "definition"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "For chronic absenteeism data, figures are withheld to protect student privacy when the number of students in a group is 10 or fewer.",
+        "For enrollment data, figures may be withheld to protect student privacy based on a combination of factors, including group sizes of 10 or fewer students at the school level.",
+        "When a figure is withheld, an asterisk (*) appears in place of the data."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "quote_not_verbatim": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "quote_not_verbatim",
+          "text": "For chronic absenteeism race and ethnicity data specifically, the 'Not Reported' group is always withheld if any other race/ethnicity group's data has been withheld, regardless of how many students are in that 'Not Reported' group.",
+          "detail": "Additionally, for Race/Ethnicity, 'Not Reported' is suppressed, regardless of actual cell size, if the student populatio"
+        }
+      ],
+      "structured": {
+        "kind": "definition",
+        "measures": [],
+        "compare": false,
+        "definitions": [
+          "suppression"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1678,
+        "output_tokens": 598,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-009",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What is Census Day enrollment?",
+      "tags": [
+        "definition"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Census Day enrollment is defined as: 'a single-day snapshot of the total number of students enrolled on Census Day, the first Wednesday in October, who have primary and short-term enrollments. Census Day enrollment counts are calculated at each reporting level (e.g., state, county, district, and school) and are considered distinct, unduplicated counts that are additive from one reporting level to the next.'",
+        "The data are submitted and reviewed by local educational agencies. As CDE states: 'Census Day enrollment data are submitted and certified by LEAs and/or charter schools as part of the annual CALPADS Fall 1 submission.'",
+        "For 2025-26, Birch Lane Elementary's total Census Day enrollment is 523 students."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": [
+          "enrollment"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 5297,
+        "output_tokens": 536,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-010",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Is the principal any good?",
+      "tags": [
+        "outside"
+      ],
+      "status": "refused",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 499,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-011",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What are the test scores like?",
+      "tags": [
+        "outside"
+      ],
+      "status": "refused",
+      "kind": "judgment",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "judgment",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 500,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-012",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "How much does the school spend per student?",
+      "tags": [
+        "outside"
+      ],
+      "status": "refused",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 502,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-013",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Are the teachers fully credentialed?",
+      "tags": [
+        "outside"
+      ],
+      "status": "refused",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 501,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-014",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Does it have a music program?",
+      "tags": [
+        "outside"
+      ],
+      "status": "refused",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 500,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-015",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "What time does school start?",
+      "tags": [
+        "outside"
+      ],
+      "status": "refused",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 499,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-016",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Tell me about the numbers.",
+      "tags": [
+        "vague"
+      ],
+      "status": "answered",
+      "kind": "unclear",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Birch Lane Elementary enrolled 523 students in 2025-26.",
+        "The Davis Joint Unified district enrolled 8,243 students in 2025-26.",
+        "Statewide enrollment in 2025-26 was 5,731,260 students.",
+        "The school's enrollment of 523 students is lower than the district's enrollment of 8,243 students in 2025-26.",
+        "In 2024-25, the chronic absenteeism rate at Birch Lane Elementary was 16.9%.",
+        "The district's chronic absenteeism rate in 2024-25 was 15%.",
+        "The statewide chronic absenteeism rate in 2024-25 was 19.4%.",
+        "The school's chronic absenteeism rate of 16.9% is higher than the district's rate of 15% in 2024-25.",
+        "The school's chronic absenteeism rate of 16.9% is lower than the statewide rate of 19.4% in 2024-25."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "unclear",
+        "measures": [
+          "enrollment.total",
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1387,
+        "output_tokens": 849,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-017",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Hmm?",
+      "tags": [
+        "vague"
+      ],
+      "status": "refused",
+      "kind": "unclear",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "unclear",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 497,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-018",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "asdfgh",
+      "tags": [
+        "vague"
+      ],
+      "status": "refused",
+      "kind": "unclear",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "unclear",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 496,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-019",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Is this a good school?",
+      "tags": [
+        "judgment"
+      ],
+      "status": "answered",
+      "kind": "judgment",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "In 2025-26, Birch Lane Elementary enrolled 523 students in total.",
+        "The school's total enrollment of 523 students is lower than the district's 8,243 students.",
+        "In 2024-25, the chronic absenteeism rate for all students at Birch Lane Elementary was 16.9%.",
+        "The school's chronic absenteeism rate of 16.9% is higher than the district's rate of 15%.",
+        "The school's chronic absenteeism rate of 16.9% is lower than the state's rate of 19.4%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "judgment",
+        "measures": [
+          "absenteeism.total",
+          "enrollment.total"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1432,
+        "output_tokens": 521,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-020",
+      "locale": "en",
+      "cds": "99999999999999",
+      "question": "How many students are there?",
+      "tags": [
+        "unknown_school"
+      ],
+      "status": "refused",
+      "kind": "unknown_school",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": null,
+      "usage": {
+        "model_calls": 0
+      }
+    },
+    {
+      "id": "str-021",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Cuántos estudiantes son aprendices de inglés?",
+      "tags": [
+        "measures",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "measures",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "En el año escolar 2025-26, Birch Lane Elementary tiene 58 estudiantes del idioma inglés.",
+        "La cifra de la escuela (58 estudiantes) es menor que la del distrito Davis Joint Unified, que cuenta con 609 estudiantes del idioma inglés.",
+        "A nivel estatal, hay 925,907 estudiantes del idioma inglés, una cifra mucho mayor que la de la escuela (58)."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "measures",
+        "measures": [
+          "enrollment.group.SG_EL",
+          "enrollment.group.ELAS_EL"
+        ],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1463,
+        "output_tokens": 462,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-022",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Qué significa ausentismo crónico?",
+      "tags": [
+        "definition",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "Un 'estudiante con ausentismo crónico' se define así en California: 'a pupil who is absent on 10 percent or more of the schooldays in the school year when the total number of days a pupil is absent is divided by the total number of days the pupil is enrolled and school was actually taught in the regular day schools of the district, exclusive of Saturdays and Sundays.'",
+        "La tasa de ausentismo crónico se calcula de la siguiente manera: 'The unduplicated count of students determined to be chronically absent (Chronic Absenteeism Count) divided by the Chronic Absenteeism Enrollment at the selected entity for the selected population using the available filters.'",
+        "La tasa de ausentismo crónico de Birch Lane Elementary para el año escolar 2024-25 es de 16.9%."
+      ],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "definition",
+        "measures": [
+          "absenteeism.total"
+        ],
+        "compare": false,
+        "definitions": [
+          "absenteeism"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 6604,
+        "output_tokens": 597,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-023",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Por qué hay cifras retenidas?",
+      "tags": [
+        "definition",
+        "es"
+      ],
+      "status": "answered",
+      "kind": "definition",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [
+        "En los archivos de Matrícula, los datos pueden retenerse para proteger la privacidad de los estudiantes. Según la CDE: 'To protect student privacy, data may be suppressed (*) on the CDEnroll downloadable files based on a combination of factors, including but not limited to the cell sizes at the school-level and within selected student populations that are 10 or fewer, not including race/ethnicity or age range.'",
+        "En los archivos de Ausentismo Crónico, los datos se retienen cuando el grupo de estudiantes tiene 10 o menos alumnos. Según la CDE: 'To protect student privacy, data are suppressed (*) on the Chronic Absenteeism downloadable files if the cell size within a selected student population (Chronic Absenteeism Eligible Cumulative Enrollment) is 10 or less.'",
+        "En los datos retenidos, un asterisco (*) aparece en el campo correspondiente para indicar que la cifra no se publica."
+      ],
+      "withheld": 1,
+      "withheld_reasons": {
+        "quote_not_verbatim": 1
+      },
+      "withheld_claims": [
+        {
+          "reason": "quote_not_verbatim",
+          "text": "Para los grupos de raza y etnia en los datos de Ausentismo Crónico, la categoría 'No informado' también puede retenerse aunque su tamaño no sea pequeño. Según la CDE: 'Additionally, for Race/Ethnicity, \"Not Reported\" is suppressed, regardless of actual cell size, if the student population for one or more other race/ethnicity groups is suppressed.'",
+          "detail": "Additionally, for Race/Ethnicity, 'Not Reported' is suppressed, regardless of actual cell size, if the student populatio"
+        }
+      ],
+      "structured": {
+        "kind": "definition",
+        "measures": [],
+        "compare": false,
+        "definitions": [
+          "suppression"
+        ]
+      },
+      "usage": {
+        "model_calls": 2,
+        "input_tokens": 1686,
+        "output_tokens": 779,
+        "cache_read_tokens": 7940
+      }
+    },
+    {
+      "id": "str-024",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Los maestros son buenos?",
+      "tags": [
+        "outside",
+        "es"
+      ],
+      "status": "refused",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 501,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-025",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Cuánto gasta la escuela por estudiante?",
+      "tags": [
+        "outside",
+        "es"
+      ],
+      "status": "refused",
+      "kind": "outside",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "outside",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 508,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-026",
+      "locale": "es",
+      "cds": "57726786056246",
+      "question": "¿Y entonces?",
+      "tags": [
+        "vague",
+        "es"
+      ],
+      "status": "refused",
+      "kind": "unclear",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "unclear",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 498,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    },
+    {
+      "id": "str-027",
+      "locale": "es",
+      "cds": "99999999999999",
+      "question": "¿Cuántos estudiantes hay?",
+      "tags": [
+        "unknown_school",
+        "es"
+      ],
+      "status": "refused",
+      "kind": "unknown_school",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": null,
+      "usage": {
+        "model_calls": 0
+      }
+    },
+    {
+      "id": "str-028",
+      "locale": "en",
+      "cds": "57726786056246",
+      "question": "Is this school safe?",
+      "tags": [
+        "outside"
+      ],
+      "status": "refused",
+      "kind": "judgment",
+      "passed": true,
+      "error": null,
+      "notes": [],
+      "shown": [],
+      "withheld": 0,
+      "withheld_reasons": {},
+      "withheld_claims": [],
+      "structured": {
+        "kind": "judgment",
+        "measures": [],
+        "compare": false,
+        "definitions": []
+      },
+      "usage": {
+        "model_calls": 1,
+        "input_tokens": 498,
+        "output_tokens": 101,
+        "cache_read_tokens": 4090
+      }
+    }
+  ]
 }

@@ -132,9 +132,9 @@ in PROVENANCE.md too.
 Nothing is published or hosted. Whether these pages belong on the internet is a
 separate decision about real schools and real children, and no build makes it.
 
-## AI at the edges (ADR 0003, in development)
+## AI at the edges (ADR 0003)
 
-As of 2026-08-21, by the owner's direction, Homeroom is gaining an optional
+As of 2026-08-21, by the owner's direction, Homeroom has an optional
 question-answering layer so a family can ask, in English or Spanish, what a
 school's page is saying: "Is chronic absenteeism a problem here?", "How many
 students are English learners?", "What does 'chronic absenteeism' mean and how
@@ -168,6 +168,20 @@ configurable, credentials from the environment only. The evaluation harness
 and its five suites (ranking refusal, suppression fidelity, citation grounding,
 comparability, question structuring) live in `evals/`, and results are
 committed only from a recorded live run that names the model.
+
+Recorded run (2026-08-22, `evals/results/`): 157 cases over real schools from
+the acquired files, on Amazon Bedrock `global.anthropic.claude-sonnet-4-6`
+(the model this account could invoke; the code default, Sonnet 5, was not
+available to it, and the results say which model they are about). Ranking
+refusal 62/62, suppression fidelity 24/24, citation grounding 24/24,
+comparability 19/19, structuring 28/28. Across the run the verifier showed
+511 sentences and withheld 23 before display: 11 quotes that were not
+verbatim CDE text, 5 numbers no cited cell publishes, 3 sentences carrying
+judgment language, 2 comparisons of the wrong shape, 2 definitions without a
+quote. Those 23 are the product working, not the model failing quietly: each
+one would otherwise have reached a family. What no suite measures is whether
+the Spanish reads well or whether a person, reading a sample of real answers,
+finds them honest; both are open (RR-07, RR-08).
 
 ## Development disclosure
 
