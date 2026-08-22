@@ -23,6 +23,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `SECURITY.md`, `CONTRIBUTING.md`, and a new `AGENTS.md`); the code lands in
   the PRs that follow and is listed here as it does.
 
+### Fixed
+- **Three things the ask service's deployment shape got wrong, each found by
+  deploying it rather than by reading it** (2026-08-22, the day the owner
+  authorized hosting). (1) `homeroom.ask.corpus` locates the corpus by walking
+  up from its own file to the repository root, which is right in a checkout and
+  one directory too high in a deployment package, where there is no `src`
+  level: the first live request died on `/var/corpus/manifest.json` while the
+  corpus sat at `/var/task/corpus`. `HOMEROOM_ASK_CORPUS` now names it, the way
+  `HOMEROOM_ASK_BUNDLE` already named the evidence bundle, and the template
+  sets it. (2) `build.sh` installed the bare `anthropic` SDK, but
+  `AnthropicBedrock` signs with botocore; the package would have run on
+  whatever boto3 the Lambda runtime happened to carry. It now installs the
+  `bedrock` extra, and it measures and prints the unzipped package against
+  Lambda's 250 MB limit (231.7 MB, 92.7%) instead of reporting `du`'s
+  block-rounded overstatement. (3) The Function URL returned 403 to every
+  request while its CORS preflight returned 200: this account requires a
+  `lambda:InvokeFunction` grant as well as `lambda:InvokeFunctionUrl` before an
+  unauthenticated caller can run the function. The template carries both, with
+  a note on why the second cannot be narrowed by `FunctionUrlAuthType` and what
+  that does and does not widen.
+
 ### Added
 - The landing page (`homeroom.landing`, `--landing`): one bilingual
   `index.html` naming what is published so far. A hosted site needs a root,

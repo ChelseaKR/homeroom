@@ -5,11 +5,13 @@ from __future__ import annotations
 import base64
 import http.client
 import json
+import shutil
 import threading
 from pathlib import Path
 
 import pytest
 
+from homeroom.ask import corpus as ask_corpus
 from homeroom.ask import http as ask_http
 from homeroom.ask.corpus import Corpus
 from homeroom.ask.provider import ScriptedProvider
@@ -279,3 +281,51 @@ def test_service_from_env_reads_the_switches(fixture_bundle: Path) -> None:
     )
     assert svc.provenance["provider"] == "scripted"
     assert svc._cap.remaining() == 3
+
+
+def test_service_from_env_takes_the_corpus_root_from_the_environment(
+    tmp_path: Path, fixture_bundle: Path
+) -> None:
+    """The corpus must be locatable without guessing from this file's position.
+
+    ``load_corpus``'s default walks up from ``src/homeroom/ask/`` to the repo
+    root, which is right in a checkout and wrong in a deployment package: there
+    is no ``src`` level there, so the same arithmetic lands one directory too
+    high. That is not hypothetical -- the first request to the deployed service
+    died on ``/var/corpus/manifest.json`` while the corpus sat at
+    ``/var/task/corpus``. The environment gets to say where it is.
+    """
+    staged = tmp_path / "elsewhere" / "corpus"
+    staged.parent.mkdir(parents=True)
+    shutil.copytree(ask_corpus.CORPUS_DIR, staged)
+    svc = ask_http.service_from_env(
+        {
+            "HOMEROOM_ASK_BUNDLE": str(fixture_bundle),
+            "HOMEROOM_ASK_CORPUS": str(staged),
+        },
+        provider=judgment_provider(),
+    )
+    assert svc._corpus.sources
+
+
+def test_an_unset_corpus_root_still_finds_the_corpus_in_a_checkout(
+    fixture_bundle: Path,
+) -> None:
+    svc = ask_http.service_from_env(
+        {"HOMEROOM_ASK_BUNDLE": str(fixture_bundle)}, provider=judgment_provider()
+    )
+    assert svc._corpus.sources
+
+
+def test_a_named_corpus_root_that_is_not_there_is_an_error_not_a_silent_empty(
+    tmp_path: Path, fixture_bundle: Path
+) -> None:
+    """A service that starts with no definitions would answer without them."""
+    with pytest.raises(OSError):
+        ask_http.service_from_env(
+            {
+                "HOMEROOM_ASK_BUNDLE": str(fixture_bundle),
+                "HOMEROOM_ASK_CORPUS": str(tmp_path / "nothing-here"),
+            },
+            provider=judgment_provider(),
+        )

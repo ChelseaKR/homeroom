@@ -17,6 +17,7 @@ the client address, used as the rate-limit key and never written anywhere.
 Configuration is from the environment only:
 
 ``HOMEROOM_ASK_BUNDLE``       path to the evidence bundle (``index.json`` and ``schools/``)
+``HOMEROOM_ASK_CORPUS``       path to the corpus of CDE definitions (``manifest.json``)
 ``HOMEROOM_ASK_PROVIDER``     ``anthropic`` | ``bedrock`` | unset (service answers "unavailable")
 ``HOMEROOM_ASK_MODEL``        model id (default ``claude-sonnet-5``; required for bedrock)
 ``HOMEROOM_ASK_ORIGIN``       the site origin allowed to call (CORS and an Origin check)
@@ -63,9 +64,18 @@ def service_from_env(
 ) -> AskService:
     env = dict(os.environ) if environ is None else environ
     bundle = Path(env.get("HOMEROOM_ASK_BUNDLE", "data/out/ask"))
+    # The corpus is located the same way the bundle is, and for the same reason.
+    # Its default is computed from this file's position in the source tree
+    # (``<root>/src/homeroom/ask/`` -> ``<root>/corpus``), which is right in a
+    # checkout and wrong in a deployment package, where there is no ``src``
+    # level and the same arithmetic walked one directory too far: the first
+    # deployed request died on ``/var/corpus/manifest.json`` when the corpus
+    # was sitting at ``/var/task/corpus``. Packaging is allowed to choose a
+    # layout; it is not allowed to have to match this module's idea of one.
+    corpus_root = env.get("HOMEROOM_ASK_CORPUS")
     return AskService(
         bundle_root=bundle,
-        corpus=load_corpus(),
+        corpus=load_corpus(Path(corpus_root)) if corpus_root else load_corpus(),
         provider=provider if provider is not None else provider_from_env(env),
         limiter=RateLimiter(per_minute=float(env.get("HOMEROOM_ASK_PER_MINUTE", "6"))),
         cap=DailyCap(limit=int(env.get("HOMEROOM_ASK_DAILY_CAP", "400"))),
