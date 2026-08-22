@@ -24,6 +24,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the PRs that follow and is listed here as it does.
 
 ### Added
+- The ask page, the opt-in front end of the ask layer (ADR 0003). `make site
+  ASK_ENDPOINT=<url>` (or `--ask-endpoint`) adds exactly one link to each
+  school page and writes `ask/<cds>.<locale>.html` beside them; without it the
+  build is byte-identical to one before ADR 0003, which `tests/test_askpage.py`
+  asserts by diffing the two builds. The ask page is the only page that
+  carries a script: one inline script, no subresource, no `on*` attribute, a
+  form with a labelled textarea and a button, a `noscript` note, the
+  AI/unofficial/not-a-ranking labels, the non-affiliation notice, and a link
+  back to the school page, which is complete without it. The script registers
+  a submit handler and nothing else; the answer is built with `textContent`
+  only, citations link to the school page's own table anchors or to CDE's
+  page, and focus moves to the answer heading. `tools/ask-optin.mjs` loads
+  every ask page in a DOM with every network path stubbed and proves zero
+  requests on load and exactly one POST on submit, rendered as text; it runs
+  in `make pages` beside html-validate and axe-core, which now cover the ask
+  pages too (zero violations, both languages). Seventeen more fixed
+  bilingual strings (190 keys per locale).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
@@ -215,9 +232,9 @@ files a person downloaded from CDE's public data pages.
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 173 keys per locale, 346
+- English and Spanish as peers (`src/homeroom/i18n.py`): 190 keys per locale, 380
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
-  and 10 interface strings at M3, and before the ask layer added 16 fixed
+  and 10 interface strings at M3, and before the ask layer added 33 fixed
   interface strings under ADR 0003), covering every reporting category, grade span,
   and subgroup family name. A missing key raises rather than falling back to
   English, and CDE's English-only school and district names are marked

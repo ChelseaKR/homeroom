@@ -311,6 +311,33 @@ UI: dict[Locale, dict[str, str]] = {
         ),
         "ask_source_prefix": "Source",
         "ask_quote_prefix": "Quoted from",
+        # The ask page itself (the opt-in). Still fixed strings.
+        "ask_link": "Ask a question about this school (AI, unofficial)",
+        "ask_page_eyebrow": "Ask about a school",
+        "ask_page_title": "Ask about {school}",
+        "ask_page_heading": "Ask about",
+        "ask_page_back": "Back to this school's page, which is complete without this",
+        "ask_page_label_title": "What this is.",
+        "ask_page_intro": (
+            "Type a question about this school's published figures, in English "
+            "or Spanish. A model reads only what this school's page already "
+            "shows, answers in short sentences, and every sentence is checked "
+            "against the published data before it is shown. Nothing you type "
+            "is stored."
+        ),
+        "ask_page_label_question": "Your question",
+        "ask_page_button": "Ask",
+        "ask_page_noscript": (
+            "Sending a question needs JavaScript, which this browser has turned "
+            "off. The school page, linked above, is complete without it."
+        ),
+        "ask_page_answer_heading": "Answer",
+        "ask_page_sending": "Asking...",
+        "ask_page_citations": "Checked against",
+        "ask_page_on_page": "on this school's page",
+        "ask_page_cde_page": "CDE page",
+        "ask_page_model": "Model",
+        "ask_page_fixture": "(test data, not a real school)",
     },
     "es": {
         "site_name": "Homeroom",
@@ -572,6 +599,36 @@ UI: dict[Locale, dict[str, str]] = {
         ),
         "ask_source_prefix": "Fuente",
         "ask_quote_prefix": "Citado de",
+        # La página de preguntas (la opción voluntaria). Siguen siendo cadenas fijas.
+        "ask_link": "Haga una pregunta sobre esta escuela (IA, no oficial)",
+        "ask_page_eyebrow": "Preguntar sobre una escuela",
+        "ask_page_title": "Preguntar sobre {school}",
+        "ask_page_heading": "Preguntar sobre",
+        "ask_page_back": (
+            "Volver a la página de esta escuela, que está completa sin esto"
+        ),
+        "ask_page_label_title": "Qué es esto.",
+        "ask_page_intro": (
+            "Escriba una pregunta sobre las cifras publicadas de esta escuela, en "
+            "español o en inglés. Un modelo lee solo lo que la página de esta "
+            "escuela ya muestra, responde en oraciones cortas, y cada oración se "
+            "verifica contra los datos publicados antes de mostrarse. Nada de lo "
+            "que escriba se guarda."
+        ),
+        "ask_page_label_question": "Su pregunta",
+        "ask_page_button": "Preguntar",
+        "ask_page_noscript": (
+            "Para enviar una pregunta se necesita JavaScript, que este navegador "
+            "tiene desactivado. La página de la escuela, enlazada arriba, está "
+            "completa sin esto."
+        ),
+        "ask_page_answer_heading": "Respuesta",
+        "ask_page_sending": "Preguntando...",
+        "ask_page_citations": "Verificado contra",
+        "ask_page_on_page": "en la página de esta escuela",
+        "ask_page_cde_page": "página del CDE",
+        "ask_page_model": "Modelo",
+        "ask_page_fixture": "(datos de prueba, no una escuela real)",
     },
 }
 """Every user-visible string that is not a data-driven display name."""

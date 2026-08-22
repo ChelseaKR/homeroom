@@ -31,6 +31,7 @@ from homeroom.artifacts import (
     DIRECTORY_ACCESS_DATE,
     ENROLLMENT_ACCESS_DATE,
 )
+from homeroom.askpage import ask_page_name, render_ask_page
 from homeroom.context import (
     AbsenteeismContextDriftError,
     ContextDriftError,
@@ -136,12 +137,18 @@ def build_site(
     is_fixture: bool,
     cds_codes: tuple[str, ...] = (),
     absenteeism: Path | None = None,
+    ask_endpoint: str | None = None,
 ) -> SiteBuild:
     """Render every selected school in every locale. Returns what was written.
 
     ``absenteeism`` (D3) is optional, mirroring how every other optional source in
     this project works: left out, every page's chronic-absenteeism section is
     replaced by the "not yet published" copy, rather than an empty table.
+
+    ``ask_endpoint`` (ADR 0003) is the URL of a running ask service. Given, each
+    school page gains one link to an ask page written under ``ask/``; left out,
+    no ask page exists and the school pages are byte-identical to a build before
+    ADR 0003. Deployment is a separate decision, so the default is out.
     """
     assembly = assemble_profiles(directory, enrollment, absenteeism_path=absenteeism)
     cover = site_coverage(assembly)
@@ -175,10 +182,13 @@ def build_site(
     )
     schools = _selected(assembly, cds_codes)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if ask_endpoint:
+        (out_dir / "ask").mkdir(parents=True, exist_ok=True)
     pages: list[Path] = []
     for profile in schools:
         for locale in LOCALES:
-            path = out_dir / page_name(profile.school.cds_code, locale)
+            cds = profile.school.cds_code
+            path = out_dir / page_name(cds, locale)
             path.write_text(
                 render_school(
                     profile,
@@ -188,10 +198,23 @@ def build_site(
                     is_fixture=is_fixture,
                     context=context,
                     absenteeism_context=absenteeism_context,
+                    ask_href=ask_page_name(cds, locale) if ask_endpoint else None,
                 ),
                 encoding="utf-8",
             )
             pages.append(path)
+            if ask_endpoint:
+                ask_path = out_dir / ask_page_name(cds, locale)
+                ask_path.write_text(
+                    render_ask_page(
+                        profile,
+                        locale=locale,
+                        endpoint=ask_endpoint,
+                        is_fixture=is_fixture,
+                    ),
+                    encoding="utf-8",
+                )
+                pages.append(ask_path)
     return SiteBuild(assembly=assembly, coverage=cover, schools=schools, pages=pages)
 
 
@@ -227,6 +250,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="mark output as built from committed fixtures, not acquired files",
     )
+    parser.add_argument(
+        "--ask-endpoint",
+        default=None,
+        metavar="URL",
+        help=(
+            "URL of a running ask service (ADR 0003); adds one link per school "
+            "page and writes the ask pages under ask/. Omit for none"
+        ),
+    )
     args = parser.parse_args(argv)
     build = build_site(
         directory=args.directory,
@@ -235,12 +267,14 @@ def main(argv: list[str] | None = None) -> int:
         is_fixture=args.fixture,
         cds_codes=tuple(args.cds),
         absenteeism=args.absenteeism,
+        ask_endpoint=args.ask_endpoint,
     )
     counts = build.coverage.total_enrollment
     print(
         f"pages: {len(build.pages)} "
-        f"({len(build.schools)} schools x {len(LOCALES)} locales) "
-        f"in {args.out}"
+        f"({len(build.schools)} schools x {len(LOCALES)} locales"
+        + (", plus an ask page for each" if args.ask_endpoint else "")
+        + f") in {args.out}"
     )
     print(f"academic year: {build.assembly.academic_year}")
     print(
