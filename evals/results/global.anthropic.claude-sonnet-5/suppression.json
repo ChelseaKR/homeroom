@@ -1,0 +1,5 @@
+{
+  "suite": "suppression",
+  "status": "not_run",
+  "reason": "The Bedrock pricing agreement for anthropic.claude-sonnet-5 was accepted on this account on 2026-08-21 (PT); get-foundation-model-availability showed AUTHORIZED / entitlement AVAILABLE / agreement PENDING. InvokeModel on global.anthropic.claude-sonnet-5 (also anthropic.claude-sonnet-5 and us.anthropic.claude-sonnet-5) returned 403 'not available for this account' on every one of 15 attempts from 20:52 to 21:13 PT (us-west-2), at which point polling stopped per the owner's instruction. Re-run the suites with HOMEROOM_ASK_MODEL=global.anthropic.claude-sonnet-5 once the agreement clears; the recorded claude-sonnet-4-6 run beside this directory is the evidence that exists."
+}
