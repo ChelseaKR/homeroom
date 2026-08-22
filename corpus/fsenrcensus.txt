@@ -1,0 +1,235 @@
+File Structure: Census Day Enrollment Data
+
+File structure for downloadable files containing Census Day TK/K–12 enrollment data from the California Longitudinal Pupil Achievement Data System (CALPADS) disaggregated by grade, race/ethnicity, gender, and other student details.
+
+These files include state, county, district, and school-level data. Please refer to the file structure for details on which data are contained in the file. These files also contain aggregate data with disaggregated data subsets at different levels and reporting categories to provide enhanced analytical flexibility. For more detailed examples about how to properly use these data, please refer to the Using the Census Day Enrollment Data File examples below.
+
+Note: To protect student privacy, data may be suppressed (*) on the CDEnroll downloadable files based on a combination of factors, including but not limited to the cell sizes at the school-level and within selected student populations that are 10 or fewer, not including race/ethnicity or age range. Data are not included for districts and independently reporting charter schools (IRCs) that did not certify their annual Fall 1 data submission in the California Longitudinal Pupil Achievement Data System (CALPADS).
+
+General Description of the Census Day Enrollment Data File
+
+Academic Year
+
+The academic year corresponding to the Census Day from which official enrollment counts are determined using data submitted as part of the annual Fall 1 submission to the California Longitudinal Pupil Achievement Data System (CALPADS) by local educational agencies (LEAs), which include school districts, charter schools, and county offices of education. Census Day or Information Day is the first Wednesday in October.
+
+Aggregate Level
+
+An indicator of the aggregation level.
+
+D = District
+
+Note: One of these values must be chosen to obtain a count at the selected level.
+
+A unique two-digit code corresponding to the county.
+
+District Code
+
+A unique five-digit code corresponding to the district.
+
+A unique seven-digit code corresponding to the school.
+
+County Name.
+
+District Name
+
+District or Administrative Authority Name.
+
+School Name.
+
+Charter (All/Y/N)
+
+An indicator of the School Type (Charter/Non-Charter) aggregation level.
+
+Includes data for all schools in the selected aggregate regardless of charter status. For Aggregate Levels T, C, and D, data for all schools are included in the selected aggregate. Charter = All is not applicable for Aggregate Level = S (school-level).
+
+Includes only data for charter schools in the selected aggregate for Aggregate Levels T, C, and D. For Aggregate Level = S, a value of Charter = Y indicates that the school is a charter school.
+
+Includes only data for non-charter schools in the selected aggregate for Aggregate Levels T, C, and D. For Aggregate Level = S, a value of Charter = N indicates that the school is not a charter school.
+
+Note: One of these values must be chosen to obtain a count at the selected level.
+
+Reporting Category
+
+An indicator of the student group reporting category disaggregation or subset.
+
+AR_03 = Children enrolled in K-12 grades who are 0 to 3 years old
+
+AR_0418 = Students enrolled in K-12 grades who are 4 to 18 years old
+
+AR_1922 = Continuing students enrolled in K-12 grades who are 19 to 22 years old
+
+AR_2329 = Non-traditional adult students enrolled in K-12 grades who are 23 to 29 years old
+
+AR_3039 = Non-traditional adult students enrolled in K-12 grades who are 30 to 39 years old
+
+AR_4049 = Non-traditional adult students enrolled in K-12 grades who are 40 to 49 years old
+
+AR_50P = Non-traditional adult students enrolled in K-12 grades who are 50 or more years old
+
+English Language Acquisition Status (ELAS):
+
+ELAS_ADEL = Adult English Learner
+
+ELAS_EL = English Learner (Duplicative of SG_EL)
+
+ELAS_EO = English Only
+
+ELAS_IFEP = Initial Fluent English Proficient
+
+ELAS_MISS = Missing
+
+ELAS_RFEP = Reclassified Fluent English Proficient
+
+ELAS_TBD = To Be Determined
+
+GN_F = Female
+
+GN_X = Non-Binary
+
+GN_Z = Missing
+
+Race/Ethnicity:
+
+RE_A = Asian
+
+RE_B = African American
+
+RE_D = Not Reported
+
+RE_F = Filipino
+
+RE_H = Hispanic or Latino
+
+RE_I = American Indian or Alaska Native
+
+RE_P = Pacific Islander
+
+RE_T = Two or More Races
+
+RE_W = White
+
+Student Group:
+
+SG_EL = English Learner (Duplicative of ELAS_EL)
+
+SG_DS = Students with Disabilities
+
+SG_SD = Socioeconomically Disadvantaged
+
+SG_MG = Migrant Youth
+
+SG_FS = Foster Youth
+
+SG_HM = Homeless Youth
+
+Total Count:
+
+Note: Select Reporting Category = TA for aggregate totals without consideration of a Reporting Category student group.
+
+Total TK/K–12 enrollment count of students enrolled on Census Day for the selected Aggregate Level and Reporting Category.
+
+Census Day enrollment, the official annual enrollment count, is a single-day snapshot of the total number of students enrolled on Census Day, the first Wednesday in October, who have primary and short-term enrollments. Census Day enrollment counts are calculated at each reporting level (e.g., state, county, district, and school) and are considered distinct, unduplicated counts that are additive from one reporting level to the next.
+
+Count of students enrolled in Transitional Kindergarten (Beginning 2023–24).
+
+Beginning in academic year 2023–24, Transitional Kindergarten is collected as a separate grade level in CALPADS, pursuant to Education Code Section 60900(a)(4)(A), for age-eligible students, as defined in Education Code Section 48000(c)(1), who are enrolled in Kindergarten and who are participating in the Transitional Kindergarten program, which is authorized and defined in Education Code Section 48000, pursuant to Education Code Section 48000(d).
+
+Count of students enrolled in Kindergarten.
+
+Kindergarten is a grade level for age-eligible students, as defined in Education Code Section 48000(a), who are enrolled in Kindergarten and who are not participating in the Transitional Kindergarten program, which is authorized and defined in Education Code Section 48000.
+
+Count of students enrolled in Grade 1.
+
+Count of students enrolled in Grade 2.
+
+Count of students enrolled in Grade 3.
+
+Count of students enrolled in Grade 4.
+
+Count of students enrolled in Grade 5.
+
+Count of students enrolled in Grade 6.
+
+Count of students enrolled in Grade 7.
+
+Count of students enrolled in Grade 8.
+
+Count of students enrolled in Grade 9.
+
+Count of students enrolled in Grade 10.
+
+Count of students enrolled in Grade 11.
+
+Count of students enrolled in Grade 12.
+
+General Description of the Data File
+
+The Census Day TK/K–12 enrollment data are submitted by local educational agencies (LEAs) and charter schools to the California Department of Education (CDE) as part of the annual Fall 1 data submission in the CALPADS. Data are reviewed and certified in CALPADS as being accurate by authorized district or school personnel. In order to certify data in CALPADS, authorized district or charter school personnel are required to review the accuracy of all data associated with the applicable CALPADS submission. The data certification must be performed by district superintendents, charter school administrators, or their designees. Please contact the district or school if you have any questions about their certified CALPADS data.
+
+Source: Census Day Enrollment data are submitted and certified by LEAs and/or charter schools as part of the annual CALPADS Fall 1 submission..
+
+Using the Census Day Enrollment Data File
+
+This file contains different subsets of data based on the values of different variables. If these sub-setting variables are not used properly, it is easy to end up with incorrect or duplicative data. Please refer to the following examples below as a guide for properly using these data:
+
+Get school-level data totals with one record per school (without student group totals)
+
+Aggregate Level = S (School)
+
+Reporting Category = TA
+
+Get school-level data totals by student group (Reporting Category) for all non-charter schoolss
+
+Aggregate Level = S (School)
+
+Charter (All/Y/N) = N
+
+Reporting Category Not equal to TA
+
+Get school-level data totals of non-traditional adult students enrolled in K-12 grades by age range:
+
+Aggregate Level = S (School)
+
+Reporting Category = AR_2329, AR_3039, AR_4049, and AR_50P
+
+Note: The Charter (All/Y/N) column will provide the charter school status (Y/N) of the corresponding schools with data.
+
+Get district-level data totals with one record per district (without student group totals):
+
+Aggregate Level = D (District)
+
+Charter (All/Y/N) = All
+
+Reporting Category = TA
+
+Get district-level data totals by student group (Reporting Category) for charter schools:
+
+Aggregate Level = D (District)
+
+Charter School (All/Y/N) = Y
+
+Reporting Category Not equal to TA
+
+Get district-level data totals of non-traditional adult students enrolled in K-12 grades by age range:
+
+Aggregate Level = D (District)
+
+Reporting Category = AR_2329, AR_3039, AR_4049, and AR_50P
+
+Note: The Charter (All/Y/N) column will provide information about the schools within corresponding districts with data.
+
+Get statewide-level data totals for non-charter schools (without student group totals):
+
+Aggregate Level = T (State)
+
+Charter School (All/Y/N) = N
+
+Reporting Category = TA
+
+Get statewide-level data totals of non-traditional adult students enrolled in K-12 grades by age range:
+
+Aggregate Level = T (State)
+
+Reporting Category = AR_2329, AR_3039, AR_4049, and AR_50P
+
+Note: The Charter (All/Y/N) column will provide information about the schools within the state with data.

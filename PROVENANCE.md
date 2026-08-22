@@ -28,3 +28,13 @@ Rules:
   table in agreement, so a build cannot stamp a date nobody recorded.
 - Each source keeps its own school year. Sources report on different cycles, and a profile
   carries each year beside its own data rather than one label over data from two calendars.
+
+## Documentation corpus (ADR 0003)
+
+The ask layer quotes CDE's own definitions rather than paraphrasing them. The
+pages it quotes are retrieved by `tools/corpus_fetch.py` into `corpus/`, and
+`corpus/manifest.json` is their provenance register: URL, retrieval date (UTC),
+the page's own "Last Reviewed" date, SHA-256 of the HTML as received and of the
+text as committed, and passage count. The same rules apply as to the data files:
+a person runs the fetch, CI never does, and a file that no longer matches its
+recorded hash is refused by the loader rather than quoted. See `corpus/README.md`.
