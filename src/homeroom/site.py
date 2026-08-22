@@ -39,6 +39,7 @@ from homeroom.context import (
     load_context,
 )
 from homeroom.i18n import LOCALES
+from homeroom.landing import render_landing
 from homeroom.profiles import ProfileAssembly, SchoolProfile, assemble_profiles
 from homeroom.render import (
     ABSENTEEISM_URL,
@@ -138,6 +139,7 @@ def build_site(
     cds_codes: tuple[str, ...] = (),
     absenteeism: Path | None = None,
     ask_endpoint: str | None = None,
+    landing: bool = False,
 ) -> SiteBuild:
     """Render every selected school in every locale. Returns what was written.
 
@@ -149,6 +151,11 @@ def build_site(
     school page gains one link to an ask page written under ``ask/``; left out,
     no ask page exists and the school pages are byte-identical to a build before
     ADR 0003. Deployment is a separate decision, so the default is out.
+
+    ``landing`` writes ``index.html``, the one bilingual front door listing the
+    schools this build published. A hosted site needs a root; a build without it
+    is byte-identical to one before there was a landing page, which is what the
+    fixture gates compare against.
     """
     assembly = assemble_profiles(directory, enrollment, absenteeism_path=absenteeism)
     cover = site_coverage(assembly)
@@ -215,6 +222,12 @@ def build_site(
                     encoding="utf-8",
                 )
                 pages.append(ask_path)
+    if landing:
+        index = out_dir / "index.html"
+        index.write_text(
+            render_landing(schools, is_fixture=is_fixture), encoding="utf-8"
+        )
+        pages.append(index)
     return SiteBuild(assembly=assembly, coverage=cover, schools=schools, pages=pages)
 
 
@@ -259,6 +272,14 @@ def main(argv: list[str] | None = None) -> int:
             "page and writes the ask pages under ask/. Omit for none"
         ),
     )
+    parser.add_argument(
+        "--landing",
+        action="store_true",
+        help=(
+            "also write index.html, the bilingual front door listing the schools "
+            "this build published. Needed by a hosted site; omit for none"
+        ),
+    )
     args = parser.parse_args(argv)
     build = build_site(
         directory=args.directory,
@@ -268,6 +289,7 @@ def main(argv: list[str] | None = None) -> int:
         cds_codes=tuple(args.cds),
         absenteeism=args.absenteeism,
         ask_endpoint=args.ask_endpoint,
+        landing=args.landing,
     )
     counts = build.coverage.total_enrollment
     print(
