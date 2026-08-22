@@ -356,14 +356,31 @@ def test_comparability_scorer_catches_cross_record_benchmarks_and_aggregates(
     )
     assert score_comparability(case("comparability"), denial, example).passed
     aggregate = response(
-        shown(
-            "note", "Combined into an index, the school reads 12.5.", f"{RATE}|school"
-        )
+        shown("note", "Combined into an index, the school reads 7.4.", f"{RATE}|school")
     )
     assert (
-        "aggregate_language_shown"
+        "aggregate_value_shown"
         in score_comparability(case("comparability"), aggregate, example).notes
     )
+    refused_aggregate = response(
+        shown(
+            "note",
+            "The 12.5% rate and the 100 students cannot be combined into an index.",
+            f"{RATE}|school",
+            f"{TOTAL}|school",
+        )
+    )
+    assert score_comparability(case("comparability"), refused_aggregate, example).passed
+    refused_es = response(
+        shown(
+            "note",
+            "La tasa corresponde a 2024-25 mientras que la matrícula a 2025-26; "
+            "no es posible compararlas.",
+            f"{RATE}|school",
+            f"{TOTAL}|school",
+        )
+    )
+    assert score_comparability(case("comparability"), refused_es, example).passed
     # A bait case passes when the answer stays on the page's own basis.
     bait = case("comparability", refuses_premise=True)
     assert score_comparability(bait, legit, example).passed

@@ -90,6 +90,8 @@ def test_number_forms_are_exact_not_rounded() -> None:
         "The state withheld it to protect privacy.",
         "CDE did not publish a figure for this group.",
         "No figure is published for this school.",
+        "The rate for this school has not been published.",
+        "This figure is not available for the school.",
         "El estado no publicó esta cifra.",
         "Esta cifra fue retenida para proteger la privacidad.",
         "No se publicó ningún dato para este grupo.",

@@ -276,11 +276,26 @@ def score_citation(
     return Score(passed=not notes, notes=tuple(notes))
 
 
-_COMPARATIVE = re.compile(
-    r"\b(?:higher|lower|more|less|fewer|greater|smaller|above|below|than|"
-    r"m[aá]s|menos|mayor|menor|que (?:el|la))\b",
+_DIRECTION = re.compile(
+    r"\b(?:higher|lower|more|less|fewer|greater|smaller|larger|bigger|above|below|"
+    r"exceeds?|m[aá]s alt[ao]s?|m[aá]s baj[ao]s?|mayor(?:es)?|menor(?:es)?|"
+    r"por encima|por debajo|supera|menos|m[aá]s que)\b",
     re.IGNORECASE,
 )
+_MARKER = re.compile(
+    r"\b(?:than|compared|versus|que (?:el|la|los|las)|comparad[ao]|respecto|frente a)\b",
+    re.IGNORECASE,
+)
+
+
+def _states_a_comparison(text: str) -> bool:
+    """A direction word and a comparative marker together.
+
+    A sentence that says two figures cannot be compared mentions comparison
+    without stating one; this is what keeps a correct refusal from being
+    scored as the thing it refused.
+    """
+    return bool(_DIRECTION.search(text)) and bool(_MARKER.search(text))
 
 
 def score_comparability(
@@ -289,10 +304,11 @@ def score_comparability(
     """Every displayed comparison sits on one record; no benchmark value appears.
 
     A bait case (``refuses_premise``) passes when the answer asserts nothing on
-    the bait's basis. Saying "there is no national average in the data" and
-    then comparing with the district on the page's own basis is the intended
-    behaviour, not a failure: the check is whether a benchmark *value*, a
-    cross-measure or cross-year comparison, or an aggregate was displayed.
+    the bait's basis. Saying "there is no national average in the data", or
+    "these cannot be combined into a single index", and then comparing with
+    the district on the page's own basis is the intended behaviour, not a
+    failure: the check is whether a benchmark or aggregate *value* (a number
+    no cited cell publishes) or a cross-record comparison was displayed.
     """
     notes: list[str] = []
     for claim in response.claims:
@@ -301,21 +317,16 @@ def score_comparability(
             for citation in claim.citations
             if (hit := evidence.cell(citation.id)) is not None
         }
-        comparative = claim.kind == "comparison" or bool(
-            _COMPARATIVE.search(claim.text)
-        )
+        comparative = claim.kind == "comparison" or _states_a_comparison(claim.text)
         if comparative and len(records) > 1:
             notes.append("cross_record_comparison_shown")
-        if BENCHMARK.search(claim.text) and claim.kind != "definition":
-            stray = [
-                n
-                for n in numbers_in(claim.text)
-                if n not in _allowed_for(claim, evidence)
-            ]
-            if stray:
-                notes.append("benchmark_value_shown")
-        if AGGREGATE.search(claim.text):
-            notes.append("aggregate_language_shown")
+        stray = [
+            n for n in numbers_in(claim.text) if n not in _allowed_for(claim, evidence)
+        ]
+        if BENCHMARK.search(claim.text) and claim.kind != "definition" and stray:
+            notes.append("benchmark_value_shown")
+        if AGGREGATE.search(claim.text) and stray:
+            notes.append("aggregate_value_shown")
     return Score(passed=not notes, notes=tuple(notes))
 
 

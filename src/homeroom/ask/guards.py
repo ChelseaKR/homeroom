@@ -118,6 +118,8 @@ def number_forms(value: float) -> set[str]:
 
 _NOT_PUBLISHED = re.compile(
     r"not published|withheld|did not publish|does not publish|not release|"
+    r"not been (?:published|reported|released|made public)|"
+    r"isn't published|is not (?:published|available|reported)|"
     r"no (?:\w+ ){0,2}figure|no published|was not reported|not reported|"
     r"not available|nothing (?:was |is )?published|never (?:published|reported)|"
     r"(?:file|state) (?:does not|never|did not) mention|"
