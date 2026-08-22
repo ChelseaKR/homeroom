@@ -24,6 +24,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the PRs that follow and is listed here as it does.
 
 ### Added
+- `homeroom.ask.http`: the HTTP edge of the ask service, a stdlib
+  `ThreadingHTTPServer` for local use (`make ask-serve`) and an AWS Lambda
+  Function URL handler, both thin over `AskService`: JSON in, the public JSON
+  out (withheld sentences and the raw lookup stripped), service status mapped
+  to 200/400/429/503, CORS for exactly the configured origin, a 4 KB body
+  limit, `cache-control: no-store`, the access log silenced, and a salted
+  per-process hash of the client address as the only thing derived from a
+  request that outlives it. `deploy/ask/`: the prepared and NOT APPLIED
+  deployment shape (CloudFormation: one arm64 Lambda, Function URL with CORS
+  locked to the site origin, reserved concurrency, 14-day logs, a daily
+  invocation alarm, Bedrock via the role or the Anthropic API via a `NoEcho`
+  parameter), a build script that refuses to package a fixture bundle, and a
+  runbook naming the decisions that precede any deployment.
 - The ask page, the opt-in front end of the ask layer (ADR 0003). `make site
   ASK_ENDPOINT=<url>` (or `--ask-endpoint`) adds exactly one link to each
   school page and writes `ask/<cds>.<locale>.html` beside them; without it the

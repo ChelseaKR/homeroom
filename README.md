@@ -160,8 +160,11 @@ keeps the founding rule intact:
 - **Everything the model says is labeled** AI-generated, unofficial, not a
   ranking, and not a recommendation. Spanish narration is labeled
   AI-translated and unreviewed.
-- **Nothing is deployed.** A cost-bounded deployment shape is prepared as a
-  template and a runbook; applying it is a separate decision.
+- **Nothing is deployed.** A cost-bounded deployment shape (one Lambda
+  behind a Function URL, CORS locked to the site, reserved concurrency, a
+  daily cap and an alarm) is prepared in `deploy/ask/` as a template and a
+  runbook; applying it is a separate decision, and `make site` renders no
+  ask page and no link until it is given an endpoint.
 
 Provider: the public `anthropic` SDK, default model `claude-sonnet-5`,
 configurable, credentials from the environment only. The evaluation harness
