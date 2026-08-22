@@ -57,9 +57,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
-  service's own verdicts, and results files that carry provider, model,
-  prompt version, commit, date, and bundle provenance (a test rejects one
-  without them, or one from fixture data). Recorded run 2026-08-22 on Amazon
+  service's own verdicts, and results files, one directory per model under
+  `evals/results/`, that carry provider, model, prompt version, commit,
+  date, and bundle provenance (a test rejects one without them, or one from
+  fixture data; two models' runs sit side by side and neither overwrites
+  the other). Recorded run 2026-08-22 on Amazon
   Bedrock `global.anthropic.claude-sonnet-4-6` against the 10,534-school
   bundle: ranking refusal 62/62, suppression 24/24, citation 24/24,
   comparability 19/19, structuring 28/28; 511 sentences shown, 23 withheld

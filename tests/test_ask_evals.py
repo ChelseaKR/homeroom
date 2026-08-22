@@ -18,6 +18,8 @@ from homeroom.ask.evalharness import (
     Case,
     load_cases,
     main,
+    model_dir,
+    result_dirs,
     run_suite,
     score_citation,
     score_comparability,
@@ -116,34 +118,51 @@ def test_the_ranking_suite_is_dozens_of_phrasings_in_both_languages() -> None:
 
 
 def test_every_results_file_either_ran_with_provenance_or_says_not_run() -> None:
-    """A number in a results file is a claim, and the file says where it came from."""
-    for suite in SUITES:
-        path = RESULTS_DIR / f"{suite}.json"
-        assert path.is_file(), suite
-        result = json.loads(path.read_text(encoding="utf-8"))
-        assert result["suite"] == suite
-        if result["status"] == "not_run":
-            assert "summary" not in result and "cases" not in result
-            assert result["reason"]
-            continue
-        assert result["status"] == "run"
-        provenance = result["provenance"]
-        for field in PROVENANCE_FIELDS:
-            assert field in provenance, (suite, field)
-        assert provenance["provider"] in ("anthropic", "bedrock")
-        assert provenance["model"] and provenance["model"] != "scripted"
-        assert provenance["prompt_version"]
-        assert len(provenance["commit"]) == 40
-        assert provenance["date"][:2] == "20"
-        assert provenance["bundle_is_fixture"] is False, (
-            "results must come from real data"
-        )
-        summary = result["summary"]
-        assert summary["cases"] == len(result["cases"]) == len(load_cases(suite))
-        assert (
-            summary["passed"] + summary["failed"] + summary["errors"]
-            == summary["cases"]
-        )
+    """A number in a results file is a claim, and the file says where it came from.
+
+    Results live one directory per model. Every directory carries every suite,
+    each either a recorded run with full provenance naming that same model, or
+    an honest ``not_run`` with a reason. No loose files at the root.
+    """
+    dirs = result_dirs()
+    assert dirs, "no per-model results directory"
+    assert not list(RESULTS_DIR.glob("*.json")), "results belong under a model dir"
+    for directory in dirs:
+        for suite in SUITES:
+            path = directory / f"{suite}.json"
+            assert path.is_file(), (directory.name, suite)
+            result = json.loads(path.read_text(encoding="utf-8"))
+            assert result["suite"] == suite
+            if result["status"] == "not_run":
+                assert "summary" not in result and "cases" not in result
+                assert result["reason"]
+                continue
+            assert result["status"] == "run"
+            provenance = result["provenance"]
+            for field in PROVENANCE_FIELDS:
+                assert field in provenance, (suite, field)
+            assert provenance["provider"] in ("anthropic", "bedrock")
+            assert provenance["model"] and provenance["model"] != "scripted"
+            assert model_dir(provenance["model"]) == directory.name
+            assert provenance["prompt_version"]
+            assert len(provenance["commit"]) == 40
+            assert provenance["date"][:2] == "20"
+            assert provenance["bundle_is_fixture"] is False, "real data only"
+            summary = result["summary"]
+            assert summary["cases"] == len(result["cases"]) == len(load_cases(suite))
+            assert (
+                summary["passed"] + summary["failed"] + summary["errors"]
+                == summary["cases"]
+            )
+
+
+def test_model_dir_is_path_safe_and_stable() -> None:
+    assert model_dir("global.anthropic.claude-sonnet-4-6") == (
+        "global.anthropic.claude-sonnet-4-6"
+    )
+    assert model_dir("claude-sonnet-5") == "claude-sonnet-5"
+    assert "/" not in model_dir("a/b") and " " not in model_dir("a b")
+    assert model_dir("   ") == "unknown-model"
 
 
 def test_a_results_file_with_a_number_but_no_provenance_is_rejected(
@@ -596,7 +615,9 @@ def test_the_cli_writes_results_for_one_suite_with_a_scripted_provider(
         ]
     )
     assert code == 0
-    written = json.loads((tmp_path / "out" / "ranking_refusal.json").read_text())
+    written = json.loads(
+        (tmp_path / "out" / "scripted" / "ranking_refusal.json").read_text()
+    )
     assert written["summary"]["passed"] == 1
     assert written["provenance"]["bundle_is_fixture"] is True
 
