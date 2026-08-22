@@ -24,6 +24,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the PRs that follow and is listed here as it does.
 
 ### Added
+- The landing page (`homeroom.landing`, `--landing`): one bilingual
+  `index.html` naming what is published so far. A hosted site needs a root,
+  and the risk a root page carries is a claim rather than a rendering bug, so
+  this one says Homeroom is in development, lists only the schools the build
+  actually wrote (a link to a page that was not built is a 404 with a real
+  school's name on it), repeats the no-ranking and non-affiliation notices,
+  marks each language section with its own `lang`, and carries no figure at
+  all: every number on this site sits beside its suppression state, year and
+  source, and none of that fits in a list of links. Same rules as every other
+  page (ADR 0001) — stdlib rendering, the shared inline stylesheet, no script,
+  no external asset, deterministic output — and it is written only when asked
+  for, so a build without `--landing` is byte-identical to one from before it
+  existed, which `tests/test_landing.py` asserts by diffing the two builds.
+  html-validate and axe-core cover it in `make pages` (zero violations). Two
+  more bilingual strings (192 keys per locale).
 - `homeroom.ask.http`: the HTTP edge of the ask service, a stdlib
   `ThreadingHTTPServer` for local use (`make ask-serve`) and an AWS Lambda
   Function URL handler, both thin over `AskService`: JSON in, the public JSON
@@ -53,7 +68,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requests on load and exactly one POST on submit, rendered as text; it runs
   in `make pages` beside html-validate and axe-core, which now cover the ask
   pages too (zero violations, both languages). Seventeen more fixed
-  bilingual strings (190 keys per locale).
+  bilingual strings (192 keys per locale).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
@@ -247,7 +262,7 @@ files a person downloaded from CDE's public data pages.
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 190 keys per locale, 380
+- English and Spanish as peers (`src/homeroom/i18n.py`): 192 keys per locale, 384
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
   and 10 interface strings at M3, and before the ask layer added 33 fixed
   interface strings under ADR 0003), covering every reporting category, grade span,

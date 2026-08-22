@@ -56,7 +56,7 @@ SCHOOL ?= 57726786056246
 ASK_ENDPOINT ?=
 
 site:
-	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out build/site $(if $(ASK_ENDPOINT),--ask-endpoint $(ASK_ENDPOINT),)
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out build/site $(if $(ASK_ENDPOINT),--ask-endpoint $(ASK_ENDPOINT),) --landing
 
 # The evidence bundle the ask service reads: one small file per school, from
 # the same acquired files and the same assembly code as the pages.
@@ -76,7 +76,7 @@ ask-serve:
 # resolve) so the ask pages exist to be gated; tools/ask-optin.mjs proves they
 # request nothing until a question is submitted.
 site-offline:
-	uv run python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --ask-endpoint https://ask.example.invalid --out build/site-offline
+	uv run python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --ask-endpoint https://ask.example.invalid --out build/site-offline --landing
 
 # The accessibility gate the README's standards table promises from the first
 # school page. Builds the pages from fixtures, then checks the markup two ways:

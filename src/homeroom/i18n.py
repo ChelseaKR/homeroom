@@ -237,6 +237,15 @@ UI: dict[Locale, dict[str, str]] = {
             "No score, no grade, no ranking. If a figure cannot be shown honestly, "
             "it is not shown."
         ),
+        # The landing page. It says what is published so far rather than implying
+        # the whole state is here, because a front door that overstates its
+        # contents is the first dishonest thing a family would read.
+        "landing_status": (
+            "Homeroom is in development. The schools below are the ones published "
+            "so far, built from California Department of Education public files. "
+            "More are added as each source is acquired and checked."
+        ),
+        "landing_schools_heading": "Schools published so far",
         # The ask layer (ADR 0003). Fixed strings the model never writes: the
         # labels around its output and every refusal.
         "ask_label_ai": (
@@ -516,6 +525,17 @@ UI: dict[Locale, dict[str, str]] = {
             "Sin puntaje, sin calificación, sin clasificación. Si un dato no se "
             "puede mostrar con honestidad, no se muestra."
         ),
+        # La página de inicio. Dice qué se ha publicado hasta ahora en lugar de
+        # dar a entender que está todo el estado, porque una puerta de entrada
+        # que exagera su contenido sería lo primero deshonesto que leería una
+        # familia.
+        "landing_status": (
+            "Homeroom está en desarrollo. Las escuelas que aparecen abajo son las "
+            "publicadas hasta ahora, creadas a partir de archivos públicos del "
+            "Departamento de Educación de California. Se agregan más a medida que "
+            "cada fuente se obtiene y se verifica."
+        ),
+        "landing_schools_heading": "Escuelas publicadas hasta ahora",
         # La capa de preguntas (ADR 0003). Cadenas fijas que el modelo nunca
         # escribe: las etiquetas alrededor de su respuesta y cada negativa.
         "ask_label_ai": (
