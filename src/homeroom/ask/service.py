@@ -43,7 +43,13 @@ from homeroom.ask.structuring import (
     pre_classify,
     structure_prompt,
 )
-from homeroom.ask.verifier import ShownClaim, WithheldClaim, parse_claims, verify
+from homeroom.ask.verifier import (
+    Claim,
+    ShownClaim,
+    WithheldClaim,
+    parse_claims,
+    verify,
+)
 from homeroom.i18n import LOCALES, Locale, text
 
 STRUCTURE_MAX_TOKENS = 600
@@ -108,6 +114,12 @@ def _locale(value: str) -> Locale:
     which language that refusal is written in.
     """
     return "es" if value == "es" else "en"
+
+
+def _all_malformed(claims: list[Claim | WithheldClaim]) -> bool:
+    return bool(claims) and all(
+        isinstance(c, WithheldClaim) and c.reason == "malformed" for c in claims
+    )
 
 
 def _labels(locale: Locale) -> dict[str, str]:
@@ -296,20 +308,24 @@ class AskService:
                 structured=structured,
             )
 
-        raw_claims, model = self._call(
-            narration_prompt(
-                question=question,
-                structured=structured,
-                evidence=evidence,
-                corpus=self._corpus,
-                locale=locale,
-            ),
-            NARRATE_TOOL,
-            NARRATE_MAX_TOKENS,
-            usage,
+        user = narration_prompt(
+            question=question,
+            structured=structured,
+            evidence=evidence,
+            corpus=self._corpus,
+            locale=locale,
         )
+        raw_claims, model = self._call(user, NARRATE_TOOL, NARRATE_MAX_TOKENS, usage)
+        claims = parse_claims(raw_claims)
+        if _all_malformed(claims) and self._cap.reserve(1):
+            # The reply was not a claims list at all (a serialisation slip, not
+            # a content problem). One more try, paid for; then it stands.
+            raw_claims, model = self._call(
+                user, NARRATE_TOOL, NARRATE_MAX_TOKENS, usage
+            )
+            claims = parse_claims(raw_claims)
         provenance["model"] = model
-        verification = verify(parse_claims(raw_claims), evidence, self._corpus, locale)
+        verification = verify(claims, evidence, self._corpus, locale)
 
         intro_key = (
             "ask_intro_definition"

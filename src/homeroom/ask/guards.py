@@ -124,7 +124,10 @@ _NOT_PUBLISHED = re.compile(
     r"suppressed|masked|"
     r"no (?:se )?public[oó]|no (?:fue|está|esta) publicad|sin (?:dato|cifra)|"
     r"retenid|no (?:se )?inform[oó]|no disponible|no report[oó]|suprimid|"
-    r"no hay (?:una )?cifra|no public[oó]",
+    r"no hay (?:una )?cifra|no public[oó]|no hay datos|no aparece|no figura|"
+    r"no (?:se )?(?:incluye|incluy[oó])|no est[aá] incluid|no tiene datos|"
+    r"no (?:se )?registr[oó]|no (?:se )?reporta|sin informaci[oó]n|"
+    r"no (?:la |lo )?menciona|no consta",
     re.IGNORECASE,
 )
 
@@ -136,7 +139,8 @@ def says_not_published(text: str) -> bool:
 
 _ABSENCE_AS_VALUE = re.compile(
     r"\b(?:zero|none(?! (?:was|is|were|are) (?:published|reported))|nobody|"
-    r"no students|no pupils|no children|"
+    r"(?<!not because there are )(?<!not because there were )(?<!not that there are )"
+    r"(?:no students|no pupils|no children)|"
     r"cero|nadie|no hay (?:estudiantes|alumnos|ni[nñ][oa]s)|"
     r"ning[uú]n(?:[oa]s?)? (?:estudiantes?|alumn[oa]s?|ni[nñ][oa]s?))\b|"
     r"(?<![\d.,])0(?![\d,]|\.\d)",

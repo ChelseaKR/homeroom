@@ -26,6 +26,7 @@ The verifier is the product. The model is a draft.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 
@@ -122,13 +123,33 @@ class Verification:
         return dict(sorted(counts.items()))
 
 
+def _claims_list(raw: object) -> object:
+    """The ``claims`` value, parsed if the model sent the array as a JSON string.
+
+    Some replies carry the array serialised inside a string. Strict
+    ``json.loads`` is the only repair attempted; anything it rejects is
+    malformed, because guessing at a claim is the one thing this module must
+    never do.
+    """
+    if not isinstance(raw, dict):
+        return None
+    claims = raw.get("claims")
+    if isinstance(claims, str):
+        try:
+            return json.loads(claims)
+        except ValueError:
+            return None
+    return claims
+
+
 def parse_claims(raw: object) -> list[Claim | WithheldClaim]:
     """Read the model's tool input. A malformed entry is withheld, not dropped."""
-    if not isinstance(raw, dict) or not isinstance(raw.get("claims"), list):
+    claims = _claims_list(raw)
+    if not isinstance(raw, dict) or not isinstance(claims, list):
         shape = f"keys {sorted(raw)}" if isinstance(raw, dict) else type(raw).__name__
         return [WithheldClaim("malformed", "", f"claims is not a list ({shape})")]
     out: list[Claim | WithheldClaim] = []
-    for entry in raw["claims"][:MAX_CLAIMS]:
+    for entry in claims[:MAX_CLAIMS]:
         if not isinstance(entry, dict):
             out.append(WithheldClaim("malformed", "", "claim is not an object"))
             continue

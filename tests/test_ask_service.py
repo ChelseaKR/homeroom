@@ -469,3 +469,60 @@ def test_every_status_the_service_can_return_is_named() -> None:
         "cap_reached",
         "invalid",
     }
+
+
+def test_a_malformed_narration_is_retried_once_and_paid_for(
+    fixture_bundle: Path, corpus: Corpus
+) -> None:
+    attempts = {"n": 0}
+
+    def narrate(_: str) -> dict[str, object]:
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            return {"claims": "not json ["}
+        return {
+            "claims": [
+                {
+                    "kind": "figure",
+                    "text": "The school enrolled 100 students in 2025-26.",
+                    "cites": [f"{TOTAL}|school"],
+                }
+            ]
+        }
+
+    cap = DailyCap(limit=10)
+    svc = service(
+        fixture_bundle,
+        corpus,
+        ScriptedProvider(
+            {
+                "structure_question": structure("measures", ["enrollment.total"]),
+                "answer_with_claims": narrate,
+            }
+        ),
+        cap=cap,
+    )
+    response = svc.answer(AskRequest(cds=EXAMPLE, locale="en", question="How many?"))
+    assert response.status == "answered"
+    assert len(response.claims) == 1
+    assert response.usage["model_calls"] == 3
+    assert cap.remaining() == 7
+    # With no budget for a retry, the malformed reply stands as an empty answer.
+    attempts["n"] = 0
+    cap = DailyCap(limit=2)
+    svc = service(
+        fixture_bundle,
+        corpus,
+        ScriptedProvider(
+            {
+                "structure_question": structure("measures", ["enrollment.total"]),
+                "answer_with_claims": narrate,
+            }
+        ),
+        cap=cap,
+    )
+    response = svc.answer(AskRequest(cds=EXAMPLE, locale="en", question="How many?"))
+    assert response.status == "answered"
+    assert response.claims == ()
+    assert response.withheld_reasons == {"malformed": 1}
+    assert response.usage["model_calls"] == 2

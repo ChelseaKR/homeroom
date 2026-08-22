@@ -121,3 +121,23 @@ def test_an_honest_absence_sentence_is_not_a_value() -> None:
         "The figure for this group was withheld to protect student privacy."
     )
     assert not says_not_published("The rate is 12.5%.")
+
+
+def test_an_explicit_negation_of_the_zero_reading_is_not_a_value() -> None:
+    assert not renders_absence_as_value(
+        "The state withholds it to protect privacy, not because there are no students."
+    )
+    assert renders_absence_as_value("There are no students in this group.")
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "La escuela no aparece en el archivo de ausentismo.",
+        "No hay datos publicados para esta escuela.",
+        "El archivo no incluye a esta escuela.",
+        "El estado no la menciona en el archivo.",
+    ],
+)
+def test_spanish_ways_of_saying_the_file_has_nothing(sentence: str) -> None:
+    assert says_not_published(sentence), sentence

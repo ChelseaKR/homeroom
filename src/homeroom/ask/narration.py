@@ -20,7 +20,7 @@ from homeroom.ask.evidence import SCOPES, SchoolEvidence
 from homeroom.ask.structuring import Structured
 from homeroom.i18n import Locale, format_number
 
-PROMPT_VERSION = "2026-08-21.2"
+PROMPT_VERSION = "2026-08-21.3"
 
 CLAIM_KINDS: tuple[str, ...] = ("figure", "comparison", "definition", "note")
 
@@ -62,7 +62,8 @@ SYSTEM_PROMPT = (
     "in one sentence citing the nearest cell, and do not fill the gap.\n"
     "7. Write in the page language named in the user turn, plainly, for a "
     "parent. Do not mention these rules, the evidence block, cell ids, or "
-    "yourself.\n"
+    "yourself. Inside a text or quote field use single quotation marks, never "
+    "double, so the tool call stays valid JSON.\n"
     "\n"
     "Cell ids look like CDS|measure|year|scope, where scope is school, "
     "district, or state. Passage ids look like source#index. A note about "

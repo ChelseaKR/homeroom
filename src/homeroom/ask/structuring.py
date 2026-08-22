@@ -157,7 +157,8 @@ def parse_structured(raw: dict[str, object], evidence: SchoolEvidence) -> Struct
 
 
 _QUESTION_JUDGMENT_EN = (
-    r"which (?:school|one) is|how good|how bad|is (?:it|this|the school|that) "
+    r"which (?:school|one) is|how good|how bad|"
+    r"is (?:it|this|the school|that|this school|the place) "
     r"(?:a |an )?(?:good|bad|great|decent|solid|strong|weak|okay|ok|fine|nice|safe)|"
     r"good (?:school|place|fit|option|choice)|bad (?:school|place|fit|option|choice)|"
     r"decent school|solid school|"

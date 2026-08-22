@@ -9,6 +9,8 @@ Every claim below is written against those real fixture cells.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from homeroom.ask.corpus import Corpus
@@ -604,3 +606,15 @@ def test_comparative_words_in_a_definition_are_not_a_cell_comparison(
         corpus,
     )
     assert isinstance(shown, ShownClaim)
+
+
+def test_a_claims_array_sent_as_a_json_string_is_parsed_strictly() -> None:
+    stringified = json.dumps(
+        [{"kind": "figure", "text": "100 students.", "cites": ["x"]}]
+    )
+    parsed = parse_claims({"claims": stringified})
+    assert parsed == [Claim("figure", "100 students.", ("x",), None)]
+    broken = parse_claims(
+        {"claims": '[{"kind": "figure", "text": "a "b" c", "cites": []}]'}
+    )
+    assert [c.reason for c in broken if isinstance(c, WithheldClaim)] == ["malformed"]
