@@ -203,7 +203,7 @@ so no D5 figure can reach a page; the pages say that in words instead.
 | Pages the accessibility gate checks | 6 (3 fixture schools x 2 languages) | `make pages` |
 | WCAG violations, axe-core A/AA plus best-practice | 0 across 6 rule sets, both languages | `tools/a11y.mjs` |
 | html-validate errors, conformance plus a11y presets | 0 | `make htmlvalidate` |
-| User-visible strings carried in both languages | 157 keys per locale, 314 strings total (81 interface, 33 reporting categories, 14 grade spans, 4 subgroup families, 25 chronic-absenteeism categories); 122 keys and 71 interface at M4, before D3 added its own 25-code catalog and 10 interface strings | `src/homeroom/i18n.py` |
+| User-visible strings carried in both languages | 173 keys per locale, 346 strings total (97 interface, 33 reporting categories, 14 grade spans, 4 subgroup families, 25 chronic-absenteeism categories); 122 keys and 71 interface at M4, before D3 added its own 25-code catalog and 10 interface strings, and 157 before the ask layer (ADR 0003) added 16 fixed interface strings: its labels and every refusal, which the model never writes | `src/homeroom/i18n.py` |
 | Keys present in one locale and not the other | 0 | `tests/test_i18n.py` |
 | Spanish strings left identical to their English original | 3, all reviewed and named (the project's own name; CDE's two different Filipino category codes, `RE_F` in D2 and `RF` in D3, each the same word in Spanish) | `tests/test_i18n.py` |
 | D5 numbers on any page, including when the parsed file is loaded into the renderer | 0 | `tests/test_pages.py` |

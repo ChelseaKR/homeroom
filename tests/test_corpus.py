@@ -25,11 +25,6 @@ EXPECTED_SOURCES = {
 }
 
 
-@pytest.fixture(scope="module")
-def corpus() -> Corpus:
-    return load_corpus()
-
-
 def test_the_committed_corpus_loads_and_names_every_source(corpus: Corpus) -> None:
     assert set(corpus.sources) == EXPECTED_SOURCES
     for source in corpus.sources.values():

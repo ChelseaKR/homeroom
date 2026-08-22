@@ -237,6 +237,80 @@ UI: dict[Locale, dict[str, str]] = {
             "No score, no grade, no ranking. If a figure cannot be shown honestly, "
             "it is not shown."
         ),
+        # The ask layer (ADR 0003). Fixed strings the model never writes: the
+        # labels around its output and every refusal.
+        "ask_label_ai": (
+            "Written by an AI model from this school's published figures. "
+            "Unofficial. Not a ranking, not a recommendation, and not reviewed "
+            "by a person. Every sentence shown was checked against the published "
+            "data; sentences that could not be checked were withheld."
+        ),
+        "ask_label_language": (
+            "The model wrote this answer in English. It has not been reviewed."
+        ),
+        "ask_withheld_count": (
+            "Sentences withheld because they could not be verified against the "
+            "published data: {count}"
+        ),
+        "ask_empty_answer": (
+            "Nothing the model wrote could be verified against the published "
+            "data, so nothing is shown. The tables on this school's page are "
+            "complete without it."
+        ),
+        "ask_intro_measures": (
+            "What the published data says, each figure on its own terms:"
+        ),
+        "ask_intro_definition": "In the California Department of Education's own words:",
+        "ask_refusal_judgment": (
+            "Homeroom does not rank schools, grade them, score them, or say "
+            "whether one is better than another, and neither does this answer. "
+            "A single judgment about a school hides more than it shows and "
+            "tends to track the wealth of the families it serves rather than "
+            "anything the school controls. What the state actually publishes "
+            "about this school is below, each figure on its own terms, beside "
+            "the district and statewide figures the page already shows."
+        ),
+        "ask_refusal_outside": (
+            "That is not something the California Department of Education's "
+            "published files say about this school, so this answer cannot say "
+            "it either. The files behind this page cover enrollment on Census "
+            "Day and chronic absenteeism. Anything else, such as teaching "
+            "quality, safety, or how a school feels, is a question for the "
+            "school itself."
+        ),
+        "ask_refusal_unknown_school": (
+            "This build carries no active school with that CDS code, so there "
+            "is nothing to answer from. The school may have closed, may not be "
+            "in the directory file this build was made from, or the code may "
+            "be mistyped."
+        ),
+        "ask_refusal_unclear": (
+            "It is not clear which published figure the question is about. "
+            "You can ask about total enrollment, enrollment by grade or by "
+            "student group, chronic absenteeism overall or by student group, "
+            "how a figure compares with the district or the state, or what a "
+            "measure means and how it is calculated."
+        ),
+        "ask_refusal_nothing_published": (
+            "The state published nothing for this school on the figures the "
+            "question is about, so there is no number to report. Where a "
+            "figure was withheld to protect privacy, that is said below; "
+            "where the file never mentions this school, that is said too."
+        ),
+        "ask_refusal_unavailable": (
+            "The answering service is not available right now. The tables on "
+            "this school's page are complete without it."
+        ),
+        "ask_refusal_rate_limited": (
+            "Too many questions right now. Try again in a minute; the tables on "
+            "this school's page are complete without it."
+        ),
+        "ask_refusal_cap_reached": (
+            "The answering service has reached its daily limit. It will be back "
+            "tomorrow; the tables on this school's page are complete without it."
+        ),
+        "ask_source_prefix": "Source",
+        "ask_quote_prefix": "Quoted from",
     },
     "es": {
         "site_name": "Homeroom",
@@ -415,6 +489,89 @@ UI: dict[Locale, dict[str, str]] = {
             "Sin puntaje, sin calificación, sin clasificación. Si un dato no se "
             "puede mostrar con honestidad, no se muestra."
         ),
+        # La capa de preguntas (ADR 0003). Cadenas fijas que el modelo nunca
+        # escribe: las etiquetas alrededor de su respuesta y cada negativa.
+        "ask_label_ai": (
+            "Escrito por un modelo de inteligencia artificial a partir de las "
+            "cifras publicadas de esta escuela. No oficial. No es una "
+            "clasificación, no es una recomendación y no fue revisado por una "
+            "persona. Cada oración que se muestra fue verificada contra los "
+            "datos publicados; las que no se pudieron verificar se retuvieron."
+        ),
+        "ask_label_language": (
+            "El modelo escribió esta respuesta en español. Es una traducción "
+            "automática y no ha sido revisada por una persona."
+        ),
+        "ask_withheld_count": (
+            "Oraciones retenidas porque no se pudieron verificar contra los "
+            "datos publicados: {count}"
+        ),
+        "ask_empty_answer": (
+            "Nada de lo que escribió el modelo se pudo verificar contra los "
+            "datos publicados, así que no se muestra nada. Las tablas de la "
+            "página de esta escuela están completas sin esta respuesta."
+        ),
+        "ask_intro_measures": (
+            "Lo que dicen los datos publicados, cada cifra en sus propios términos:"
+        ),
+        "ask_intro_definition": (
+            "En las propias palabras del Departamento de Educación de California:"
+        ),
+        "ask_refusal_judgment": (
+            "Homeroom no clasifica escuelas, no les pone calificación ni puntaje, "
+            "ni dice si una es mejor que otra, y esta respuesta tampoco. Un "
+            "solo juicio sobre una escuela oculta más de lo que muestra y suele "
+            "reflejar la riqueza de las familias a las que sirve más que "
+            "cualquier cosa que la escuela controle. Lo que el estado realmente "
+            "publica sobre esta escuela está abajo, cada cifra en sus propios "
+            "términos, junto a las cifras del distrito y del estado que la "
+            "página ya muestra."
+        ),
+        "ask_refusal_outside": (
+            "Eso no es algo que los archivos publicados del Departamento de "
+            "Educación de California digan sobre esta escuela, así que esta "
+            "respuesta tampoco puede decirlo. Los archivos detrás de esta "
+            "página cubren la matrícula del Día del Censo y el ausentismo "
+            "crónico. Cualquier otra cosa, como la calidad de la enseñanza, la "
+            "seguridad o cómo se siente una escuela, es una pregunta para la "
+            "escuela misma."
+        ),
+        "ask_refusal_unknown_school": (
+            "Esta versión no incluye ninguna escuela activa con ese código CDS, "
+            "así que no hay nada de dónde responder. Puede que la escuela haya "
+            "cerrado, que no esté en el archivo del directorio con el que se "
+            "hizo esta versión, o que el código esté mal escrito."
+        ),
+        "ask_refusal_unclear": (
+            "No queda claro a qué cifra publicada se refiere la pregunta. Puede "
+            "preguntar por la matrícula total, la matrícula por grado o por "
+            "grupo de estudiantes, el ausentismo crónico en general o por grupo "
+            "de estudiantes, cómo se compara una cifra con el distrito o con el "
+            "estado, o qué significa una medida y cómo se calcula."
+        ),
+        "ask_refusal_nothing_published": (
+            "El estado no publicó nada sobre esta escuela para las cifras a las "
+            "que se refiere la pregunta, así que no hay ningún número que "
+            "informar. Donde una cifra se retuvo para proteger la privacidad, "
+            "se dice abajo; donde el archivo nunca menciona a esta escuela, "
+            "también se dice."
+        ),
+        "ask_refusal_unavailable": (
+            "El servicio de respuestas no está disponible en este momento. Las "
+            "tablas de la página de esta escuela están completas sin él."
+        ),
+        "ask_refusal_rate_limited": (
+            "Demasiadas preguntas en este momento. Inténtelo de nuevo en un "
+            "minuto; las tablas de la página de esta escuela están completas "
+            "sin esta respuesta."
+        ),
+        "ask_refusal_cap_reached": (
+            "El servicio de respuestas alcanzó su límite diario. Volverá "
+            "mañana; las tablas de la página de esta escuela están completas "
+            "sin él."
+        ),
+        "ask_source_prefix": "Fuente",
+        "ask_quote_prefix": "Citado de",
     },
 }
 """Every user-visible string that is not a data-driven display name."""

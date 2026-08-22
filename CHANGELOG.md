@@ -24,6 +24,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the PRs that follow and is listed here as it does.
 
 ### Added
+- `homeroom.ask`, the service core of the grounded question-answering layer
+  (ADR 0003). `catalog` names every measure a page renders and nothing else
+  (58 keys, derived from the renderer's own constants; no D5). `evidence`
+  writes one small JSON file per school from the page build's own assembly,
+  context, and coverage code, every cell addressable as
+  `CDS|measure|year|scope` and in the same three states as the page; 10,534
+  files from the acquired data, byte-identical across builds. `structuring`
+  turns a question into a validated lookup against the catalog and runs a
+  lexical judgment guard over the question in both languages, so either the
+  model or the guard saying "judgment" wins. `narration` holds the one cached
+  system prompt (rules, catalog in both languages, citation format;
+  `PROMPT_VERSION` stamped on every result) and the claims schema. `verifier`
+  checks every claim before display: citation resolution, every number
+  against the cited cells (years, coverage counts, label digits, and verified
+  quotes allowed; nothing else), withheld cells stated as not published and
+  never as a zero or a "none", comparisons limited to a school cell and its
+  own district or state cell with the stated direction checked against the
+  arithmetic (read from whichever side the sentence speaks from), definitions
+  requiring a verbatim corpus quote, and a judgment-language guard over every
+  sentence; fourteen enumerated withhold reasons. `provider` wraps the public
+  `anthropic` SDK (Anthropic API, default `claude-sonnet-5`; Amazon Bedrock
+  through the same SDK), forced tool calls with the system prompt cached and
+  thinking disabled, credentials from the environment only, imported lazily
+  so the core package stays stdlib-only. `limits` is a per-client token bucket
+  and a hard daily cap on model calls. `service` is the pipeline: validate,
+  limit, load one school, structure, fixed refusal where owed, narrate,
+  verify, count what was withheld; it stores no question anywhere and fails
+  closed to the static page on any provider error. Sixteen fixed bilingual
+  strings in `i18n.py` (labels and every refusal) that the model never writes.
+  Tests cover every verifier failure class against the fixture school, every
+  service stop, and the request shape; the SDK is never imported by the test
+  suite's import of the service (asserted in a subprocess).
 - `corpus/`: the text of six CDE pages (chronic absenteeism file structure and
   download page, the Child Welfare & Attendance page with the statutory
   definition of a chronic absentee, the Census Day enrollment file structure
@@ -170,9 +202,10 @@ files a person downloaded from CDE's public data pages.
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 157 keys per locale, 314
+- English and Spanish as peers (`src/homeroom/i18n.py`): 173 keys per locale, 346
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
-  and 10 interface strings at M3), covering every reporting category, grade span,
+  and 10 interface strings at M3, and before the ask layer added 16 fixed
+  interface strings under ADR 0003), covering every reporting category, grade span,
   and subgroup family name. A missing key raises rather than falling back to
   English, and CDE's English-only school and district names are marked
   `lang="en"` on Spanish pages (WCAG 2.2 SC 3.1.2).
