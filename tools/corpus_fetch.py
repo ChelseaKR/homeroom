@@ -31,9 +31,10 @@ import argparse
 import datetime as dt
 import hashlib
 import html
+import http.client
 import json
 import re
-import urllib.request
+import urllib.parse
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
@@ -150,12 +151,23 @@ def passages(fragment: str) -> list[str]:
     return out
 
 
+CDE_HOST = "www.cde.ca.gov"
+
+
 def fetch(url: str) -> bytes:
-    if not url.startswith("https://www.cde.ca.gov/"):
+    """GET one CDE page over TLS. The host is pinned; only the path varies."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.netloc != CDE_HOST:
         raise SystemExit(f"refusing to fetch a non-CDE URL: {url}")
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})  # noqa: S310
-    with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
-        return bytes(response.read())
+    connection = http.client.HTTPSConnection(CDE_HOST, timeout=60)
+    try:
+        connection.request("GET", parts.path or "/", headers={"User-Agent": USER_AGENT})
+        response = connection.getresponse()
+        if response.status != 200:
+            raise SystemExit(f"{url}: HTTP {response.status}")
+        return response.read()
+    finally:
+        connection.close()
 
 
 def run(only: set[str]) -> int:
