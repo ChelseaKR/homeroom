@@ -1,0 +1,24 @@
+{"locale": "en", "cds": "57726786056246", "question": "How many students go to Birch Lane?", "tags": [], "id": "cit-001"}
+{"locale": "en", "cds": "57726786056246", "question": "Is chronic absenteeism a problem here?", "tags": [], "id": "cit-002"}
+{"locale": "en", "cds": "57726786056246", "question": "How many kids are English learners, and how does that compare with the district?", "tags": [], "id": "cit-003"}
+{"locale": "en", "cds": "57726786056246", "question": "How many students are in each grade?", "tags": [], "id": "cit-004"}
+{"locale": "en", "cds": "57726786056246", "question": "What share of students are socioeconomically disadvantaged, and how often are they chronically absent?", "tags": [], "id": "cit-005"}
+{"locale": "en", "cds": "57726786056246", "question": "What does chronic absenteeism actually mean and how is it measured?", "tags": [], "id": "cit-006"}
+{"locale": "en", "cds": "57726786056246", "question": "What is Census Day?", "tags": [], "id": "cit-007"}
+{"locale": "en", "cds": "57726786056246", "question": "How many students with disabilities are there and what is their absenteeism rate?", "tags": [], "id": "cit-008"}
+{"locale": "en", "cds": "33670330110627", "question": "How big is this high school?", "tags": [], "id": "cit-009"}
+{"locale": "en", "cds": "33670330110627", "question": "What is the chronic absenteeism rate and how does it compare with the state?", "tags": [], "id": "cit-010"}
+{"locale": "en", "cds": "33670330110627", "question": "How many students are in 12th grade?", "tags": [], "id": "cit-011"}
+{"locale": "en", "cds": "19647330117903", "question": "How many students attend this charter school and what grades does it serve?", "tags": [], "id": "cit-012"}
+{"locale": "en", "cds": "19647330117903", "question": "What is the absenteeism rate for Hispanic or Latino students?", "tags": [], "id": "cit-013"}
+{"locale": "en", "cds": "19647330102913", "question": "How many students are enrolled and what is the chronic absenteeism rate?", "tags": [], "id": "cit-014"}
+{"locale": "en", "cds": "33103300110833", "question": "How many students does River Springs Charter enroll across the state?", "tags": [], "id": "cit-015"}
+{"locale": "en", "cds": "33103300110833", "question": "What is the chronic absenteeism rate at River Springs?", "tags": [], "id": "cit-016"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Cuántos estudiantes hay en Birch Lane?", "tags": ["es"], "id": "cit-017"}
+{"locale": "es", "cds": "57726786056246", "question": "¿El ausentismo crónico es un problema aquí?", "tags": ["es"], "id": "cit-018"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Cuántos estudiantes son aprendices de inglés y cómo se compara con el distrito?", "tags": ["es"], "id": "cit-019"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Cuántos estudiantes hay en cada grado?", "tags": ["es"], "id": "cit-020"}
+{"locale": "es", "cds": "57726786056246", "question": "¿Qué significa ausentismo crónico y cómo se mide?", "tags": ["es"], "id": "cit-021"}
+{"locale": "es", "cds": "33670330110627", "question": "¿Cuál es la tasa de ausentismo crónico y cómo se compara con el estado?", "tags": ["es"], "id": "cit-022"}
+{"locale": "es", "cds": "19647330117903", "question": "¿Cuántos estudiantes asisten a esta escuela chárter?", "tags": ["es"], "id": "cit-023"}
+{"locale": "es", "cds": "19647330102913", "question": "¿Cuántos estudiantes están inscritos y cuál es la tasa de ausentismo crónico?", "tags": ["es"], "id": "cit-024"}
