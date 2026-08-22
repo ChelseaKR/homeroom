@@ -176,11 +176,26 @@ Resources:
       TargetFunctionArn: !GetAtt Function.Arn
       AuthType: NONE
       InvokeMode: BUFFERED
-      Cors:
-        AllowOrigins: [!Ref SiteOrigin]
-        AllowMethods: [POST]
-        AllowHeaders: [content-type]
-        MaxAge: 600
+      # No Cors block here on purpose, and it must stay that way.
+      #
+      # The handler already emits the full CORS set and is the same code that
+      # enforces the origin server-side (`origin_allowed`), which is the check
+      # that actually protects anything -- a Function URL Cors config only adds
+      # response headers and answers preflight; it refuses nobody.
+      #
+      # With both configured, Lambda adds its Access-Control-Allow-Origin and
+      # the handler adds its own, and the browser receives
+      #   access-control-allow-origin: https://homeroom.chelseakr.com, https://homeroom.chelseakr.com
+      # which every browser rejects ("contains multiple values, but only one is
+      # allowed"). The ask page then falls back to its fixed "service is not
+      # available" string, which is correct behaviour and completely hides the
+      # cause. curl cannot see this: it prints the header and does not enforce
+      # it. This was found on 2026-08-22 by loading the live page in a real
+      # browser, after curl had reported the same endpoint healthy and
+      # answering. Verify CORS by rendering, not by reading.
+      #
+      # Removing the block also means OPTIONS reaches the function, which
+      # handles preflight itself (see `lambda_handler`).
 
   UrlPermission:
     Type: AWS::Lambda::Permission
