@@ -129,8 +129,24 @@ outcomes to prove none of them reaches the markup. The remaining datasets (D4,
 the state dashboard indicators, and D6, per-pupil spending) are a plan recorded
 in PROVENANCE.md too.
 
-Nothing is published or hosted. Whether these pages belong on the internet is a
-separate decision about real schools and real children, and no build makes it.
+**Live at <https://homeroom.chelseakr.com>** since 2026-08-22, by the owner's
+decision. Whether these pages belonged on the internet was a separate question
+about real schools and real children, and no build made it; a person did.
+
+What is published there is what this repository has actually built and checked:
+Birch Lane Elementary in Davis Joint Unified, in English and Spanish, with the
+ask layer below wired to a running service. That is one school out of the 10,534
+the pipeline profiles, and the landing page says so in both languages rather
+than implying the state is covered. Publishing more is `make publish` with more
+`--cds` codes; it is a decision about which schools to put in front of families,
+not a technical step.
+
+The site is rendered here and committed to `site/`, because it cannot be built
+in CI: the acquired CDE files never enter git and CI never touches the network.
+The workflow in `.github/workflows/pages.yml` publishes that directory and
+builds nothing, so the bytes reviewed in a pull request are the bytes served,
+and `tests/test_published_site.py` gates them in `make verify` on a machine with
+no acquired file present.
 
 ## AI at the edges (ADR 0003)
 
@@ -160,11 +176,18 @@ keeps the founding rule intact:
 - **Everything the model says is labeled** AI-generated, unofficial, not a
   ranking, and not a recommendation. Spanish narration is labeled
   AI-translated and unreviewed.
-- **Nothing is deployed.** A cost-bounded deployment shape (one Lambda
-  behind a Function URL, CORS locked to the site, reserved concurrency, a
-  daily cap and an alarm) is prepared in `deploy/ask/` as a template and a
-  runbook; applying it is a separate decision, and `make site` renders no
-  ask page and no link until it is given an endpoint.
+- **It is deployed, as of 2026-08-22, by the owner's decision.** The
+  cost-bounded shape in `deploy/ask/` is applied: one Lambda behind a Function
+  URL in `us-west-2`, CORS and a server-side origin check locked to
+  `https://homeroom.chelseakr.com`, reserved concurrency 2, a daily cap of 400
+  model calls, six requests per client per minute, and a CloudWatch alarm at
+  400 daily invocations to an SNS topic in the same stack. The deployed model
+  is Bedrock `global.anthropic.claude-sonnet-4-6` -- the model the recorded
+  evaluations name and the only Claude this account can invoke. `make site`
+  still renders no ask page and no link until it is given an endpoint, so a
+  build without one is byte-identical to a build from before ADR 0003.
+  Rollback is in `deploy/ask/README.md`: delete the stack, rebuild the site
+  without an endpoint.
 
 Provider: the public `anthropic` SDK, default model `claude-sonnet-5`,
 configurable, credentials from the environment only. The evaluation harness
@@ -208,9 +231,9 @@ Governed by [portfolio-standards](https://github.com/ChelseaKR/portfolio-standar
 | AI Evaluation | Applies as of ADR 0003 (2026-08-21): a prompt, a retrieval corpus, and a model-version surface now exist in `src/homeroom/ask/`. Five evaluation suites and their harness live in `evals/`; results carry provider, model, prompt version, commit, and date, and a test rejects results without them. See `docs/RESPONSIBLE-TECH-AUDITS.md` AI-EVAL and Governance |
 | Documentation | Applies |
 | Quality & Metrics | Applies (see `docs/ROADMAP.md` metrics ledger) |
-| Performance | Applies: the school pages are pre-rendered static HTML built from locally acquired files, with no client-side script and no network call at build time, and the pipeline is deterministic: re-running `make data` produces byte-identical artifacts. The optional ask service (ADR 0003) is a hosted route when and if it is deployed; until then no latency objective is declared for it, and the static pages declare none. No page-weight or build-time budget is asserted in CI yet |
+| Performance | Applies: the school pages are pre-rendered static HTML built from locally acquired files, with no client-side script and no network call at build time, and the pipeline is deterministic: re-running `make data` produces byte-identical artifacts. The optional ask service (ADR 0003) is a hosted route as of 2026-08-22; a measured answer takes about 5 s end to end against Bedrock claude-sonnet-4-6, and no latency objective is declared for it yet. The static pages declare none and need none: they are files. No page-weight or build-time budget is asserted in CI yet |
 | AI Development Measurement | Applies: this project is built AI-assisted and says so below. The outcome side is the metrics ledger in `docs/ROADMAP.md`, where every gate names its measurement and its AUTO/REVIEW disposition, and every day-one value was measured against a named acquired file rather than estimated. The diagnostic counters the standard names (sessions, tokens, share of generated code, acceptance rate) are not instrumented here, and by the standard's own rule they would be observe-only if they were: they never gate a merge |
-| Incident Response | Applies: `SECURITY.md` routes reports through GitHub private vulnerability reporting with a 72-hour acknowledgement target. Nothing is deployed yet and there is no account; the ask service (ADR 0003) stores no question and keeps no user data, so the incidents this project can actually have are a wrong or mis-sourced figure on a school page and a model sentence that reached a reader unverified. The first is why masked cells are type-enforced to raise on read, why a number on a page that nothing counted fails the build, and why coverage is published beside the data; the second is why every AI claim passes a verifier and the withheld count is shown. A severity ladder and a committed postmortem template are not yet in the repository |
+| Incident Response | Applies: `SECURITY.md` routes reports through GitHub private vulnerability reporting with a 72-hour acknowledgement target. The static site and the ask service are deployed as of 2026-08-22 and there is still no account; the ask service (ADR 0003) stores no question and keeps no user data, so the incidents this project can actually have are a wrong or mis-sourced figure on a school page and a model sentence that reached a reader unverified. The first is why masked cells are type-enforced to raise on read, why a number on a page that nothing counted fails the build, and why coverage is published beside the data; the second is why every AI claim passes a verifier and the withheld count is shown. A severity ladder and a committed postmortem template are not yet in the repository |
 | Data Governance | Applies: `PROVENANCE.md` is the register: every source is a named California Department of Education public file with its acquisition method, access date, and status, and a source that has not been acquired publishes nothing and says so in `coverage.json`. CDE small-cell masking is preserved as null, never zero and never interpolated; the CDS code is the only join key; no third-party or commercial data enters the pipeline. The artifacts are school-level public aggregates, not personal data, and the site has no account and no tracking. Raw source files are never committed and CI never fetches them. The ask service (ADR 0003) sends a reader's question and one school's published records to the model provider for the duration of the request and stores neither; the subprocessor record is in `docs/RESPONSIBLE-TECH-AUDITS.md` under Privacy, owner-approved 2026-08-22 |
 | Release & Versioning | Applies |
 

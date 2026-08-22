@@ -1,6 +1,6 @@
 .PHONY: verify sync lint format typecheck test audit data data-offline \
         site site-offline pages node-sync htmlvalidate a11y ask-optin node-audit \
-        ask-bundle ask-serve
+        ask-bundle ask-serve publish
 
 # CI / `make verify` body — the two MUST stay byte-for-byte identical.
 # See STANDARDS/CODE-QUALITY-STANDARD.md §2 and .github/workflows/ci.yml.
@@ -106,3 +106,30 @@ ask-optin:
 
 node-audit:
 	npm audit --audit-level=high
+
+# What is served at https://homeroom.chelseakr.com.
+#
+# The site is rendered here, on a machine that holds the acquired CDE files,
+# and the rendered pages are committed. It cannot be built in CI and it is not
+# meant to be: `data/raw/` is never in git, CI never touches the network, and
+# acquisition is a documented browser step per file (PROVENANCE.md). The
+# workflow in .github/workflows/pages.yml publishes this directory and builds
+# nothing. So the bytes in `site/` are the bytes served, they are reviewable in
+# a diff before they are published, and `tests/test_published_site.py` gates
+# them in CI without needing a single acquired file.
+#
+# Re-publishing is this target plus a commit. ASK_ENDPOINT must be the deployed
+# stack's FunctionUrl output; without it the pages carry no ask link at all,
+# which is the correct output for a site whose ask service is not running.
+PUBLISH_DIR ?= site
+SITE_DOMAIN ?= homeroom.chelseakr.com
+
+publish:
+	@test -n "$(ASK_ENDPOINT)" || { echo "ASK_ENDPOINT is required: the deployed stack's FunctionUrl output" >&2; exit 1; }
+	rm -rf $(PUBLISH_DIR)
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out $(PUBLISH_DIR) --ask-endpoint $(ASK_ENDPOINT) --landing
+	# GitHub Pages reads the custom domain from this file in the published
+	# output; without it a deploy silently unsets the domain and the site
+	# answers on github.io only.
+	echo $(SITE_DOMAIN) > $(PUBLISH_DIR)/CNAME
+	@echo "published into $(PUBLISH_DIR)/ for $(SITE_DOMAIN); commit it to deploy"

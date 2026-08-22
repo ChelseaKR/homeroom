@@ -37,8 +37,10 @@ jobs:
 
       # `make verify` ends in `make pages`, which runs html-validate and axe-core
       # over the school pages built from committed fixtures, in both languages.
-      # Nothing is served and nothing is deployed: both checkers read files off
-      # disk. Publication is a separate, deliberate decision and has no workflow.
+      # Nothing is served here and nothing is deployed from this job: both
+      # checkers read files off disk. Publication is a separate, deliberate
+      # decision; it was made on 2026-08-22, and pages.yml carries it out after
+      # this workflow succeeds on main.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
