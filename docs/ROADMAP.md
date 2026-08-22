@@ -62,6 +62,7 @@ gate, byte-for-byte identical locally and in CI.
 | M3 (done 2026-08-21) | Suppression showcase | A committed artifact demonstrating null-never-zero rendering: masked cells shown as "not published", coverage stats published beside the data (`docs/SUPPRESSION-SHOWCASE.md`) |
 | M4 (done 2026-08-08) | First bilingual school page, with district and statewide context | One real school rendered EN/ES from acquired data (Birch Lane Elementary, Davis Joint Unified, CDS 57726786056246); a11y and EN/ES parity gates wired and merge-blocking from this milestone; each measure sits beside its district and statewide figure, read from CDE's own `Charter=ALL` aggregate rows and never summed from schools |
 | D5a (rebuilt against the real file 2026-08-21) | D5 teacher assignment monitoring parser | Parser, spine join, artifact and coverage output built and verified against the real acquired 2023-24 file; every rendering case and the drift refusals covered; no D5 number published on any page or in `make data`'s default invocation, and PROVENANCE says why |
+| A1 (in progress, ADR 0003, 2026-08-21) | Grounded ask layer | One school per request; structuring, narration, verifier; fixed bilingual refusals; corpus of CDE definitions with hashes and retrieval dates; five committed evaluation suites with provenance-stamped results; opt-in ask page that makes no request until a question is submitted; school pages byte-identical to a build without it; deployment shape prepared and not applied |
 | M5 | D4, D6 | Dashboard indicators and per-pupil spending joined where published. (D5 is acquired and schema-verified as of D5a; publishing it on a page is a separate decision this roadmap has not made, tracked at issue level rather than promised a milestone here) |
 
 ## Metrics ledger
@@ -82,6 +83,9 @@ owning standard.
 | Keys present in one locale and not the other | 0 | `tests/test_i18n.py` over every catalog | AUTO | Chelsea Kelly-Reif |
 | Withheld or unpublished figures rendering a digit | 0 | `tests/test_pages.py` | AUTO | Chelsea Kelly-Reif |
 | Numbers on a page that nothing counted | 0 | `tests/test_pages.py` checks every data cell against the pipeline's own values | AUTO | Chelsea Kelly-Reif |
+| AI answers carrying an ordering, grade, score, or better/worse judgment (ranking-refusal suite) | 0 | `evals/` ranking-refusal suite, scored on displayed text; verifier withholds in production | AUTO (when run live; `not_run` otherwise) | Chelsea Kelly-Reif |
+| AI sentences rendering a withheld or unpublished cell as a value (suppression suite) | 0 | `evals/` suppression suite against real suppressed cells | AUTO (when run live; `not_run` otherwise) | Chelsea Kelly-Reif |
+| AI claims shown without a resolved citation | 0 (verifier-enforced) | `homeroom.ask` verifier; citation suite in `evals/` | AUTO | Chelsea Kelly-Reif |
 
 ### Day-one measured values (2026-08-07)
 
@@ -230,8 +234,10 @@ Mirrors the README Standards Conformance table; never a silent skip.
   of falling back, and CDE's English-only school and district names are marked
   `lang="en"` on Spanish pages. What the gate cannot check is whether the Spanish
   is good; CONTRIBUTING.md asks for review.
-- AI Evaluation: N/A. No LLM, prompt, retrieval, or model-version surface.
-  AI-assisted development is disclosed in the README; it is a build-time practice,
-  not a product surface.
-- Observability Tiers A/B: N/A, no hosted service or frontend (Tier C declared
-  above).
+- AI Evaluation: applies as of ADR 0003 (2026-08-21). `src/homeroom/ask/` is
+  a prompt, retrieval, and model-version surface, evaluated by the five suites
+  in `evals/`; results carry provider, model, prompt version, commit, and date.
+  AI-assisted development is separately disclosed in the README.
+- Observability Tiers A/B: N/A while nothing is hosted (Tier C declared above).
+  The ask service (ADR 0003) becomes a Tier A/B surface if and when it is
+  deployed; the prepared deployment shape names the counters it would emit.

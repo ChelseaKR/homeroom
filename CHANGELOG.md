@@ -6,6 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Direction: a grounded AI question-answering layer, by the owner's
+  direction (ADR 0003, 2026-08-21).** Until now this project had no prompt,
+  retrieval, or model surface, and every document said so. It is gaining one:
+  an optional, opt-in service that lets a family ask what a school's page says,
+  in English or Spanish, with the published CDE-derived records as the only
+  evidence and a verifier between the model and the reader. The founding rule
+  holds: one school per request, a fixed bilingual refusal for every form of
+  ranking or judgment question, an independent guard over every model sentence,
+  withheld cells narrated as not published, comparisons only on the page's own
+  basis, definitions quoted verbatim from a committed corpus of CDE's pages.
+  This entry records the decision and the document rewrites (README standards
+  table, `docs/ROADMAP.md`, `docs/RESPONSIBLE-TECH-AUDITS.md` AI-EVAL and
+  Governance, the threat model's fifth trust boundary, RR-07 to RR-09,
+  `SECURITY.md`, `CONTRIBUTING.md`, and a new `AGENTS.md`); the code lands in
+  the PRs that follow and is listed here as it does.
+
 ### Fixed
 - A cell that is not a published number could become one. `parse_cell` handed
   anything that was not `*` or empty straight to `float`, and `float` accepts a

@@ -1,7 +1,7 @@
 # Responsible-Tech Audits: homeroom
 
 Instantiates `STANDARDS/RESPONSIBLE-TECH-FRAMEWORK.md`.
-Last regenerated: 2026-08-07 (M4, first pages; sections B and E re-audited).
+Last regenerated: 2026-08-21 (ADR 0003: AI-EVAL and Governance activated; A, C, D, F re-audited for the ask layer).
 
 This record is honest about its age: the repo is one day old. Each section states
 what is designed and enforced today versus what has not yet been audited. Nothing
@@ -15,7 +15,7 @@ below claims an audit that did not happen.
 - D Transparency:  applies
 - E Accessibility: applies as of M4; gates wired and merge-blocking (see E)
 - F Security:      applies (threat model not yet written; see F)
-- AI-EVAL:         N/A. No LLM, prompt, retrieval, or model surface. AI-assisted development is disclosed in the README; it is a build-time practice, not a product surface
+- AI-EVAL:         applies as of ADR 0003 (2026-08-21). An optional runtime question-answering layer (`src/homeroom/ask/`) carries a prompt, a retrieval corpus, and a model version. AI-assisted development is separately disclosed in the README (see AI-EVAL)
 - I18N:            applies. EN/ES is a launch requirement; every user-visible string exists in both, parity gated (see B)
 
 Every `N/A` line above carries a reason. A missing audit section is a defect;
@@ -128,8 +128,13 @@ this framework to a repo", step 2).
     credential an assignment sat on, which is a fact about staffing and the
     state's own monitoring, and the page copy must not let a family read it as
     an evaluation of a teacher.
-  - Model card: N/A, no model. PROVENANCE.md serves as the dataset record; a
-    fuller datasheet is considered at M5 when all six sources are joined.
+  - Model card: the ask layer uses a third-party model (default `claude-sonnet-5`
+    via the public `anthropic` SDK; the model actually used for any committed
+    evaluation is named in `evals/results/`). No model is trained here, so the
+    provider's model card applies; Homeroom's own record is the prompt version,
+    the verifier rules, and the evaluation results. PROVENANCE.md serves as the
+    dataset record; a fuller datasheet is considered at M5 when all six sources
+    are joined.
 
 ## E. Accessibility
 
@@ -210,16 +215,67 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     has one home. The tag signature itself still needs the maintainer's private
     key, which no tooling holds (RR-04, closed).
 
+## AI-EVAL
+
+Applies as of ADR 0003 (2026-08-21).
+
+- Surface: a reader on a school's ask page submits a question in English or
+  Spanish; the service structures it with a model, looks up that one school's
+  published records, narrates the answer with the model, verifies every claim
+  against the records and the committed corpus of CDE definitions, and returns
+  the verified claims plus the count of withheld ones. No other school's data is
+  ever in the request.
+- What could go wrong: the model invents a number the state never published,
+  renders a withheld cell as zero, compares figures that do not share a basis,
+  or judges the school ("good", "better", a grade). Each is the project's
+  founding failure in a new costume.
+- Commitments: every claim cites a record or a corpus passage and is verified
+  programmatically before display; unverifiable claims are withheld and counted,
+  never shown; the refusal text for ranking and judgment questions is a fixed
+  reviewed string the model does not write; a second guard withholds any model
+  sentence carrying ranking or judgment language; withheld cells are narrated as
+  not published; comparisons only on the page's own basis; Spanish narration
+  labeled AI-translated and unreviewed; all output labeled AI-generated,
+  unofficial, not a ranking, not a recommendation.
+- Enforcement:
+  - AUTO (being built under ADR 0003): the verifier in `homeroom.ask`, unit
+    tested against hand-written claims in every failure class.
+  - AUTO (being built): five committed evaluation suites in `evals/` with a
+    harness: ranking refusal (adversarial, target zero), suppression fidelity
+    (target zero values rendered for withheld cells), citation grounding,
+    comparability, and question structuring including refusal-to-guess.
+    Results carry provider, model, prompt version, commit, and date; a test
+    rejects a results file without them; a suite not run says `not_run`.
+  - REVIEW (open): a person reads a sample of real answers in each language
+    before any deployment. Nobody has. Accountable owner: Chelsea Kelly-Reif.
+
 ## Governance (AI repos only)
 
-N/A: no AI system ships in this repo, so no AI risk register, impact assessment,
-ISO 42001 SoA, or red-team report is owed. EU AI Act classification decision,
-recorded here per the framework: homeroom contains no AI feature; there is
-nothing to classify. This section activates if an AI surface is ever added, and
-the anti-ranking rule (ADR 0000) would bind any such feature first.
+Activated by ADR 0003 (2026-08-21); this section was N/A before that date.
+
+- AI risk register: the rows RR-07 through RR-09 in
+  `docs/audits/residual-risk-register.md` (ungrounded claim reaching a reader;
+  Spanish narration unreviewed; cost and availability of a third-party model).
+- Impact assessment, day-one form: the population affected is families reading
+  about real schools; the harm is a confidently wrong or judgmental sentence
+  about a real school; the mitigations are structural (one school per request,
+  verifier before display, fixed refusals) rather than prompt-level, and the
+  measurements are the committed evaluation suites. Non-goals restated: not a
+  school picker, no composite, no recommendation.
+- EU AI Act classification decision, recorded here per the framework: the ask
+  layer is a general-purpose-model-backed information tool that explains
+  already-public aggregate statistics and explicitly refuses to evaluate
+  schools or recommend enrollment. It makes no decision about any person and
+  is not used for admission or placement; it is not a high-risk use under
+  Annex III as read today. Transparency obligations (labeling AI output as
+  such) are met on the page. This classification is the maintainer's reading
+  and is rechecked on the cadence below.
+- ISO 42001 SoA and a red-team report: not owed at prototype status; the
+  ranking-refusal suite is the adversarial test that exists, and its cases are
+  committed so anyone can extend it.
 
 ---
 
 Last verified: 2026-08-07. Recheck cadence: quarterly, and immediately on any
 revision to NIST AI RMF, ISO 42001, EU AI Act enforcement phases, WCAG, or OWASP
-ASVS / LLM Top 10.
+ASVS / LLM Top 10. Last verified for the AI sections: 2026-08-21.
