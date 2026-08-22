@@ -31,7 +31,9 @@ Without a provider the harness exits 2 and writes nothing.
 
 ## Results and provenance
 
-A results file is either `{"status": "not_run", "reason": ...}` or a real run
+Results live one directory per model, `results/<model id>/<suite>.json`, so
+two models' runs sit side by side and neither overwrites the other; both are
+evidence. A results file is either `{"status": "not_run", "reason": ...}` or a real run
 carrying `provenance` with provider, model, prompt version, commit, date, and
 the bundle's `is_fixture` flag and school count. `tests/test_ask_evals.py`
 rejects a results file that claims a run without all of those, or one produced

@@ -62,6 +62,8 @@ from homeroom.i18n import LOCALES, Locale, text
 ROOT = Path(__file__).resolve().parents[3]
 CASES_DIR = ROOT / "evals" / "cases"
 RESULTS_DIR = ROOT / "evals" / "results"
+"""Results live one directory per model under here: ``results/<model>/<suite>.json``.
+Two models' runs are two pieces of evidence; neither overwrites the other."""
 SUITES: tuple[str, ...] = (
     "ranking_refusal",
     "suppression",
@@ -390,6 +392,16 @@ def not_run(suite: str, reason: str) -> dict[str, object]:
     return {"suite": suite, "status": "not_run", "reason": reason}
 
 
+def model_dir(model: str) -> str:
+    """The directory name for one model's results: the model id, path-safe."""
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", model.strip()) or "unknown-model"
+
+
+def result_dirs(results: Path = RESULTS_DIR) -> list[Path]:
+    """Every per-model results directory, sorted."""
+    return sorted(p for p in results.iterdir() if p.is_dir())
+
+
 def run_suite(
     suite: str,
     *,
@@ -500,7 +512,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--suite", default="all", help="a suite name or 'all'")
-    parser.add_argument("--results", type=Path, default=RESULTS_DIR)
+    parser.add_argument(
+        "--results",
+        type=Path,
+        default=RESULTS_DIR,
+        help="results root; files land in <results>/<model>/<suite>.json",
+    )
     parser.add_argument("--cases", type=Path, default=CASES_DIR)
     parser.add_argument(
         "--daily-cap", type=int, default=2000, help="model calls allowed this run"
@@ -525,7 +542,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     suites = list(SUITES) if args.suite == "all" else [args.suite]
     today = dt.datetime.now(dt.UTC).date().isoformat()
-    args.results.mkdir(parents=True, exist_ok=True)
+    out_dir = args.results / model_dir(provider.model)
+    out_dir.mkdir(parents=True, exist_ok=True)
     for suite in suites:
         print(f"suite {suite}", file=sys.stderr)
         result = run_suite(
@@ -537,7 +555,7 @@ def main(argv: list[str] | None = None) -> int:
             bundle_index=index,
             today=today,
         )
-        (args.results / f"{suite}.json").write_text(
+        (out_dir / f"{suite}.json").write_text(
             json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
         summary = result["summary"]
