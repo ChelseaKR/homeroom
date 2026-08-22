@@ -27,6 +27,16 @@ a lost placeholder. What they cannot catch is Spanish that is technically comple
 and still reads like a form. If you can tell the difference, an issue or a PR is
 worth more here than a feature.
 
+## The ask layer
+
+`src/homeroom/ask/` is the optional AI question-answering layer (ADR 0003). It
+imports the `anthropic` SDK lazily and only when a provider is configured, so
+`make verify` needs no credential and makes no model call. The evaluation
+suites in `evals/` do need one; read `evals/README.md` before running them, and
+never commit a results file from anything but a real run. `AGENTS.md` lists the
+rules that bind changes here, starting with: the verifier is not to be weakened
+to make a suite pass, and the refusal strings are not to be generated.
+
 ## Review
 
 Every PR requires review sign-off before merge. PRs touching
