@@ -53,8 +53,9 @@ the local server; in Lambda only the runtime's START/END/REPORT lines reach
 CloudWatch, retained 14 days. The rate-limit key is a salted hash of the source
 address with a per-process salt, never stored. The question and one school's
 published records are sent to the model provider for the duration of the
-request; that subprocessor relationship (Anthropic's, or AWS Bedrock's) must
-be documented before the service faces families. RR-07 to RR-09 in
+request; that subprocessor relationship is recorded in
+`docs/RESPONSIBLE-TECH-AUDITS.md` under Privacy (Amazon Bedrock, us-west-2,
+owner-approved 2026-08-22). RR-07 to RR-09 in
 `docs/audits/residual-risk-register.md` carry the rest.
 
 ## Building and deploying (by a person, after the decision)
