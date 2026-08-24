@@ -10,7 +10,7 @@ Each source keeps its own academic year. Teacher assignment monitoring reports o
 a different cycle than Census Day enrollment, so a profile carries both years
 rather than one label over data from two calendars.
 
-Suppression fidelity (ADR 0000, and the pre-M3 privacy commitment in
+Suppression fidelity (ADR 0002, and the pre-M3 privacy commitment in
 docs/RESPONSIBLE-TECH-AUDITS.md): every published value in a profile is exactly a
 cell CDE published. Nothing here subtracts visible subgroups from a total, sums
 grades into a total, or otherwise derives a value a masked cell was protecting.

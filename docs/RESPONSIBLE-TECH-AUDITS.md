@@ -28,7 +28,7 @@ this framework to a repo", step 2).
   shame schools or as a real-estate signal; masked students surface as fake zeros.
   Worst plausible failure: a wrong or dishonestly-framed number about a real
   school, trusted by a family.
-- Commitments: the anti-ranking rule (ADR 0000): no composite score, no letter
+- Commitments: the anti-ranking rule (ADR 0002): no composite score, no letter
   grade, no ordering. Non-goals: not a school picker, not a real-estate feed, no
   third-party or commercial data ever (PROVENANCE.md rules). Suppressed data
   renders null, never zero.
@@ -37,8 +37,8 @@ this framework to a repo", step 2).
     `tests/test_measures.py` covers it; `parse_cell` hard-fails unknown sentinels.
   - AUTO (designed, not built): a static check that no code path aggregates
     measures across domains into a single number. Until it exists, the guard is
-    review plus ADR 0000's PR rule.
-  - REVIEW (done, day-one form): this consequence scan, dated above, with ADR 0000
+    review plus ADR 0002's PR rule.
+  - REVIEW (done, day-one form): this consequence scan, dated above, with ADR 0002
     as the committed non-goals statement. Accountable owner: Chelsea Kelly-Reif.
 
 ## B. Bias
