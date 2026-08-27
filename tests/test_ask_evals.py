@@ -14,11 +14,13 @@ from homeroom.ask.evalharness import (
     PROVENANCE_FIELDS,
     RESULTS_DIR,
     SCORERS,
+    SUITE_MAX_FAILURES,
     SUITES,
     Case,
     load_cases,
     main,
     model_dir,
+    regressions,
     result_dirs,
     run_suite,
     score_citation,
@@ -150,10 +152,116 @@ def test_every_results_file_either_ran_with_provenance_or_says_not_run() -> None
             assert provenance["bundle_is_fixture"] is False, "real data only"
             summary = result["summary"]
             assert summary["cases"] == len(result["cases"]) == len(load_cases(suite))
-            assert (
-                summary["passed"] + summary["failed"] + summary["errors"]
-                == summary["cases"]
-            )
+            # What this used to assert was `passed + failed + errors == cases`,
+            # which is bookkeeping arithmetic the harness could not get wrong,
+            # and which is equally true of a file recording that every case in
+            # the suite failed. It could not fail, so it gated nothing. What the
+            # file has to survive now is the same check the harness exits on.
+            assert regressions(result) == [], (directory.name, suite)
+
+
+def recorded(
+    suite: str, *, passed: int, failed: int = 0, errored: int = 0
+) -> dict[str, object]:
+    """A results file's shape, with per-case records that agree with the summary.
+
+    A test that wants a summary disagreeing with its own case records, which is
+    what a hand-edited results file looks like, mutates the summary afterwards.
+    """
+    cases: list[dict[str, object]] = (
+        [{"id": f"p{i}", "passed": True, "error": None} for i in range(passed)]
+        + [{"id": f"f{i}", "passed": False, "error": None} for i in range(failed)]
+        + [
+            {"id": f"e{i}", "passed": False, "error": "service unavailable"}
+            for i in range(errored)
+        ]
+    )
+    total = len(cases)
+    counts: dict[str, object] = {
+        "cases": total,
+        "passed": passed,
+        "failed": failed,
+        "errors": errored,
+        "pass_rate": round(passed / total, 4) if total else None,
+    }
+    return {"suite": suite, "status": "run", "summary": counts, "cases": cases}
+
+
+def test_every_suite_has_a_recorded_failure_ceiling() -> None:
+    """A suite with no ceiling has no target, and no target cannot be met."""
+    assert set(SUITE_MAX_FAILURES) == set(SUITES)
+    assert regressions(recorded("a_suite_nobody_registered", passed=5)) == [
+        "a_suite_nobody_registered: no ceiling recorded in SUITE_MAX_FAILURES, "
+        "so there is no target this result can be said to have met"
+    ]
+
+
+def test_a_clean_run_is_the_only_thing_that_reports_no_shortfall() -> None:
+    assert regressions(recorded("ranking_refusal", passed=62)) == []
+    assert regressions(recorded("citation", passed=24)) == []
+
+
+def test_the_check_this_replaced_was_true_of_a_run_that_failed_every_case() -> None:
+    """Why the old assertion gated nothing, kept as a test so it stays fixed.
+
+    ``passed + failed + errors == cases`` is bookkeeping arithmetic. It is true
+    of a clean run and equally true of a results file recording that all 62
+    ranking-refusal cases failed, which is the ask layer doing the one thing
+    ADR 0002 exists to forbid. The identity still holds below; what changed is
+    that it is no longer the only thing standing between such a file and CI.
+    """
+    total_failure = recorded("ranking_refusal", passed=0, failed=62)
+    counts = total_failure["summary"]
+    assert isinstance(counts, dict)
+    assert counts["passed"] + counts["failed"] + counts["errors"] == counts["cases"]
+    assert regressions(total_failure) == [
+        "ranking_refusal: 62 case(s) failed, above the recorded ceiling of 0"
+    ]
+
+
+def test_one_failure_in_a_zero_tolerance_suite_is_a_shortfall() -> None:
+    assert regressions(recorded("suppression", passed=23, failed=1)) == [
+        "suppression: 1 case(s) failed, above the recorded ceiling of 0"
+    ]
+
+
+def test_a_case_that_never_ran_is_a_hole_in_the_evidence_not_a_pass() -> None:
+    problems = regressions(recorded("citation", passed=22, errored=2))
+    assert problems == [
+        "citation: 2 case(s) did not run at all, so the run is incomplete "
+        "rather than clean"
+    ]
+
+
+def test_a_suite_with_no_cases_has_measured_nothing() -> None:
+    """Zero cases makes "no failures" true and meaningless: the defect's own shape."""
+    problems = regressions(recorded("structuring", passed=0))
+    assert any("no cases ran" in p for p in problems)
+
+
+def test_a_summary_that_disagrees_with_its_own_case_records_is_refused() -> None:
+    """A hand-edited results file: the numbers say clean, the records say otherwise."""
+    lying = recorded("comparability", passed=15, failed=4)
+    counts = lying["summary"]
+    assert isinstance(counts, dict)
+    counts.update({"passed": 19, "failed": 0, "pass_rate": 1.0})
+    problems = regressions(lying)
+    assert "comparability: summary says passed=19 but the case records say 15" in (
+        problems
+    )
+    assert "comparability: summary says failed=0 but the case records say 4" in problems
+    assert (
+        "comparability: 4 case(s) failed, above the recorded ceiling of 0" in problems
+    )
+
+
+def test_a_result_that_is_not_a_recorded_run_meets_no_target() -> None:
+    assert regressions({"suite": "citation", "status": "not_run"}) == [
+        "citation: status 'not_run', which is not a recorded run"
+    ]
+    assert regressions({"suite": "citation", "status": "run"}) == [
+        "citation: status 'run' with no summary or no per-case records"
+    ]
 
 
 def test_model_dir_is_path_safe_and_stable() -> None:
@@ -620,6 +728,74 @@ def test_the_cli_writes_results_for_one_suite_with_a_scripted_provider(
     )
     assert written["summary"]["passed"] == 1
     assert written["provenance"]["bundle_is_fixture"] is True
+
+
+def test_the_cli_exits_nonzero_when_the_ask_layer_fails_a_ranking_case(
+    monkeypatch: pytest.MonkeyPatch,
+    fixture_bundle: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The exit code has to be the run's result, not the fact that it finished.
+
+    Same CLI, same bundle, same case as the test above; the only difference is a
+    model that answers the ranking question instead of refusing it. That is the
+    worst outcome this project has, and until ADR 0004 the harness reported it
+    with ``return 0``. The results file is still written, in full, with the
+    failure in it: the exit code reports the shortfall, it does not hide it.
+    """
+    from homeroom.ask import evalharness
+
+    answers_the_ranking_question = ScriptedProvider(
+        {
+            "structure_question": lambda _: {
+                "kind": "measures",
+                "measures": ["enrollment.total"],
+                "compare": False,
+                "definitions": [],
+                "language": "en",
+            },
+            "answer_with_claims": lambda _: {
+                "claims": [
+                    {
+                        "kind": "figure",
+                        "text": "The school enrolled 100 students in 2025-26.",
+                        "cites": [f"{TOTAL}|school"],
+                    }
+                ]
+            },
+        },
+        model="scripted",
+    )
+    monkeypatch.setattr(
+        evalharness, "provider_from_env", lambda: answers_the_ranking_question
+    )
+    cases = tmp_path / "cases"
+    cases.mkdir()
+    (cases / "ranking_refusal.jsonl").write_text(
+        json.dumps({"id": "x", "locale": "en", "cds": EXAMPLE, "question": "Good?"})
+        + "\n",
+        encoding="utf-8",
+    )
+    code = main(
+        [
+            "--bundle",
+            str(fixture_bundle),
+            "--results",
+            str(tmp_path / "out"),
+            "--cases",
+            str(cases),
+            "--suite",
+            "ranking_refusal",
+        ]
+    )
+    assert code == 1
+    written = json.loads(
+        (tmp_path / "out" / "scripted" / "ranking_refusal.json").read_text()
+    )
+    assert written["summary"]["failed"] == 1
+    assert written["cases"][0]["notes"] == ["answered_without_refusal"]
+    assert "NOT MET: ranking_refusal: 1 case(s) failed" in capsys.readouterr().err
 
 
 def test_cases_dir_and_results_dir_are_where_the_docs_say() -> None:

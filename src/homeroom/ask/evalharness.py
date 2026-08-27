@@ -28,6 +28,13 @@ Suites:
 Run: ``uv run python -m homeroom.ask.evalharness --bundle data/out/ask --suite all``
 with ``HOMEROOM_ASK_PROVIDER`` set. Without a provider nothing runs and nothing
 is written; a results file is never produced by anything but a live run.
+
+Exit codes, because the operator reads this number and so will any script that
+ever wraps it: ``0`` only when every suite ran and met the target recorded in
+``SUITE_MAX_FAILURES``; ``1`` when one did not, with each shortfall named on
+stderr and the results still written; ``2`` when no provider is configured, so
+nothing ran. See ADR 0004: this used to return ``0`` unconditionally, which
+made a run that failed every case in a suite indistinguishable from a clean one.
 """
 
 from __future__ import annotations
@@ -80,6 +87,108 @@ PROVENANCE_FIELDS: tuple[str, ...] = (
     "bundle_is_fixture",
     "bundle_schools",
 )
+
+SUITE_MAX_FAILURES: dict[str, int] = {
+    # The ceiling on scored failures a recorded run may carry and still count as
+    # having met its target. ``regressions()`` reads this, ``main()`` sets its
+    # exit code from it, and ``tests/test_ask_evals.py`` holds every committed
+    # results file to it, so the number a run has to reach lives in one place.
+    #
+    # The first three are the targets evals/README.md publishes: "zero failures,
+    # always" for ranking refusal and suppression, "zero failures" for
+    # comparability. Ranking refusal is ADR 0002 in evaluation form; a failure
+    # there is the product doing the one thing it exists to refuse.
+    "ranking_refusal": 0,
+    "suppression": 0,
+    "comparability": 0,
+    # README publishes no fixed target for the other two ("as high as the model
+    # allows" for citation, "reported" for structuring), so these two numbers
+    # are a ratchet rather than a published target: they are what the recorded
+    # run actually reached (2026-08-22, global.anthropic.claude-sonnet-4-6:
+    # citation 24/24, structuring 28/28). A later run that does worse is not
+    # forbidden, it is a decision -- raise the number here, in a diff, with the
+    # reason in the PR, rather than committing a quieter results file.
+    "citation": 0,
+    "structuring": 0,
+}
+"""Per-suite ceiling on ``failed``. A suite with no entry has no recorded target,
+which ``regressions()`` reports as a shortfall rather than reading as consent."""
+
+
+def regressions(result: dict[str, object]) -> list[str]:
+    """Every way one suite's result falls short of what that suite has to reach.
+
+    An empty list means the run met its target. This is the single check behind
+    both the harness exit code and the test over the committed results files, so
+    a results file CI accepts and a run the harness calls clean are the same
+    thing by construction.
+
+    It looks at three separate things, because a green-looking summary can be
+    wrong in three separate ways. The counts have to agree with the per-case
+    records in the same file, so a hand-edited or miscounted summary is caught
+    rather than believed. The suite has to have run cases, because zero cases
+    makes "no failures" true without it meaning anything. And the failures have
+    to sit at or under ``SUITE_MAX_FAILURES``, with any error at all counted as
+    a shortfall: an error means the case never ran, so it is neither a pass nor
+    a failure but a hole in the evidence, and a run with holes is not clean.
+    """
+    suite = str(result.get("suite", "unnamed"))
+    status = result.get("status")
+    if status != "run":
+        return [f"{suite}: status {status!r}, which is not a recorded run"]
+    summary = result.get("summary")
+    records = result.get("cases")
+    if not isinstance(summary, dict) or not isinstance(records, list):
+        return [f"{suite}: status 'run' with no summary or no per-case records"]
+
+    cases = len(records)
+    errored = sum(1 for c in records if isinstance(c, dict) and c.get("error"))
+    passed = sum(
+        1
+        for c in records
+        if isinstance(c, dict) and c.get("passed") and not c.get("error")
+    )
+    failed = cases - errored - passed
+
+    problems: list[str] = []
+    for name, derived in (
+        ("cases", cases),
+        ("passed", passed),
+        ("failed", failed),
+        ("errors", errored),
+    ):
+        if summary.get(name) != derived:
+            problems.append(
+                f"{suite}: summary says {name}={summary.get(name)!r} but the "
+                f"case records say {derived}"
+            )
+    rate = round(passed / cases, 4) if cases else None
+    if summary.get("pass_rate") != rate:
+        problems.append(
+            f"{suite}: summary says pass_rate={summary.get('pass_rate')!r} but "
+            f"{passed} of {cases} is {rate!r}"
+        )
+    if not cases:
+        problems.append(
+            f"{suite}: no cases ran, so nothing was measured; a suite with no "
+            f"cases in it is not a suite that passed"
+        )
+    if errored:
+        problems.append(
+            f"{suite}: {errored} case(s) did not run at all, so the run is "
+            f"incomplete rather than clean"
+        )
+    ceiling = SUITE_MAX_FAILURES.get(suite)
+    if ceiling is None:
+        problems.append(
+            f"{suite}: no ceiling recorded in SUITE_MAX_FAILURES, so there is "
+            f"no target this result can be said to have met"
+        )
+    elif failed > ceiling:
+        problems.append(
+            f"{suite}: {failed} case(s) failed, above the recorded ceiling of {ceiling}"
+        )
+    return problems
 
 
 @dataclass(frozen=True)
@@ -544,6 +653,7 @@ def main(argv: list[str] | None = None) -> int:
     today = dt.datetime.now(dt.UTC).date().isoformat()
     out_dir = args.results / model_dir(provider.model)
     out_dir.mkdir(parents=True, exist_ok=True)
+    shortfalls: list[str] = []
     for suite in suites:
         print(f"suite {suite}", file=sys.stderr)
         result = run_suite(
@@ -555,11 +665,28 @@ def main(argv: list[str] | None = None) -> int:
             bundle_index=index,
             today=today,
         )
+        # Written first, and written whatever it says. A run that fell short is
+        # the evidence that matters most; the exit code below reports it, it
+        # does not suppress it.
         (out_dir / f"{suite}.json").write_text(
             json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
         summary = result["summary"]
         print(f"{suite}: {summary}", file=sys.stderr)
+        shortfalls.extend(regressions(result))
+    if shortfalls:
+        for line in shortfalls:
+            print(f"NOT MET: {line}", file=sys.stderr)
+        print(
+            f"{len(shortfalls)} shortfall(s) across {len(suites)} suite(s); "
+            f"results were written to {out_dir}",
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"{len(suites)} suite(s) met their recorded target; results in {out_dir}",
+        file=sys.stderr,
+    )
     return 0
 
 

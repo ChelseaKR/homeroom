@@ -193,7 +193,10 @@ Provider: the public `anthropic` SDK, default model `claude-sonnet-5`,
 configurable, credentials from the environment only. The evaluation harness
 and its five suites (ranking refusal, suppression fidelity, citation grounding,
 comparability, question structuring) live in `evals/`, and results are
-committed only from a recorded live run that names the model.
+committed only from a recorded live run that names the model. The harness exits
+nonzero when a suite falls short of its target, and CI holds every committed
+results file to the same check, so a regression cannot be committed green
+(ADR 0004).
 
 Recorded run (2026-08-22, `evals/results/`): 157 cases over real schools from
 the acquired files, on Amazon Bedrock `global.anthropic.claude-sonnet-4-6`
