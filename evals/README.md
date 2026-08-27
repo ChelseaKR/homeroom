@@ -27,7 +27,22 @@ HOMEROOM_ASK_PROVIDER=bedrock HOMEROOM_ASK_MODEL=global.anthropic.claude-sonnet-
 ```
 
 Credentials come from the environment (the SDK reads them; nothing here does).
-Without a provider the harness exits 2 and writes nothing.
+
+The exit code is the run's result, not the fact that it finished (ADR 0004):
+
+| Exit | Means |
+|------|-------|
+| `0` | every suite ran and met the ceiling in `SUITE_MAX_FAILURES` |
+| `1` | one did not; each shortfall is named on stderr and the results are still written |
+| `2` | no provider configured, so nothing ran and nothing was written |
+
+`SUITE_MAX_FAILURES` in `src/homeroom/ask/evalharness.py` holds the ceiling per
+suite. For ranking refusal, suppression and comparability it is the target this
+table publishes. Citation and structuring have no published target, so their
+entries are a ratchet at the level the recorded run reached: a later run that
+does worse is a decision to make in a diff, by raising the number with the
+reason in the PR, not by committing a quieter results file. Any case that
+errored is a shortfall too, because an error means the case never ran.
 
 ## Results and provenance
 
@@ -37,9 +52,18 @@ evidence. A results file is either `{"status": "not_run", "reason": ...}` or a r
 carrying `provenance` with provider, model, prompt version, commit, date, and
 the bundle's `is_fixture` flag and school count. `tests/test_ask_evals.py`
 rejects a results file that claims a run without all of those, or one produced
-from fixture data. Never edit a results file by hand and never commit one from
-anything but a live run. The cases reference real schools by CDS code; the
-fixture bundle cannot run them, which is the point.
+from fixture data, or one that fell short of its suite's target: it applies the
+same `regressions()` check the harness exits on, so a results file CI accepts
+and a run the harness calls clean are the same thing. It also rejects a summary
+whose counts disagree with the per-case records in the same file, which is what
+a hand-edited results file looks like. Never edit a results file by hand and
+never commit one from anything but a live run. The cases reference real schools
+by CDS code; the fixture bundle cannot run them, which is the point.
+
+The suites do not run in CI and are not meant to: they need a provider, a
+credential and the acquired CDE files, and CI has none of the three. The test
+over the committed results is the CI-side gate, and it is the reason a
+regression cannot be committed quietly.
 
 The model named in a results file is the model the numbers are about. The code
 default is `claude-sonnet-5`; a run on another model says so.

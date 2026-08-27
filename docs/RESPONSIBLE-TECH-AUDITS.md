@@ -291,6 +291,14 @@ Applies as of ADR 0003 (2026-08-21).
     comparability, and question structuring including refusal-to-guess.
     Results carry provider, model, prompt version, commit, and date; a test
     rejects a results file without them; a suite not run says `not_run`.
+    The harness exit code is the run's result, and the same check runs in CI
+    over every committed results file, so a suite that regressed cannot be
+    committed green (ADR 0004). Until 2026-08-26 neither was true: the harness
+    returned 0 unconditionally, and the only assertion CI made about the numbers
+    was the bookkeeping identity `passed + failed + errors == cases`, which is
+    equally true of a file recording that every case failed. The recorded run
+    was and remains 157 of 157, so nothing was masked; nothing would have
+    noticed if something had been.
   - REVIEW (open): a person reads a sample of real answers in each language
     before any deployment. Nobody has. Accountable owner: Chelsea Kelly-Reif.
 

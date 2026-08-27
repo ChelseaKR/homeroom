@@ -6,6 +6,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **The evaluation gate could not fail** (2026-08-26, ADR 0004). Two things
+  were reporting on the ask layer and neither could report bad news.
+  `main()` in `src/homeroom/ask/evalharness.py` ended in an unconditional
+  `return 0`, so a run in which all 62 ranking-refusal cases were answered
+  instead of refused, which is the ask layer doing the one thing ADR 0002
+  exists to forbid, exited 0 and looked at the shell exactly like a clean run.
+  The per-case verdicts went to stderr and the counts went into the results
+  file, and then the process said success. The only automated reader of those
+  counts, in `tests/test_ask_evals.py`, asserted
+  `passed + failed + errors == cases`, which is bookkeeping arithmetic the
+  harness computes in a single loop and cannot get wrong, and which is equally
+  true of `{"cases": 62, "passed": 0, "failed": 62}`. Every provenance
+  assertion in that test bit; the one assertion about whether the ask layer
+  had behaved did not.
+  - Nothing was masked. The recorded run is 5 suites and 157 of 157 cases
+    passing, and it still is with the gate on, which is why this landed now
+    rather than after a regression made it urgent.
+  - One function, `regressions()`, now decides whether a suite met its target,
+    and both readers call it: the harness exit code (`0` met, `1` fell short
+    with each shortfall named on stderr, `2` no provider, unchanged) and the
+    test over every committed results file. A results file recording a
+    regression cannot pass CI. The results are still written before the check
+    and written whatever they say.
+  - `SUITE_MAX_FAILURES` holds the ceiling per suite in one place: the targets
+    `evals/README.md` already published for ranking refusal, suppression and
+    comparability, and a ratchet at the recorded level for citation and
+    structuring, which have no published target. Lowering the bar is a diff
+    with a reason, not a quieter results file. A suite with no entry has no
+    target, which counts as a shortfall rather than as consent.
+  - Two shapes that report clean without meaning anything are refused too: a
+    summary whose counts disagree with the per-case records in the same file
+    (what a hand-edited results file looks like), and a suite with zero cases.
+    An errored case counts as a shortfall, because an error means the case
+    never ran and a hole in the evidence is not a pass.
+  - Both gates are demonstrated failing before they are demonstrated passing.
+    `test_the_cli_exits_nonzero_when_the_ask_layer_fails_a_ranking_case` drives
+    the real CLI with a model that answers the ranking question, and
+    `test_the_check_this_replaced_was_true_of_a_run_that_failed_every_case`
+    keeps the old identity in the suite as a record of why it gated nothing.
+  - The suites still do not run in CI and this does not wire them in: they need
+    a provider, a credential and the acquired CDE files, and CI has none of the
+    three by design. The CI-side gate is the test over the committed results,
+    and it now reads the same verdict the harness exits on.
+
 ### Added
 - **The site is live at <https://homeroom.chelseakr.com>, and the ask service
   behind it is deployed** (2026-08-22, by the owner's decision). Nothing in this
