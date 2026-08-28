@@ -175,6 +175,84 @@ def test_coverage_counts_and_years_are_numbers_a_claim_may_state(
 
 
 # ----------------------------------------------------------------------------------
+# A number is licensed by the fact it came from, not by proximity to it
+# ----------------------------------------------------------------------------------
+
+
+def test_a_figure_may_not_state_the_coverage_tally_as_the_school_own_value(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """Issue #34: the school's rate is 12.5%, and its coverage tally happens to
+    contain 1. A figure claim saying "1%" states a number this school's cell
+    never published, and it must be withheld rather than shown as verified."""
+    assert (
+        reason(
+            Claim(
+                "figure",
+                "In 2024-25, Example Elementary's chronic absenteeism rate for "
+                "all students was 1%.",
+                (f"{RATE}|school",),
+            ),
+            example,
+            corpus,
+        )
+        == "unverifiable_number"
+    )
+
+
+def test_a_figure_may_not_borrow_the_build_size_as_the_school_own_value(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """`schools_in_build` is 3. It is not this school's enrollment."""
+    assert (
+        reason(
+            Claim(
+                "figure",
+                "Example Elementary enrolled 3 students on Census Day 2025-26.",
+                (f"{TOTAL}|school",),
+            ),
+            example,
+            corpus,
+        )
+        == "unverifiable_number"
+    )
+
+
+def test_a_note_may_still_state_the_coverage_tally_it_cites(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """The context sentence the coverage numbers exist for keeps working."""
+    shown = one(
+        Claim(
+            "note",
+            "Across the 3 schools in this build, 1 publishes a total enrollment "
+            "figure for 2025-26, 1 has it withheld, and 1 publishes nothing.",
+            (f"{TOTAL}|school",),
+        ),
+        example,
+        corpus,
+    )
+    assert isinstance(shown, ShownClaim)
+
+
+def test_a_figure_still_shows_the_value_its_own_cell_publishes(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """The narrowing must not withhold the true figure it exists to protect."""
+    shown = one(
+        Claim(
+            "figure",
+            "In 2024-25, Example Elementary's chronic absenteeism rate for all "
+            "students was 12.5%.",
+            (f"{RATE}|school",),
+        ),
+        example,
+        corpus,
+    )
+    assert isinstance(shown, ShownClaim)
+
+
+# ----------------------------------------------------------------------------------
 # Every failure class is withheld
 # ----------------------------------------------------------------------------------
 

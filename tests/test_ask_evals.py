@@ -441,6 +441,32 @@ def test_citation_scorer_rechecks_every_displayed_number(
     assert score_citation(case("citation"), sourced, example).passed
 
 
+def test_citation_scorer_catches_a_coverage_tally_stated_as_the_school_figure(
+    example: SchoolEvidence,
+) -> None:
+    """Issue #34: the scorer is the verifier's independent double-check, so it
+    must not share the verifier's blind spot. A `figure` borrowing a number from
+    the record's coverage tally, or from the build size, is ungrounded even
+    though both numbers sit on the record the claim cites."""
+    tally = response(shown("figure", "The absenteeism rate was 1%.", f"{RATE}|school"))
+    assert any(
+        n.startswith("ungrounded_number_shown")
+        for n in score_citation(case("citation"), tally, example).notes
+    )
+    build_size = response(
+        shown("figure", "The school had 3 students.", f"{TOTAL}|school")
+    )
+    assert any(
+        n.startswith("ungrounded_number_shown")
+        for n in score_citation(case("citation"), build_size, example).notes
+    )
+    # The context sentence those numbers exist for still scores clean.
+    note = response(
+        shown("note", "Across 3 schools, 1 publishes it.", f"{TOTAL}|school")
+    )
+    assert score_citation(case("citation"), note, example).passed
+
+
 def test_comparability_scorer_catches_cross_record_benchmarks_and_aggregates(
     example: SchoolEvidence,
 ) -> None:

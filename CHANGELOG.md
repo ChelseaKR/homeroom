@@ -7,6 +7,52 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- **The verifier licensed a number by proximity, not by the fact it came from**
+  (2026-08-28, issue #34, ADR 0003 point 4). `_allowed_numbers` in
+  `src/homeroom/ask/verifier.py` built one flat set of "numbers seen anywhere
+  near this record" and then asked only whether each number in a claim appeared
+  somewhere in it. Into that set went the record's statewide coverage tally
+  (`{"reported": N, "suppressed": M, "not_reported": K}`, a count of how many
+  *other* schools' cells landed in each status), the size of the build, and the
+  digits of the school's grade span. None of those is the school's own
+  published figure, and ADR 0003 promises that "every number in the sentence is
+  a number one of its cited records actually publishes".
+  - The collision is not hypothetical. In the committed fixture, Example
+    Elementary's chronic absenteeism rate is 12.5% and its coverage tally is
+    `{"not_reported": 1, "reported": 1, "suppressed": 1}`, so the sentence
+    "the rate for all students was 1%" verified clean and was shown to the
+    reader as a cited figure about that school. The repro in issue #34 was
+    executed against the fixture bundle and reproduced exactly; it now returns
+    the claim withheld with reason `unverifiable_number`.
+  - The suppression invariant was never at risk: `_check_absence` is a separate
+    check and a withheld cell is still never narrated as a value. What could be
+    swapped was a *reported* cell's own number.
+  - Numbers are now licensed by the kind of claim making them.
+    `CONTEXT_CLAIM_KINDS` holds the one kind whose subject is context about the
+    data rather than a cell's value: `note`, already described to the model as
+    "context about the data (which year, why a figure is withheld)". A `note`
+    may still state a coverage tally, the build size, and the grade span. A
+    `figure` or a `comparison` gets only what its own cited cells publish, plus
+    years, measure-label digits, and the numbers inside a verified quote.
+  - The same construction was duplicated in the independent eval scorer,
+    `_cell_numbers` in `src/homeroom/ask/evalharness.py`, so the `citation` and
+    `comparability` suites shared the blind spot and could not have caught it.
+    That scorer exists to disagree with the service; it is narrowed the same
+    way and by its own code path.
+  - Both guards are demonstrated failing before they are demonstrated passing.
+    `test_a_figure_may_not_state_the_coverage_tally_as_the_school_own_value`
+    and `test_a_figure_may_not_borrow_the_build_size_as_the_school_own_value`
+    fail against the old flat set; `test_a_note_may_still_state_the_coverage_tally_it_cites`
+    and `test_a_figure_still_shows_the_value_its_own_cell_publishes` prove the
+    narrowing did not withhold the sentences it exists to protect.
+  - The committed results files still pass the gate `make verify` holds them
+    to. They could not be re-scored under the narrowed rule, and this says so
+    rather than implying they were: a results file records each shown claim's
+    *text* but not its kind or its citations, and re-running the suites needs
+    the acquired files in `data/raw/`, which are never in git. So the recorded
+    157-case run is evidence about the old rule only. Recording kind and
+    citations per shown claim, so a scorer change can be replayed against
+    recorded evidence, is filed as RR-10.
 - **The evaluation gate could not fail** (2026-08-26, ADR 0004). Two things
   were reporting on the ask layer and neither could report bad news.
   `main()` in `src/homeroom/ask/evalharness.py` ended in an unconditional
