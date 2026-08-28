@@ -14,7 +14,7 @@ with even less.
 Bilingual (English/Spanish) plain-language school pages built entirely from CDE
 public files, joined on CDS codes. One page per school, each measure shown on its
 own terms beside district and statewide context, with suppression and coverage
-stated. No composite score, no ranking, ever (ADR 0000). No account, no tracking.
+stated. No composite score, no ranking, ever (ADR 0002). No account, no tracking.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ stated. No composite score, no ranking, ever (ADR 0000). No account, no tracking
 - CI never touches the network; committed fixtures exercise every parsing and
   rendering case, including suppression.
 - The `Measure` type carries three statuses (reported, suppressed, not reported)
-  and makes masked cells unreadable as numbers (ADR 0000).
+  and makes masked cells unreadable as numbers (ADR 0002).
 - Rendering target is static bilingual pages. The toolchain was chosen at M4 (ADR
   0001): stdlib Python renders the markup, strings live in typed per-locale
   dictionaries with a parity gate, and the node checkers (html-validate, axe-core

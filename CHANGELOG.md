@@ -7,6 +7,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- **The project's most important claim cited the wrong document** (2026-08-28,
+  issue #35). The anti-ranking and suppression-fidelity rule was cited as
+  "ADR 0000" in eight places across code, docs and tests. ADR 0000 is
+  `0000-record-architecture-decisions.md`, the MADR process ADR: it says
+  nothing about ranking or suppression. The decision is
+  `0002-refuse-to-rank-schools.md`, `Status: Accepted`, dated 2026-08-07. The
+  numbering is a leftover from the release that split the two ADRs that were
+  both numbered 0000; the file moved and these citations did not.
+  - Fixed at all eight sites: `src/homeroom/render.py`,
+    `src/homeroom/absenteeism.py`, `src/homeroom/profiles.py`,
+    `docs/ROADMAP.md` (two), `docs/RESPONSIBLE-TECH-AUDITS.md` (three). The
+    issue listed seven; `tests/test_profiles.py` was the eighth and is fixed
+    too. `src/homeroom/ask/guards.py` and `src/homeroom/ask/evalharness.py`
+    already cited 0002 correctly, which is what confirms 0002 is the target.
+  - CHANGELOG entries that mention the old number are left alone. Two of them
+    are *about* the renumbering, and rewriting history to look tidy would
+    falsify the record this project keeps citations for.
+  - **ADR 0000 shipped with `Date: TODO - set to today's date at generation
+    time`**, an unfilled generator placeholder, for three weeks. Set to
+    2026-08-07, the date the file was added (commit `4cd542b`), which is the
+    date the other day-one ADRs carry.
+  - `tests/test_adr_citations.py` (new) keeps the trail honest, because fixing
+    eight strings by hand is not a control. It checks that every ADR cited
+    anywhere in `src/`, `tests/`, `docs/`, `evals/` and `tools/` resolves to a
+    file that exists; that no ADR carries a placeholder where its date should
+    be; that the Accepted decision ADRs are still Accepted; and that the
+    process meta-ADR is never cited as the reason for a behaviour. Each of the
+    three was run against a deliberately reintroduced fault (an `ADR 0000`
+    citation, an `ADR 0099` citation, the restored `TODO` date) and observed
+    failing before being observed passing. A first test asserts the ADR series
+    and the scanned file list are both non-empty, so a renamed directory
+    reports zero files instead of passing over nothing.
 - **The verifier licensed a number by proximity, not by the fact it came from**
   (2026-08-28, issue #34, ADR 0003 point 4). `_allowed_numbers` in
   `src/homeroom/ask/verifier.py` built one flat set of "numbers seen anywhere

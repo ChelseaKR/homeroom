@@ -105,7 +105,7 @@ def test_join_gaps_are_counted_in_both_directions() -> None:
 
 
 def test_no_value_is_ever_derived_from_complements() -> None:
-    """The pre-M3 suppression-fidelity rule (ADR 0000, audits C).
+    """The pre-M3 suppression-fidelity rule (ADR 0002, audits C).
 
     In the fixture, Example Elementary publishes a total of 100 with RE_B masked
     beside visible 63 and 30, and GN_M masked beside visible 52. The arithmetic

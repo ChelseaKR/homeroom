@@ -16,7 +16,7 @@ exists would read as a complete picture. It is not one, and the columns say so.
 
 *Nothing is ranked, scored, or ordered.* There is no total, no average, no
 composite, and no comparison of one school against another anywhere in this file
-(ADR 0000). The only arithmetic here is counting measures by status, which is what
+(ADR 0002). The only arithmetic here is counting measures by status, which is what
 coverage is.
 
 The markup is written for a screen reader first: one ``h1``, sectioned headings
