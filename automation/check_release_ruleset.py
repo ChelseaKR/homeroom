@@ -7,6 +7,36 @@ accepted by the release workflow.  GitHub may redact ``bypass_actors`` from
 that response.  In that case the release owner makes the missing assertion by
 signing an exact annotated-tag message bound to the hosted ruleset id and
 ``updated_at`` value.  Any later ruleset edit invalidates that assertion.
+
+This module used to mandate the lockout.  Until 2026-08-29 it required
+``bypass_actors`` to be exactly ``[]`` on the committed profile, on the hosted
+ruleset, and in the signed tag message, and ``.github/rulesets/tags.json``
+carried the empty list to match.  That reads as the strictest possible setting
+and is the opposite.  This is a tag ruleset with ``update`` and ``deletion``
+over ``refs/tags/v*``: applied with an empty bypass list, nobody -- the
+repository owner included -- can delete or re-point a release tag, including a
+bad one, and there is no break-glass path left to undo it with.  GitHub answers
+201 to such an apply, so nothing warns you.  The same mistake, made elsewhere in
+this portfolio, took a sweep across eighteen repositories to unwind.
+
+Nothing live ever contradicted the file.  As of 2026-08-29
+``gh api repos/ChelseaKR/homeroom/rulesets`` returns ``[]`` and
+``branches/main/protection`` returns 404, so the profile has been wrong
+unopposed: committed, never applied, and mandated by its own guard.
+
+The expected value is now ``EXPECTED_BYPASS_ACTORS``, the repository owner's
+standing bypass and nothing else.  The demand is still exact equality, not
+membership, so a second actor, a foreign actor, a wrong ``bypass_mode``, a
+non-list and an empty list all still fail: this is a correction of what the
+guard points at, not a loosening of how hard it points.
+
+CICD-15 and CI-CD-STANDARD §5.1 ask for "empty bypass actors" and, where a
+bypass exists, ``bypass_mode: "pull_request"``.  This repository diverges from
+both, deliberately.  The standard is not vendored here, so there is nothing
+upstream to edit; the divergence is recorded here and in
+``tests/test_release_ruleset.py``.  ``pull_request`` mode is refused because a
+bypass that only works inside a pull request is no use when the pull request is
+the thing that is wedged, and a tag ruleset is not reached through one at all.
 """
 
 from __future__ import annotations
@@ -24,6 +54,28 @@ from pathlib import Path
 from typing import Any
 
 RULESET_NAME = "protect-release-tags"
+
+OWNER_BYPASS: dict[str, Any] = {
+    "actor_id": 5,
+    "actor_type": "RepositoryRole",
+    "bypass_mode": "always",
+}
+"""The repository owner's standing bypass, confirmed against the live API.
+
+``RepositoryRole`` 5 is admin.  ``bypass_mode`` is ``always`` and not
+``pull_request``: a bypass that only works inside a pull request cannot help
+when the pull request is what is wedged, and a tag update or deletion is not
+made through one at all.
+"""
+
+EXPECTED_BYPASS_ACTORS = [OWNER_BYPASS]
+"""The whole of ``bypass_actors``, matched exactly rather than searched.
+
+Exactly one entry.  An empty list is the lockout this module used to require; a
+longer list is a widening of who may skip every rule, which is a real finding
+even when the owner is somewhere inside it.
+"""
+
 SEMVER_TAG_RE = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SSH_SIGNATURE_MARKER = "-----BEGIN SSH SIGNATURE-----"
@@ -67,7 +119,7 @@ def validate_ruleset(value: dict[str, Any]) -> list[str]:
         ("name", RULESET_NAME),
         ("target", "tag"),
         ("enforcement", "active"),
-        ("bypass_actors", []),
+        ("bypass_actors", EXPECTED_BYPASS_ACTORS),
     ):
         if value.get(field) != expected:
             errors.append(f"tag ruleset `{field}` must be exactly {expected!r}")
@@ -240,8 +292,11 @@ def validate_hosted_parity(
 ) -> list[str]:
     errors: list[str] = []
     bypass_visible = "bypass_actors" in hosted
-    if bypass_visible and hosted.get("bypass_actors") != []:
-        errors.append("hosted tag ruleset bypass actors must be exactly empty")
+    if bypass_visible and hosted.get("bypass_actors") != EXPECTED_BYPASS_ACTORS:
+        errors.append(
+            "hosted tag ruleset bypass actors must be exactly the owner's "
+            f"standing bypass {EXPECTED_BYPASS_ACTORS!r}"
+        )
     expected = security_snapshot(committed, include_bypass=bypass_visible)
     actual = security_snapshot(hosted, include_bypass=bypass_visible)
     if actual != expected:
@@ -250,6 +305,20 @@ def validate_hosted_parity(
             "`.github/rulesets/tags.json`"
         )
     return errors
+
+
+def _bypass_assertion() -> str:
+    """The bypass list as one stable line, derived rather than restated.
+
+    The signed message used to read ``empty``, which was the assertion that made
+    the lockout auditable.  It now names the actors, built from
+    ``EXPECTED_BYPASS_ACTORS`` so the signature and the profile cannot drift
+    apart: change one and the tag message changes with it.
+    """
+    return " ".join(
+        f"{actor['actor_type']}:{actor['actor_id']}:{actor['bypass_mode']}"
+        for actor in EXPECTED_BYPASS_ACTORS
+    )
 
 
 def tag_message(tag: str, ruleset_id: int, updated_at: str) -> str:
@@ -269,7 +338,7 @@ def tag_message(tag: str, ruleset_id: int, updated_at: str) -> str:
             f"Tag-Ruleset-Name: {RULESET_NAME}",
             f"Tag-Ruleset-ID: {ruleset_id}",
             f"Tag-Ruleset-Updated-At: {updated_at}",
-            "Tag-Ruleset-Bypass-Actors: empty",
+            f"Tag-Ruleset-Bypass-Actors: {_bypass_assertion()}",
         )
     )
 
@@ -308,7 +377,7 @@ def verify_tag_message(
     if actual != expected:
         return [
             "signed tag message does not exactly bind the current hosted tag "
-            "ruleset id/updated_at and an empty bypass list"
+            "ruleset id/updated_at and the owner's standing bypass"
         ]
     return []
 
