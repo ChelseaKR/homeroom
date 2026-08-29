@@ -264,3 +264,76 @@ def test_the_secret_scan_job_is_the_one_this_gate_used_to_miss() -> None:
         "the secret-scan job now runs a command; check it calls a make target"
     )
     assert targets_a_job_runs(block) == {"secret-scan"}
+
+
+# ----------------------------------------------------------------------------------
+# The floor's own justification.
+#
+# `fail_under = 95` is argued for in a comment above it, and the argument rests on
+# two measured numbers: "98.73% branch coverage over 515 tests (2026-08-29)". Both
+# were typed by hand off one run and read back by nothing, and the suite had grown
+# to 574 tests while the comment still said 515. A floor defended by a stale
+# measurement is a floor nobody can check the reasoning of.
+#
+# The test count is re-derived here, from collection, which is the same thing pytest
+# would report. The coverage percentage is not: measuring it means running the suite
+# under coverage, which is what the `test` target already does, and re-running it
+# inside itself would double the gate's cost to re-assert a number the gate already
+# enforces. What is checked instead is the relationship the comment actually claims,
+# that the floor sits below what is measured, which is the part a drifting figure
+# would break.
+# ----------------------------------------------------------------------------------
+
+PYPROJECT = ROOT / "pyproject.toml"
+
+MEASURED = re.compile(
+    r"suite measures ([\d.]+)% branch coverage over\s+([\d,]+)\s*\n?#?\s*tests"
+)
+FAIL_UNDER = re.compile(r"^fail_under = (\d+)$", re.M)
+
+
+def _collected_tests() -> int:
+    """How many tests this suite actually collects."""
+    import subprocess
+    import sys
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    match = re.search(r"(\d+) tests? collected", completed.stdout)
+    assert match is not None, f"pytest reported no collected count:\n{completed.stdout}"
+    return int(match.group(1))
+
+
+def test_the_coverage_floor_states_the_suite_it_was_measured_against() -> None:
+    """The comment defending `fail_under` names a suite size; it must be this one."""
+    body = PYPROJECT.read_text(encoding="utf-8")
+    measured = MEASURED.search(" ".join(body.split()).replace("# ", ""))
+    assert measured, "pyproject.toml no longer says what the floor was measured against"
+    stated_coverage = float(measured.group(1))
+    stated_tests = int(measured.group(2).replace(",", ""))
+
+    collected = _collected_tests()
+    assert stated_tests == collected, (
+        f"pyproject.toml defends fail_under with a measurement over {stated_tests} "
+        f"tests; the suite collects {collected}."
+    )
+
+    floor = FAIL_UNDER.search(body)
+    assert floor, "pyproject.toml no longer sets fail_under"
+    assert stated_coverage > int(floor.group(1)), (
+        f"the comment says the floor sits under what is measured, but it states "
+        f"{stated_coverage}% against a floor of {floor.group(1)}."
+    )

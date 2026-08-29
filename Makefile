@@ -39,22 +39,33 @@ sync:
 	# on a drifted lock. `--locked` re-resolves against pyproject.toml and
 	# exits 1 when uv.lock no longer matches it, which is the gate this line
 	# is here to be.
+	#
+	# Every stage below invokes its tool through `uv run --locked`, never a bare
+	# `uv run`. A bare `uv run` performs an implicit sync: when uv.lock no longer
+	# agrees with pyproject.toml it rewrites the tracked lockfile in place and
+	# carries on, so the stage would pass against a resolution nobody committed
+	# and nobody reviewed -- and, worse, would have repaired the drift that `sync`
+	# is here to report. Until 2026-08-29 the individual targets were unguarded
+	# and the property held only because `sync` happens to be listed first;
+	# `make lint` on its own could rewrite uv.lock and print "All checks passed!".
+	# `--locked` makes that case an error instead. Regenerating the lockfile is a
+	# deliberate act (`uv lock`) whose result is a reviewable diff.
 	uv sync --locked --extra ask
 
 lint:
-	uv run ruff check .
+	uv run --locked ruff check .
 
 format:
-	uv run ruff format --check .
+	uv run --locked ruff format --check .
 
 typecheck:
-	uv run mypy --strict src
+	uv run --locked mypy --strict src
 
 test:
-	uv run pytest -n auto --cov=src --cov-branch --cov-report=xml --cov-fail-under=95
+	uv run --locked pytest -n auto --cov=src --cov-branch --cov-report=xml --cov-fail-under=95
 
 audit:
-	uv run pip-audit
+	uv run --locked pip-audit
 
 # Build artifacts from locally acquired files (data/raw/ is never in git or CI).
 # D3 (chronic absenteeism, M3) is wired in by default. Add
@@ -111,7 +122,7 @@ ask-serve:
 # reserved-TLD name, not homeroom.chelseakr.com: a fixture build is not the
 # published site, and must not claim the published site's addresses.
 site-offline:
-	uv run python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --ask-endpoint https://ask.example.invalid --site-url https://homeroom.example --out build/site-offline --landing
+	uv run --locked python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --ask-endpoint https://ask.example.invalid --site-url https://homeroom.example --out build/site-offline --landing
 
 # The accessibility gate the README's standards table promises from the first
 # school page. Builds the pages from fixtures, then checks the markup two ways:

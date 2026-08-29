@@ -222,3 +222,80 @@ def test_the_showcase_table_matches_coverage_json_where_it_can_be_read() -> None
         if value["reported"] + value["suppressed"]
     }
     assert max(ranked, key=lambda code: ranked[code]) == most_withheld()[0], ranked
+
+
+# The "scale this matters at" table, two columns wide. `SHOWCASE_ROW` needs four
+# numeric columns and a percentage, so it does not match a single row of this one:
+# 10,534, 9,718, 83 and 733 were parsed by nothing and checked by nothing, in a
+# document every other figure in which is gated three ways. They are not free
+# numbers. The same file's `TA` row publishes 9,718 and 83, and the school total is
+# the denominator the prose gives for both tables, so the two tables state one set
+# of counts twice and can only be right together.
+SCALE_ROW = re.compile(r"^\|\s*([^|]+?)\s*\|\s*([\d,]+)\s*\|$", re.M)
+
+ACTIVE_SCHOOLS = re.compile(r"across all ([\d,]+) active schools")
+
+
+def scale_table() -> dict[str, int]:
+    """The two-column table: label -> count."""
+    return {
+        m.group(1).strip(): int(m.group(2).replace(",", ""))
+        for m in SCALE_ROW.finditer(SHOWCASE.read_text(encoding="utf-8"))
+        if m.group(2)[0].isdigit()
+    }
+
+
+def test_the_scale_table_is_readable_at_all() -> None:
+    """The floor, for the same reason the row table has one: an unparsed table
+    would make the two checks below pass on nothing."""
+    rows = scale_table()
+    assert "Published (reported, including genuine zeros)" in rows, sorted(rows)
+    assert "Withheld (`*`, small-cell suppression)" in rows, sorted(rows)
+    assert "Not published (no row for this school)" in rows, sorted(rows)
+
+
+def test_the_scale_table_states_the_same_counts_as_the_row_it_summarises() -> None:
+    """Published and withheld here are `TA`'s published and withheld there.
+
+    Both tables describe the total chronic-absenteeism rate over the same run of
+    `make data`. If they disagree, one of them was edited and the other was not,
+    and a reader has no way to tell which.
+    """
+    scale = scale_table()
+    _, published, withheld, _ = showcase_table()["TA"]
+    assert scale["Published (reported, including genuine zeros)"] == published, (
+        scale["Published (reported, including genuine zeros)"],
+        published,
+    )
+    assert scale["Withheld (`*`, small-cell suppression)"] == withheld, (
+        scale["Withheld (`*`, small-cell suppression)"],
+        withheld,
+    )
+
+
+def test_the_scale_table_accounts_for_every_active_school() -> None:
+    """Published plus withheld plus not-published is the school total, exactly.
+
+    The document states that total in its own prose ("across all 10,534 active
+    schools") and again as `TA`'s denominator plus the schools with no row. A
+    school that fell out of one of the three buckets without appearing in another
+    would leave a table that still looked orderly.
+    """
+    body = SHOWCASE.read_text(encoding="utf-8")
+    stated = ACTIVE_SCHOOLS.search(body)
+    assert stated, "the showcase no longer states how many active schools it measured"
+    schools = int(stated.group(1).replace(",", ""))
+    scale = scale_table()
+    assert sum(scale.values()) == schools, (scale, schools)
+
+    with_row, _, _, _ = showcase_table()["TA"]
+    assert (
+        scale["Published (reported, including genuine zeros)"]
+        + scale["Withheld (`*`, small-cell suppression)"]
+        == with_row
+    ), (scale, with_row)
+    assert scale["Not published (no row for this school)"] == schools - with_row, (
+        scale,
+        schools,
+        with_row,
+    )
