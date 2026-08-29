@@ -726,7 +726,59 @@ def page_name(cds_code: str, locale: Locale) -> str:
     return f"{cds_code}.{locale}.html"
 
 
-def _head(profile: SchoolProfile, locale: Locale, title: str) -> str:
+#: The territory forms of the two locales this site renders. ``lang`` and
+#: ``hreflang`` take the bare code the pages already use; ``og:locale`` is
+#: defined against a language_TERRITORY form, so it needs its own map. Neither
+#: is user-visible text, so neither belongs in ``i18n.py``.
+OG_LOCALES: dict[Locale, str] = {"en": "en_US", "es": "es_ES"}
+
+
+def canonical_url(site_url: str, path: str) -> str:
+    """The absolute address of one published file, for a canonical or a sitemap.
+
+    ``site_url`` is an origin with no trailing slash (``site.py`` normalises it);
+    ``path`` is a published file name relative to the site root. The root page is
+    addressed as the bare origin with a trailing slash, because that is the
+    address a reader is given and the address the server answers on; a canonical
+    naming ``index.html`` would publish a second address for the same page.
+    """
+    if path in ("", "index.html"):
+        return f"{site_url}/"
+    return f"{site_url}/{path}"
+
+
+def _social_meta(*, title: str, description: str, url: str, locale: Locale) -> str:
+    """The OpenGraph and Twitter tags shared by every indexable page.
+
+    The title and description are the page's own, not a second set written for a
+    social card: a card saying something the page does not is a claim this
+    project has no basis for. There is deliberately no ``og:image``; the site
+    ships no image asset, and an ``og:image`` naming a file that does not exist
+    is worse than none at all.
+    """
+    other = OTHER_LOCALE[locale]
+    return "\n".join(
+        (
+            '<meta property="og:type" content="website">',
+            f'<meta property="og:site_name" content="{_esc(text(locale, "site_name"))}">',
+            f'<meta property="og:locale" content="{OG_LOCALES[locale]}">',
+            f'<meta property="og:locale:alternate" content="{OG_LOCALES[other]}">',
+            f'<meta property="og:title" content="{_esc(title)}">',
+            f'<meta property="og:description" content="{_esc(description)}">',
+            f'<meta property="og:url" content="{_esc(url)}">',
+            '<meta name="twitter:card" content="summary">',
+            f'<meta name="twitter:title" content="{_esc(title)}">',
+            f'<meta name="twitter:description" content="{_esc(description)}">',
+        )
+    )
+
+
+def _head(
+    profile: SchoolProfile,
+    locale: Locale,
+    title: str,
+    site_url: str | None = None,
+) -> str:
     school = profile.school
     description = text(locale, "meta_description").format(
         school=school.name, district=school.district
@@ -736,12 +788,22 @@ def _head(profile: SchoolProfile, locale: Locale, title: str) -> str:
         f'href="{page_name(school.cds_code, other)}">'
         for other in (locale, OTHER_LOCALE[locale])
     )
+    if site_url is None:
+        addressed = ""
+    else:
+        url = canonical_url(site_url, page_name(school.cds_code, locale))
+        addressed = (
+            f'<link rel="canonical" href="{_esc(url)}">\n'
+            + _social_meta(title=title, description=description, url=url, locale=locale)
+            + "\n"
+        )
     return (
         "<head>\n"
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{_esc(title)}</title>\n"
         f'<meta name="description" content="{_esc(description)}">\n'
+        f"{addressed}"
         f"{alternates}\n"
         f"<style>\n{STYLESHEET}</style>\n"
         "</head>"
@@ -788,6 +850,7 @@ def render_school(
     context: EnrollmentContext | None = None,
     absenteeism_context: AbsenteeismContext | None = None,
     ask_href: str | None = None,
+    site_url: str | None = None,
 ) -> str:
     """One school, one language, as a complete standalone HTML document.
 
@@ -801,6 +864,11 @@ def render_school(
 
     ``ask_href`` adds the one link to the school's ask page (ADR 0003). Left
     ``None``, the page is byte-identical to one rendered before that ADR.
+
+    ``site_url`` is the origin the build will be served from. Given, the page
+    gains a canonical address and the social tags derived from it; left ``None``,
+    the page is byte-identical to one rendered before there was an origin to
+    name, which is the honest output for a build nobody has said where to host.
     """
     school = profile.school
     district = (
@@ -861,7 +929,7 @@ def render_school(
     return (
         "<!doctype html>\n"
         f'<html lang="{locale}">\n'
-        f"{_head(profile, locale, title)}\n"
+        f"{_head(profile, locale, title, site_url)}\n"
         "<body>\n"
         f"{body}\n"
         "</body>\n"

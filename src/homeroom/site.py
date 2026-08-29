@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+from html import escape
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from homeroom.artifacts import (
     ABSENTEEISM_ACCESS_DATE,
@@ -47,6 +49,7 @@ from homeroom.render import (
     ENROLLMENT_URL,
     SiteCoverage,
     SourceRef,
+    canonical_url,
     page_name,
     render_school,
     site_coverage,
@@ -130,6 +133,65 @@ def _selected(
     return [by_code[code] for code in sorted(set(cds_codes))]
 
 
+class SiteUrlError(ValueError):
+    """``--site-url`` was given something that is not an https origin."""
+
+
+def normalise_site_url(site_url: str) -> str:
+    """The origin, without its trailing slash, or a hard error.
+
+    A canonical link and a sitemap both publish absolute addresses, so a
+    mistyped origin does not fail loudly; it publishes a page that points a
+    crawler somewhere else. The only accepted shape is an ``https`` scheme, a
+    host, and no path, query or fragment. ``http`` is refused because the site
+    is served over TLS and a canonical naming the plaintext address invites a
+    crawler to prefer it.
+    """
+    parsed = urlsplit(site_url)
+    if parsed.scheme != "https":
+        raise SiteUrlError(f"site url must be https, got {site_url!r}")
+    if not parsed.netloc:
+        raise SiteUrlError(f"site url names no host: {site_url!r}")
+    if parsed.path.strip("/") or parsed.query or parsed.fragment:
+        raise SiteUrlError(
+            f"site url must be a bare origin with no path, query or fragment, "
+            f"got {site_url!r}"
+        )
+    return f"https://{parsed.netloc}"
+
+
+def robots_txt(site_url: str) -> str:
+    """What a crawler is told at ``/robots.txt``.
+
+    Nothing here is disallowed. The ask pages are the one part of the site kept
+    out of an index, and they carry ``<meta name="robots" content="noindex">``
+    to say so; a ``Disallow`` on top of that would stop a crawler fetching the
+    page and so stop it ever reading the noindex, which is the opposite of what
+    it is for.
+    """
+    return f"User-agent: *\nAllow: /\n\nSitemap: {site_url}/sitemap.xml\n"
+
+
+def sitemap_xml(site_url: str, paths: list[str]) -> str:
+    """The indexable pages, as a sitemap.
+
+    ``paths`` are published file names, already in build order, so the file is
+    deterministic for the same reason every page is. The ask pages are not here:
+    they are ``noindex``, and listing a page in a sitemap while telling a crawler
+    not to index it asks for two different things at once.
+    """
+    locs = "\n".join(
+        f"  <url><loc>{escape(canonical_url(site_url, path))}</loc></url>"
+        for path in paths
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{locs}\n"
+        "</urlset>\n"
+    )
+
+
 def build_site(
     *,
     directory: Path,
@@ -140,6 +202,7 @@ def build_site(
     absenteeism: Path | None = None,
     ask_endpoint: str | None = None,
     landing: bool = False,
+    site_url: str | None = None,
 ) -> SiteBuild:
     """Render every selected school in every locale. Returns what was written.
 
@@ -156,7 +219,16 @@ def build_site(
     schools this build published. A hosted site needs a root; a build without it
     is byte-identical to one before there was a landing page, which is what the
     fixture gates compare against.
+
+    ``site_url`` is the origin the output will be served from. Given, every
+    indexable page gains a canonical address and its social tags, and the build
+    also writes ``robots.txt`` and ``sitemap.xml``. Left out, no page names an
+    address, no crawler file is written, and the output is byte-identical to a
+    build before any of this: a page cannot honestly claim a canonical address
+    on a build that has not been told where it will be served.
     """
+    if site_url is not None:
+        site_url = normalise_site_url(site_url)
     assembly = assemble_profiles(directory, enrollment, absenteeism_path=absenteeism)
     cover = site_coverage(assembly)
     context = load_context(enrollment)
@@ -192,6 +264,7 @@ def build_site(
     if ask_endpoint:
         (out_dir / "ask").mkdir(parents=True, exist_ok=True)
     pages: list[Path] = []
+    indexable: list[str] = []
     for profile in schools:
         for locale in LOCALES:
             cds = profile.school.cds_code
@@ -206,10 +279,12 @@ def build_site(
                     context=context,
                     absenteeism_context=absenteeism_context,
                     ask_href=ask_page_name(cds, locale) if ask_endpoint else None,
+                    site_url=site_url,
                 ),
                 encoding="utf-8",
             )
             pages.append(path)
+            indexable.append(page_name(cds, locale))
             if ask_endpoint:
                 ask_path = out_dir / ask_page_name(cds, locale)
                 ask_path.write_text(
@@ -225,9 +300,18 @@ def build_site(
     if landing:
         index = out_dir / "index.html"
         index.write_text(
-            render_landing(schools, is_fixture=is_fixture), encoding="utf-8"
+            render_landing(schools, is_fixture=is_fixture, site_url=site_url),
+            encoding="utf-8",
         )
         pages.append(index)
+        indexable.insert(0, "index.html")
+    if site_url is not None:
+        robots = out_dir / "robots.txt"
+        robots.write_text(robots_txt(site_url), encoding="utf-8")
+        pages.append(robots)
+        sitemap = out_dir / "sitemap.xml"
+        sitemap.write_text(sitemap_xml(site_url, indexable), encoding="utf-8")
+        pages.append(sitemap)
     return SiteBuild(assembly=assembly, coverage=cover, schools=schools, pages=pages)
 
 
@@ -280,6 +364,16 @@ def main(argv: list[str] | None = None) -> int:
             "this build published. Needed by a hosted site; omit for none"
         ),
     )
+    parser.add_argument(
+        "--site-url",
+        default=None,
+        metavar="ORIGIN",
+        help=(
+            "https origin this build will be served from, with no path. Given, "
+            "every indexable page carries a canonical address and its social "
+            "tags, and robots.txt and sitemap.xml are written. Omit for none"
+        ),
+    )
     args = parser.parse_args(argv)
     build = build_site(
         directory=args.directory,
@@ -290,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
         absenteeism=args.absenteeism,
         ask_endpoint=args.ask_endpoint,
         landing=args.landing,
+        site_url=args.site_url,
     )
     counts = build.coverage.total_enrollment
     print(

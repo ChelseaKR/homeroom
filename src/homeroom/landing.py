@@ -15,7 +15,14 @@ from __future__ import annotations
 
 from homeroom.i18n import LOCALES, Locale, text
 from homeroom.profiles import SchoolProfile
-from homeroom.render import STYLESHEET, _cde, _esc, page_name
+from homeroom.render import (
+    STYLESHEET,
+    _cde,
+    _esc,
+    _social_meta,
+    canonical_url,
+    page_name,
+)
 
 LANDING_STYLE = """
 .langs { display: grid; gap: 2.5rem; margin: 2rem 0; }
@@ -43,8 +50,15 @@ def _section(profiles: list[SchoolProfile], locale: Locale) -> str:
     )
 
 
-def render_landing(profiles: list[SchoolProfile], *, is_fixture: bool) -> str:
-    """The one index page, English first, Spanish beside it, schools linked in both."""
+def render_landing(
+    profiles: list[SchoolProfile], *, is_fixture: bool, site_url: str | None = None
+) -> str:
+    """The one index page, English first, Spanish beside it, schools linked in both.
+
+    ``site_url`` is the origin the build will be served from. Given, the page
+    gains a canonical address and the social tags derived from it; left out, the
+    page is byte-identical to one rendered before there was an origin to name.
+    """
     fixture = (
         '<div class="note">\n'
         f'<p><span class="note-title">{_esc(text("en", "fixture_banner_title"))}</span> '
@@ -55,6 +69,16 @@ def render_landing(profiles: list[SchoolProfile], *, is_fixture: bool) -> str:
     )
     sections = "\n".join(_section(profiles, locale) for locale in LOCALES)
     title = text("en", "site_name")
+    description = f"{text('en', 'site_tagline')} / {text('es', 'site_tagline')}"
+    if site_url is None:
+        addressed = ""
+    else:
+        url = canonical_url(site_url, "index.html")
+        addressed = (
+            f'<link rel="canonical" href="{_esc(url)}">\n'
+            + _social_meta(title=title, description=description, url=url, locale="en")
+            + "\n"
+        )
     return (
         "<!doctype html>\n"
         '<html lang="en">\n'
@@ -62,8 +86,8 @@ def render_landing(profiles: list[SchoolProfile], *, is_fixture: bool) -> str:
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{_esc(title)}</title>\n"
-        f'<meta name="description" content="{_esc(text("en", "site_tagline"))} / '
-        f'{_esc(text("es", "site_tagline"))}">\n'
+        f'<meta name="description" content="{_esc(description)}">\n'
+        f"{addressed}"
         f"<style>\n{STYLESHEET}{LANDING_STYLE}</style>\n"
         "</head>\n"
         "<body>\n"
