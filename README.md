@@ -226,10 +226,10 @@ Governed by [portfolio-standards](https://github.com/ChelseaKR/portfolio-standar
 |----------|-------|
 | Responsible-Tech Framework | Applies (see `docs/RESPONSIBLE-TECH-AUDITS.md`) |
 | Code Quality | Applies |
-| Security & Supply-Chain | Applies |
+| Security & Supply-Chain | Applies. `make verify` runs semgrep over the whole tree including `tests/`, zizmor over the workflows under a `hash-pin` policy, pip-audit, npm audit, and a secret scan covering git history *and* the working tree, because history mode alone is blind to an uncommitted key. Every step in `.github/workflows/ci.yml` is a `make` target that `make verify` reaches, checked by `tests/test_ci_parity.py`, so the local gate is a strict superset of CI and the two cannot drift. CI runs `make verify-ci`, which is all of it except the working-tree secret pass: that one needs a binary the runner does not carry, and in CI the working tree is the committed tree anyway |
 | CI/CD | Applies |
 | Observability | Applies (Tier C, library/CLI; declared in `docs/ROADMAP.md`) |
-| Accessibility | Applies (gated from the first school page: html-validate and axe-core over every built page in both languages, plus structure and contrast checks in `make verify`) |
+| Accessibility | Applies, in two halves, one of them open. Automated: html-validate and axe-core over every built page in both languages, plus structure, EN/ES parity and contrast checks in `make verify`. **Review, not yet done:** the keyboard-only and screen-reader walkthrough in each language, and the reflow check at 320 CSS pixels on the seven-column tables. A headless DOM cannot decide any of it. Tracked as [issue #6](https://github.com/ChelseaKR/homeroom/issues/6) and RR-05; owner Chelsea Kelly-Reif. The pages are live, so this is open work rather than work waiting on a publication decision |
 | Internationalization | Applies (EN/ES is a launch requirement; parity gate wired and merge-blocking as of ROADMAP M4) |
 | AI Evaluation | Applies as of ADR 0003 (2026-08-21): a prompt, a retrieval corpus, and a model-version surface now exist in `src/homeroom/ask/`. Five evaluation suites and their harness live in `evals/`; results carry provider, model, prompt version, commit, and date, and a test rejects results without them. See `docs/RESPONSIBLE-TECH-AUDITS.md` AI-EVAL and Governance |
 | Documentation | Applies |

@@ -7,7 +7,7 @@ who attended too briefly to be counted, or who were exempt). It is the first
 measure this project publishes that CDE masks at meaningful scale (M3,
 docs/ROADMAP.md), and the measure the project's own honesty rules exist for most
 directly: a school's rate is not a score, not a ranking signal, and not shown as
-zero when the state withheld it (ADR 0000).
+zero when the state withheld it (ADR 0002).
 
 **Verified against an acquired file.** The 2024-25 file (``chronicabsenteeism25.txt``,
 33,781,100 bytes, 341,490 data rows) was downloaded from

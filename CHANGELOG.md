@@ -7,6 +7,161 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- **`make verify` was green on trees CI rejects** (2026-08-28). `AGENTS.md` said
+  "`make verify` is the gate, byte-for-byte identical to CI" and the Makefile
+  said the two "MUST stay byte-for-byte identical". CI ran three jobs and
+  `make verify` covered one. `secret-scan`, `sast`, and the twice-build
+  determinism check existed only as steps inside
+  `.github/workflows/ci.yml`, with no target to run them by, so nobody could
+  run the gate the documentation described.
+  - Every CI stage is now a `make` target, `verify` reaches all of them, and
+    every step in `ci.yml` invokes one. CI calls `make verify-ci`; `make verify`
+    is that plus the working-tree secret pass, so the local gate is a strict
+    superset and green locally implies green in CI. The one asymmetry is
+    deliberate: `gitleaks` is not on the runner image, putting it there means a
+    pinned download or a container to keep verifying, and the pass it adds finds
+    uncommitted files, of which CI has none. `tests/test_ci_parity.py` checks those
+    three facts by reading the workflow, so a stage added to CI as inline
+    script fails the build that adds it. Demonstrated failing by adding a
+    CI-only `run: echo` step, and again by removing `sast` from `verify`'s
+    prerequisites.
+  - **The determinism check could pass having hashed nothing.** It wrote two
+    `find | xargs shasum` files and diffed them; over an empty directory that
+    is two empty files and a successful diff. Confirmed by running the old
+    command pair against an empty tree: exit 0. The target now fails if the
+    first hash file is empty, and prints how many files it compared.
+  - **The secret scan could not see an uncommitted key.** `gitleaks` in history
+    mode reads commits, not the working tree. Confirmed on this repository with
+    a high-entropy GitHub token in an untracked file: history mode reported
+    "68 commits scanned, no leaks found" and exited 0. `make secret-scan` keeps
+    that pass and adds a working-tree pass, which exits 1 on the same file. The
+    working-tree pass is scoped to what `git ls-files -co --exclude-standard`
+    lists, which is where an uncommitted key lives and which keeps the scan off
+    `node_modules/` and `.venv/`: 1.3 MB in 0.3 s rather than 577 MB in 72 s.
+    The two passes are two commands with two exit statuses, not a `for` loop,
+    which would report only its last iteration's.
+  - **Semgrep silently skipped every test.** Its built-in ignore list drops
+    `tests/`, so a job whose stated scope was the whole repository read 30 of
+    55 tracked Python files and said so only as "Files matching .semgrepignore
+    patterns: 25". A repository-root `.semgrepignore` replaces that list;
+    scope is now 55 of 55, still 0 findings. This project's tests are gates,
+    not scratch code.
+  - **zizmor was cited as a control in three documents and existed nowhere.**
+    `docs/audits/threat-model.md` named it twice, once for `uses:` pinning and
+    once as the "gate on permissions creep", and `docs/ROADMAP.md`'s metrics
+    ledger named it as the measurement for 100% SHA-pinned actions. It was not
+    in the Makefile, the workflows, or the dependencies. It runs now, pinned,
+    in `make workflow-audit`.
+    - Its default configuration could not have backed the claim it was cited
+      for: `unpinned-uses` accepts a tag by default, so `actions/setup-node@v7`
+      passes it. Verified by unpinning that action and watching the default
+      configuration report clean. `.github/zizmor.yml` sets the `hash-pin`
+      policy; with it, the same unpinned action is a High finding and the gate
+      exits 14.
+    - One finding is ignored: `dangerous-triggers` on `pages.yml`'s
+      `workflow_run`. The reasoning is written at the line it applies to, and
+      it is the only suppression.
+
+- **The gate over the bytes served at homeroom.chelseakr.com could vanish
+  silently.** `tests/test_published_site.py` opened with
+  `pytestmark = pytest.mark.skipif(not SITE.is_dir(), ...)`, on the reading that
+  a checkout with nothing published has nothing to check. That is not what this
+  repository is: `site/` is committed, it is what GitHub Pages serves, and
+  `make publish` begins with `rm -rf $(PUBLISH_DIR)`. So a missing `site/` means
+  an interrupted publish or a bad merge -- exactly the tree whose published
+  bytes most need checking -- and the whole module went green over it.
+  Confirmed by hiding `site/` and running the old file: **10 skipped, exit 0**.
+  The same tree now fails 6 of 11, starting with a floor that says what is
+  missing and how to restore it.
+
+### Changed
+- `RR-02`'s mitigation text said dependencies are installed `--frozen`; the
+  Makefile has run `--locked` since 2026-08-26. `docs/audits/threat-model.md`
+  carried the same stale word and is corrected too.
+- The README's Accessibility conformance row named only the automated half of
+  the gate. It now names the open review half -- the keyboard and screen-reader
+  walkthrough and the 320px reflow check -- and links issue #6 and RR-05, which
+  is what `DOC-13` asks of a declared conformance gap. The row previously read
+  as fully satisfied. The Security & Supply-Chain row now says what actually
+  runs.
+- **The project's most important claim cited the wrong document** (2026-08-28,
+  issue #35). The anti-ranking and suppression-fidelity rule was cited as
+  "ADR 0000" in eight places across code, docs and tests. ADR 0000 is
+  `0000-record-architecture-decisions.md`, the MADR process ADR: it says
+  nothing about ranking or suppression. The decision is
+  `0002-refuse-to-rank-schools.md`, `Status: Accepted`, dated 2026-08-07. The
+  numbering is a leftover from the release that split the two ADRs that were
+  both numbered 0000; the file moved and these citations did not.
+  - Fixed at all eight sites: `src/homeroom/render.py`,
+    `src/homeroom/absenteeism.py`, `src/homeroom/profiles.py`,
+    `docs/ROADMAP.md` (two), `docs/RESPONSIBLE-TECH-AUDITS.md` (three). The
+    issue listed seven; `tests/test_profiles.py` was the eighth and is fixed
+    too. `src/homeroom/ask/guards.py` and `src/homeroom/ask/evalharness.py`
+    already cited 0002 correctly, which is what confirms 0002 is the target.
+  - CHANGELOG entries that mention the old number are left alone. Two of them
+    are *about* the renumbering, and rewriting history to look tidy would
+    falsify the record this project keeps citations for.
+  - **ADR 0000 shipped with `Date: TODO - set to today's date at generation
+    time`**, an unfilled generator placeholder, for three weeks. Set to
+    2026-08-07, the date the file was added (commit `4cd542b`), which is the
+    date the other day-one ADRs carry.
+  - `tests/test_adr_citations.py` (new) keeps the trail honest, because fixing
+    eight strings by hand is not a control. It checks that every ADR cited
+    anywhere in `src/`, `tests/`, `docs/`, `evals/` and `tools/` resolves to a
+    file that exists; that no ADR carries a placeholder where its date should
+    be; that the Accepted decision ADRs are still Accepted; and that the
+    process meta-ADR is never cited as the reason for a behaviour. Each of the
+    three was run against a deliberately reintroduced fault (an `ADR 0000`
+    citation, an `ADR 0099` citation, the restored `TODO` date) and observed
+    failing before being observed passing. A first test asserts the ADR series
+    and the scanned file list are both non-empty, so a renamed directory
+    reports zero files instead of passing over nothing.
+- **The verifier licensed a number by proximity, not by the fact it came from**
+  (2026-08-28, issue #34, ADR 0003 point 4). `_allowed_numbers` in
+  `src/homeroom/ask/verifier.py` built one flat set of "numbers seen anywhere
+  near this record" and then asked only whether each number in a claim appeared
+  somewhere in it. Into that set went the record's statewide coverage tally
+  (`{"reported": N, "suppressed": M, "not_reported": K}`, a count of how many
+  *other* schools' cells landed in each status), the size of the build, and the
+  digits of the school's grade span. None of those is the school's own
+  published figure, and ADR 0003 promises that "every number in the sentence is
+  a number one of its cited records actually publishes".
+  - The collision is not hypothetical. In the committed fixture, Example
+    Elementary's chronic absenteeism rate is 12.5% and its coverage tally is
+    `{"not_reported": 1, "reported": 1, "suppressed": 1}`, so the sentence
+    "the rate for all students was 1%" verified clean and was shown to the
+    reader as a cited figure about that school. The repro in issue #34 was
+    executed against the fixture bundle and reproduced exactly; it now returns
+    the claim withheld with reason `unverifiable_number`.
+  - The suppression invariant was never at risk: `_check_absence` is a separate
+    check and a withheld cell is still never narrated as a value. What could be
+    swapped was a *reported* cell's own number.
+  - Numbers are now licensed by the kind of claim making them.
+    `CONTEXT_CLAIM_KINDS` holds the one kind whose subject is context about the
+    data rather than a cell's value: `note`, already described to the model as
+    "context about the data (which year, why a figure is withheld)". A `note`
+    may still state a coverage tally, the build size, and the grade span. A
+    `figure` or a `comparison` gets only what its own cited cells publish, plus
+    years, measure-label digits, and the numbers inside a verified quote.
+  - The same construction was duplicated in the independent eval scorer,
+    `_cell_numbers` in `src/homeroom/ask/evalharness.py`, so the `citation` and
+    `comparability` suites shared the blind spot and could not have caught it.
+    That scorer exists to disagree with the service; it is narrowed the same
+    way and by its own code path.
+  - Both guards are demonstrated failing before they are demonstrated passing.
+    `test_a_figure_may_not_state_the_coverage_tally_as_the_school_own_value`
+    and `test_a_figure_may_not_borrow_the_build_size_as_the_school_own_value`
+    fail against the old flat set; `test_a_note_may_still_state_the_coverage_tally_it_cites`
+    and `test_a_figure_still_shows_the_value_its_own_cell_publishes` prove the
+    narrowing did not withhold the sentences it exists to protect.
+  - The committed results files still pass the gate `make verify` holds them
+    to. They could not be re-scored under the narrowed rule, and this says so
+    rather than implying they were: a results file records each shown claim's
+    *text* but not its kind or its citations, and re-running the suites needs
+    the acquired files in `data/raw/`, which are never in git. So the recorded
+    157-case run is evidence about the old rule only. Recording kind and
+    citations per shown claim, so a scorer change can be replayed against
+    recorded evidence, is filed as RR-10.
 - **The evaluation gate could not fail** (2026-08-26, ADR 0004). Two things
   were reporting on the ask layer and neither could report bad news.
   `main()` in `src/homeroom/ask/evalharness.py` ended in an unconditional

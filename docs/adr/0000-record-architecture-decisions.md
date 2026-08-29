@@ -1,7 +1,7 @@
 # 0000. Record architecture decisions
 
 Status: Accepted
-Date: TODO — set to today's date at generation time
+Date: 2026-08-07
 Deciders: Chelsea Kelly-Reif
 
 ## Context

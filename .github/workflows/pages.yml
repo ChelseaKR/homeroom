@@ -20,7 +20,17 @@
 # 2026-08-22, per SECURITY-AND-SUPPLY-CHAIN-STANDARD §6.
 name: pages
 
-on:
+# zizmor: ignore[dangerous-triggers]
+# workflow_run is flagged because it usually runs with write permissions in the
+# base repo's context and is usually paired with a checkout of untrusted PR
+# code. Neither applies here: it fires only for `branches: [main]`, the job
+# runs only when the ci run it follows concluded `success`, the root grant is
+# `permissions: {}` with `contents: read` for the job, and the checkout pins
+# `github.event.workflow_run.head_sha` -- the commit ci actually verified --
+# rather than the default branch tip. The trigger is what makes "a commit that
+# fails the accessibility, parity or published-site gates never reaches
+# families" true; publishing on push instead would remove that guarantee.
+on: # zizmor: ignore[dangerous-triggers]
   workflow_run:
     workflows: [ci]
     types: [completed]

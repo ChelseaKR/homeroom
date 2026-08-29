@@ -1,0 +1,13 @@
+# zizmor configuration.
+#
+# `unpinned-uses` defaults to requiring only a ref, so `actions/setup-node@v7`
+# passes it. Three documents in this repository claim every `uses:` is pinned to
+# a full 40-char commit SHA and that zizmor is the control holding that true, so
+# the policy is set to hash-pin here. Without this block the audit runs, reports
+# clean, and cannot fail on the thing it is cited for: verified 2026-08-28 by
+# unpinning setup-node and watching the default configuration pass it.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "*": hash-pin

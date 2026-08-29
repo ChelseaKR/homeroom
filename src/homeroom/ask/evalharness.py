@@ -63,7 +63,7 @@ from homeroom.ask.limits import DailyCap, RateLimiter
 from homeroom.ask.narration import PROMPT_VERSION
 from homeroom.ask.provider import Provider, provider_from_env
 from homeroom.ask.service import AskRequest, AskResponse, AskService
-from homeroom.ask.verifier import ShownClaim
+from homeroom.ask.verifier import CONTEXT_CLAIM_KINDS, ShownClaim
 from homeroom.i18n import LOCALES, Locale, text
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -334,29 +334,42 @@ def score_suppression(
 
 
 def _cell_numbers(
-    record_cell: tuple[object, ...], evidence: SchoolEvidence
+    record_cell: tuple[object, ...], evidence: SchoolEvidence, context: bool
 ) -> set[str]:
+    """The numbers a citation of this cell licenses.
+
+    Deliberately the same rule as the verifier's :func:`_allowed_numbers`, and
+    deliberately reached by different code: the scorer exists to disagree with
+    the service. `context` carries the same narrowing (issue #34) -- a coverage
+    tally, the build size, and the grade span are facts about the data, not the
+    school's measured value, so only a `note` may state them. Without it this
+    scorer shares the verifier's blind spot and cannot catch the bug it is here
+    to catch.
+    """
     record, _, cell = record_cell
     assert isinstance(record, EvidenceRecord) and isinstance(cell, Cell)  # noqa: S101
     allowed: set[str] = set()
     if cell.reported and cell.value is not None:
         allowed |= number_forms(cell.value)
     allowed |= year_tokens(record.year)
-    for count in record.coverage.values():
-        allowed |= number_forms(count)
+    if context:
+        for count in record.coverage.values():
+            allowed |= number_forms(count)
     for locale in LOCALES:
         allowed.update(numbers_in(record.spec.label(locale)))
-    allowed |= number_forms(evidence.schools_in_build)
-    allowed.update(numbers_in(evidence.grades_served.replace("-", " ")))
+    if context:
+        allowed |= number_forms(evidence.schools_in_build)
+        allowed.update(numbers_in(evidence.grades_served.replace("-", " ")))
     return allowed
 
 
 def _allowed_for(claim: ShownClaim, evidence: SchoolEvidence) -> set[str]:
+    context = claim.kind in CONTEXT_CLAIM_KINDS
     allowed: set[str] = set()
     for citation in claim.citations:
         hit = evidence.cell(citation.id)
         if hit is not None:
-            allowed |= _cell_numbers(hit, evidence)
+            allowed |= _cell_numbers(hit, evidence, context)
     for source in evidence.sources.values():
         if source.academic_year:
             allowed |= year_tokens(source.academic_year)

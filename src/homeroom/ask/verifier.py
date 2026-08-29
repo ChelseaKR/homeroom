@@ -12,8 +12,11 @@ What is checked, per claim:
   language in either language (:func:`homeroom.ask.guards.judgment_hits`);
 * every citation resolves to one of this school's cells or to a corpus passage;
 * every number in the text is a number one of its cited cells publishes, or a
-  year, a coverage count, a digit from a cited measure's label, or (for a
-  verified quote) a number in the quote. A number from nowhere is withheld;
+  year, a digit from a cited measure's label, or (for a verified quote) a number
+  in the quote. A number from nowhere is withheld. Coverage tallies, the build
+  size, and the grade span are context about the data rather than the school's
+  measured value, so they are licensed only for the `note` kind, whose subject
+  is that context (see :data:`CONTEXT_CLAIM_KINDS`);
 * if any cited cell is withheld or unpublished, the text says so and does not
   turn the absence into a zero, a "none", or a "no students";
 * a comparison cites exactly a school cell and its own district or state cell,
@@ -214,19 +217,46 @@ def _resolve(claim: Claim, evidence: SchoolEvidence, corpus: Corpus) -> _Resolve
     return resolved
 
 
+CONTEXT_CLAIM_KINDS: frozenset[str] = frozenset({"note"})
+"""Kinds whose subject may be a fact *about* the data rather than a cell's value.
+
+A record carries two very different sorts of number. One is the school's own
+published figure. The other is context attached to the same record: how many
+schools in this build published that measure, how many withheld it, how many
+never appeared, the size of the build, the grade span in the school's identity.
+
+Those context numbers are real and a reader is entitled to them, but they are
+not the school's measured value, and licensing them for every claim that cites
+the record lets a sentence assert one of them *as* the value. The fixture makes
+the collision concrete: Example Elementary's absenteeism rate is 12.5% and its
+coverage tally is ``{"reported": 1, "suppressed": 1, "not_reported": 1}``, so
+"the rate was 1%" once verified clean (issue #34).
+
+So context numbers are licensed only for the kind whose whole job is context.
+``note`` is documented to the model as "context about the data (which year, why
+a figure is withheld)"; ``figure`` and ``comparison`` state cells' values and
+get only the values their own cited cells publish.
+"""
+
+
 def _allowed_numbers(
-    resolved: _Resolved, evidence: SchoolEvidence, verified_quote: str | None
+    resolved: _Resolved,
+    evidence: SchoolEvidence,
+    verified_quote: str | None,
+    kind: str,
 ) -> set[str]:
+    context = kind in CONTEXT_CLAIM_KINDS
     allowed: set[str] = set()
     for _, record, _, cell in resolved.cells:
         if cell.reported and cell.value is not None:
             allowed |= number_forms(cell.value)
         allowed |= year_tokens(record.year)
-        for count in record.coverage.values():
-            allowed |= number_forms(count)
+        if context:
+            for count in record.coverage.values():
+                allowed |= number_forms(count)
         for locale in LOCALES:
             allowed.update(numbers_in(record.spec.label(locale)))
-    if resolved.cells:
+    if resolved.cells and context:
         allowed |= number_forms(evidence.schools_in_build)
         allowed.update(numbers_in(evidence.grades_served.replace("-", " ")))
     for source in evidence.sources.values():
@@ -438,7 +468,7 @@ def _verify_one(
     quote = _check_quote(claim, resolved, corpus)
     if isinstance(quote, WithheldClaim):
         return quote
-    allowed = _allowed_numbers(resolved, evidence, quote)
+    allowed = _allowed_numbers(resolved, evidence, quote, claim.kind)
     stray = [n for n in numbers_in(claim.text) if n not in allowed]
     if stray:
         return WithheldClaim("unverifiable_number", claim.text, ", ".join(stray))

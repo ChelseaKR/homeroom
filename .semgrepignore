@@ -1,0 +1,26 @@
+# Semgrep's built-in ignore list silently drops tests/ from every scan. On this
+# repo that meant a CI job whose stated scope was the whole repository (`.`)
+# actually read 30 of 55 tracked Python files: all 25 files in tests/ were
+# skipped, reported only as "Files matching .semgrepignore patterns: 25".
+#
+# This project's tests are gates, not scratch code, so they are in scope. A
+# .semgrepignore in the repository root replaces the built-in list rather than
+# adding to it, which is the point: everything excluded is excluded here, on
+# purpose, and tests/ is not among it.
+
+# Vendored or generated; not this project's source.
+node_modules/
+.venv/
+.git/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+build/
+dist/
+site/
+coverage.xml
+
+# Lockfiles: machine-generated, and their contents are hashes, not code.
+package-lock.json
+uv.lock

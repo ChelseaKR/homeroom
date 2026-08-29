@@ -83,8 +83,19 @@ As of ADR 0003 it also carries an optional, opt-in AI question-answering layer
 
 ## Workflow
 
-- `make verify` is the gate, byte-for-byte identical to CI. Run it before
-  opening a PR.
+- `make verify` is the gate. It runs every stage CI runs -- lint, format,
+  types, tests, dependency audit, the page gates, the determinism check,
+  semgrep and zizmor, all of which are `make verify-ci` -- and then the
+  working-tree secret scan on top. So it is a strict superset: `make verify`
+  green implies CI green, never the reverse. Run it before opening a PR.
+  This used to be a claim; `tests/test_ci_parity.py` checks it, by requiring
+  every step in `.github/workflows/ci.yml` to be a `make` target that `verify`
+  reaches. A stage added to CI as inline script fails that test.
+- `secret-scan` is the one stage CI does not run, because `gitleaks` is not on
+  the runner image and putting it there means a pinned download or a container
+  this repository would have to keep verifying. What it adds over the CI job's
+  gitleaks action is the working-tree pass, and in CI the working tree is the
+  committed tree. It matters on your machine, before the commit exists.
 - Stage explicit paths. Never `git add -A`.
 - Never force-push `main`. Never delete a branch without confirming it is a
   pure merge leftover.
