@@ -4,6 +4,17 @@ message: "If you use this work, please cite it."
 authors:
   - family-names: Kelly-Reif
     given-names: Chelsea
-version: 0.1.0
-date-released: "2026-08-18"  # bump on every tagged release
+# `version` mirrors the in-development version in pyproject.toml, which is the
+# single source of truth for it; tests/test_release_metadata.py holds the two
+# together.
+#
+# `date-released` is deliberately omitted, and its absence is checked. There is
+# no `git tag` and no release in this repository. This file read
+# `date-released: "2026-08-18"  # bump on every tagged release`, beside a
+# CHANGELOG heading calling itself the "first tagged release" on the same date,
+# and both described something that never happened (corrected 2026-08-29; see
+# CHANGELOG.md `## [0.1.0]`). Add `date-released` back only once a version is
+# actually tagged, which `.github/workflows/release.yml` requires to be a
+# signed tag.
+version: "0.1.0"
 license: Apache-2.0

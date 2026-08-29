@@ -17,6 +17,17 @@ ci.yml is the merge gate and is the file held to this. `release.yml` runs a
 signing and provenance pipeline whose steps are inherently one-off, and
 `pages.yml` publishes a directory and builds nothing; neither gates a merge.
 
+That fix had a hole of its own, closed here on 2026-08-29. "Every step in ci.yml
+runs one `make` target" was checked by matching `run:` lines, and a step does not
+have to be a `run:` line. Eight of ci.yml's eleven steps are `uses:` steps, and
+the entire `secret-scan` job is one of them: it runs no command at all, so the
+`run:`-only view of the workflow saw an empty job and reported success. A gate
+that cannot see a job cannot notice a job being added. Every step is classified
+now: a `run:` step must call a make target, and a `uses:` step must be either a
+setup or reporting action named in `SETUP_AND_REPORTING` or a gating action
+registered in `GATING_ACTIONS` against the make target that runs the same check
+locally. An unrecognised action fails the build that adds it.
+
 The workflow is read as text. `PyYAML` is not a dependency of this project, and
 `tests/test_deploy_template.py` already records the same trade for the same
 reason.
@@ -37,11 +48,80 @@ MAKEFILE = ROOT / "Makefile"
 RUN_STEP = re.compile(r"^\s*(?:-\s+)?run:\s*(.*)$", re.M)
 MAKE_CALL = re.compile(r"^make\s+([a-z][a-z0-9-]*)$")
 
+# A `uses:` step. The action's identity is everything before the `@`; the pin and
+# the trailing `# vX.Y.Z` comment are checked elsewhere and ignored here.
+USES_STEP = re.compile(r"^\s*(?:-\s+)?uses:\s*([^@\s]+)@\S+", re.M)
+
+# Actions that fetch the tree, install a toolchain, or upload a report. None of
+# them decides whether the build passes, so none of them needs a local twin:
+# `actions/checkout` is the checkout `make` already has, the two setup actions
+# install what `make` then invokes, and `codecov/codecov-action` runs with
+# `fail_ci_if_error: false` and uploads a file `make test` produced.
+SETUP_AND_REPORTING = frozenset(
+    {
+        "actions/checkout",
+        "astral-sh/setup-uv",
+        "actions/setup-node",
+        "codecov/codecov-action",
+    }
+)
+
+# Actions that are gates, mapped to the target that runs the same check locally.
+# `gitleaks/gitleaks-action` scans history; `make secret-scan` runs that pass and
+# a second one over the working tree, which is the superset the Makefile explains.
+# This is the registration an action-only job needs in order to be visible here.
+GATING_ACTIONS = {"gitleaks/gitleaks-action": "secret-scan"}
+
+# A job header: two spaces of indent under `jobs:`, a name, a colon, nothing else.
+JOB_HEADER = re.compile(r"^  ([a-z][a-z0-9-]*):\s*$", re.M)
+
+
+def ci_source() -> str:
+    """The workflow with comment-only lines dropped.
+
+    A comment naming `uses:` or `run:` is prose about the file, not a step in it.
+    """
+    return "\n".join(
+        line
+        for line in CI.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+
 
 def ci_run_commands() -> list[str]:
-    return [
-        m.group(1).strip() for m in RUN_STEP.finditer(CI.read_text(encoding="utf-8"))
-    ]
+    return [m.group(1).strip() for m in RUN_STEP.finditer(ci_source())]
+
+
+def ci_actions() -> list[str]:
+    return [m.group(1) for m in USES_STEP.finditer(ci_source())]
+
+
+def ci_jobs() -> dict[str, str]:
+    """Every job in ci.yml, by name, mapped to its own block of the file."""
+    source = ci_source()
+    body = source[source.index("\njobs:\n") :]
+    headers = list(JOB_HEADER.finditer(body))
+    return {
+        m.group(1): body[
+            m.end() : (headers[i + 1].start() if i + 1 < len(headers) else len(body))
+        ]
+        for i, m in enumerate(headers)
+    }
+
+
+def targets_a_job_runs(block: str) -> set[str]:
+    """The make targets one job's steps reach, whether by `run:` or by action."""
+    targets = {
+        m.group(1)
+        for command in (c.strip() for c in RUN_STEP.findall(block))
+        if (m := MAKE_CALL.match(command))
+    }
+    targets |= {
+        GATING_ACTIONS[action]
+        for action in USES_STEP.findall(block)
+        if action in GATING_ACTIONS
+    }
+    return targets
 
 
 def makefile_targets() -> set[str]:
@@ -116,3 +196,71 @@ def test_verify_still_reaches_the_gates_that_used_to_be_ci_only() -> None:
     covered = reachable_from("verify")
     for target in ("determinism", "secret-scan", "sast", "test", "pages", "audit"):
         assert target in covered, target
+
+
+def test_the_workflow_is_read_as_jobs_and_steps_not_just_as_run_lines() -> None:
+    """The floor under everything below: the parse has to see the whole file.
+
+    ci.yml has three jobs and eleven steps, only three of which are `run:`
+    lines. If this parse ever sees fewer jobs than the file has, every check
+    below silently narrows.
+    """
+    jobs = ci_jobs()
+    assert len(jobs) >= 3, sorted(jobs)
+    assert "verify" in jobs and "secret-scan" in jobs and "sast" in jobs, sorted(jobs)
+    assert len(ci_actions()) > len(ci_run_commands()), (
+        ci_actions(),
+        ci_run_commands(),
+    )
+
+
+def test_every_action_ci_uses_is_a_known_setup_step_or_a_registered_gate() -> None:
+    """An unregistered action is a stage nothing local reproduces.
+
+    This is the check that was missing: a gate can arrive in CI as a `uses:`
+    step and never touch a `run:` line, which is exactly how the `secret-scan`
+    job stayed invisible to this file.
+    """
+    unknown = sorted(
+        action
+        for action in ci_actions()
+        if action not in SETUP_AND_REPORTING and action not in GATING_ACTIONS
+    )
+    assert not unknown, (
+        "these actions run in ci.yml and this file does not know what they are; "
+        "add each to SETUP_AND_REPORTING if it only fetches or reports, or to "
+        f"GATING_ACTIONS against the make target that reproduces it: {unknown}"
+    )
+
+
+def test_every_gating_action_names_a_target_verify_reaches() -> None:
+    covered = reachable_from("verify")
+    targets = makefile_targets()
+    for action, target in GATING_ACTIONS.items():
+        assert target in targets, (action, target)
+        assert target in covered, (action, target)
+
+
+def test_every_ci_job_runs_something_the_local_gate_can_run() -> None:
+    """A job with no locally runnable stage is a gate that exists only in CI."""
+    covered = reachable_from("verify")
+    for name, block in ci_jobs().items():
+        targets = targets_a_job_runs(block)
+        assert targets, (
+            f"the `{name}` job in ci.yml runs no make target and no registered "
+            "gating action, so `make verify` cannot reproduce it"
+        )
+        assert targets <= covered, (name, sorted(targets - covered))
+
+
+def test_the_secret_scan_job_is_the_one_this_gate_used_to_miss() -> None:
+    """Named so that losing sight of it again fails here rather than nowhere.
+
+    The job runs a gitleaks action and no command. Under the old `run:`-only
+    parse it contributed nothing and was indistinguishable from not existing.
+    """
+    block = ci_jobs()["secret-scan"]
+    assert not [c for c in RUN_STEP.findall(block) if c.strip()], (
+        "the secret-scan job now runs a command; check it calls a make target"
+    )
+    assert targets_a_job_runs(block) == {"secret-scan"}

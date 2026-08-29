@@ -18,11 +18,18 @@ security report.
 
 ## Scope
 
-There is no deployed service. The optional ask layer (ADR 0003) is code in this
-repository that, if deployed, would expose one unauthenticated POST endpoint;
-reports about prompt injection, a fabricated or judgmental answer reaching a
-reader, or a credential in a build are in scope and go through the same
-private channel. The service stores no question and holds no user data.
+The ask service (ADR 0003) is deployed, and has been since 2026-08-22: one
+unauthenticated POST endpoint on an AWS Lambda Function URL in `us-west-2`,
+recorded in `deploy/ask/README.md` and named in the published pages under
+`site/ask/`. This section said the opposite for seven days after that, which
+understated the surface a reporter is being asked to look at. It is corrected
+here (2026-08-29) rather than quietly rewritten.
+
+In scope, through the private channel above: that endpoint, prompt injection,
+a fabricated or judgmental answer reaching a reader, and a credential in a
+build. The service stores no question and holds no user data. The static pages
+at homeroom.chelseakr.com are files on GitHub Pages with no server-side
+behaviour of their own.
 
 
 Scan configuration (SAST/SCA/secret-scan/container-CVE) lives in

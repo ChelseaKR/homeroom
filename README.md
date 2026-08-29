@@ -40,8 +40,12 @@ that cannot be shown honestly is not shown at all.
 Source files are downloaded from CDE's public data pages the way CDE intends: in a
 browser, by a person. The pipeline treats them as **locally acquired inputs**, with each
 file's origin, date, and name documented in PROVENANCE.md; drop them in `data/raw/` and
-`make data` validates and builds from there. CI never touches the network; a small
-committed fixture exercises every rendering case. This mirrors the Afterward project's
+`make data` validates and builds from there. CI never fetches a source file, and a
+small committed fixture exercises every rendering case. That is narrower than the
+"CI never touches the network" this line carried until 2026-08-29: `make verify-ci`
+reaches a package index or an advisory database at `uv sync`, `npm ci`, `pip-audit`,
+`npm audit`, and the pinned `uvx` runs of semgrep and zizmor. What never crosses the
+network is the data. This mirrors the Afterward project's
 answer to the same provenance problem with federal endpoints.
 
 ## Status
@@ -79,10 +83,15 @@ page: a total rate plus race/ethnicity, gender, and student-group breakdowns, ea
 beside its district and statewide figure, read from CDE's own `Charter School =
 All` and `DASS = All` rows. Across the 10,534 active schools, the total rate is
 published for 9,718 of them, withheld for 83, and not published for 733 that the
-file never mentions; some subgroups are withheld far more often than that, up to
-95.4% of the schools that have any row at all for American Indian or Alaska
-Native students. `docs/SUPPRESSION-SHOWCASE.md` walks four real rows, one of each
-cell state, from the source file to the rendered markup. Grade-span categories
+file never mentions; some subgroups are withheld far more often than that. The
+most-withheld is Non-binary (`GX`), withheld at 1,990 of the 2,045 schools that
+report it at all, 97.3%; the other 8,489 active schools carry no Non-binary row
+for CDE to withhold, so that share describes a much smaller slice of the state
+than the next one does. American Indian or Alaska Native (`RI`) is withheld at
+9,350 of 9,801, 95.4%, and 9,801 is nearly every active school. Three categories
+are withheld for over 94% of the schools that report them at all.
+`docs/SUPPRESSION-SHOWCASE.md` carries the table and walks four real rows, one of
+each cell state, from the source file to the rendered markup. Grade-span categories
 are recognized so the file parses but are not rendered as a subgroup, the same
 choice already made for D2's age ranges.
 
@@ -136,13 +145,17 @@ about real schools and real children, and no build made it; a person did.
 What is published there is what this repository has actually built and checked:
 Birch Lane Elementary in Davis Joint Unified, in English and Spanish, with the
 ask layer below wired to a running service. That is one school out of the 10,534
-the pipeline profiles, and the landing page says so in both languages rather
-than implying the state is covered. Publishing more is `make publish` with more
+the pipeline profiles. The landing page does not print that ratio; what it says,
+in both languages, is that Homeroom is in development, that the schools listed
+are the ones published so far, and that more are added as each source is acquired
+and checked. This paragraph said "the landing page says so" until 2026-08-29,
+which read as a claim that the 10,534 figure is on the page. It is not, and the
+page does not imply the state is covered either. Publishing more is `make publish` with more
 `--cds` codes; it is a decision about which schools to put in front of families,
 not a technical step.
 
 The site is rendered here and committed to `site/`, because it cannot be built
-in CI: the acquired CDE files never enter git and CI never touches the network.
+in CI: the acquired CDE files never enter git and nothing in CI fetches them.
 The workflow in `.github/workflows/pages.yml` publishes that directory and
 builds nothing, so the bytes reviewed in a pull request are the bytes served,
 and `tests/test_published_site.py` gates them in `make verify` on a machine with
@@ -180,8 +193,12 @@ keeps the founding rule intact:
   cost-bounded shape in `deploy/ask/` is applied: one Lambda behind a Function
   URL in `us-west-2`, CORS and a server-side origin check locked to
   `https://homeroom.chelseakr.com`, reserved concurrency 2, a daily cap of 400
-  model calls, six requests per client per minute, and a CloudWatch alarm at
-  400 daily invocations to an SNS topic in the same stack. The deployed model
+  model calls per warm container, six requests per client per minute, and a
+  CloudWatch alarm at 400 daily invocations to an SNS topic in the same stack.
+  The cap is per container, not a shared ledger (`deploy/ask/template.yaml`
+  `DailyCap`), so with reserved concurrency 2 the worst case is two containers
+  each spending it; reserved concurrency is the bound that actually holds, and
+  RR-09 carries this as an open item. The deployed model
   is Bedrock `global.anthropic.claude-sonnet-4-6` -- the model the recorded
   evaluations name and the only Claude this account can invoke. `make site`
   still renders no ask page and no link until it is given an endpoint, so a
@@ -226,7 +243,7 @@ Governed by [portfolio-standards](https://github.com/ChelseaKR/portfolio-standar
 |----------|-------|
 | Responsible-Tech Framework | Applies (see `docs/RESPONSIBLE-TECH-AUDITS.md`) |
 | Code Quality | Applies |
-| Security & Supply-Chain | Applies. `make verify` runs semgrep over the whole tree including `tests/`, zizmor over the workflows under a `hash-pin` policy, pip-audit, npm audit, and a secret scan covering git history *and* the working tree, because history mode alone is blind to an uncommitted key. Every step in `.github/workflows/ci.yml` is a `make` target that `make verify` reaches, checked by `tests/test_ci_parity.py`, so the local gate is a strict superset of CI and the two cannot drift. CI runs `make verify-ci`, which is all of it except the working-tree secret pass: that one needs a binary the runner does not carry, and in CI the working tree is the committed tree anyway |
+| Security & Supply-Chain | Applies. `make verify` runs semgrep over this project's own source, `tests/` included (semgrep's built-in ignore list drops `tests/`; the committed `.semgrepignore` replaces that list and does not), zizmor over the workflows under a `hash-pin` policy, pip-audit, npm audit, and a secret scan covering git history *and* the working tree, because history mode alone is blind to an uncommitted key. `.semgrepignore` excludes vendored, generated and built output, `site/` among it, so the bytes actually served are gated by `tests/test_published_site.py` rather than by semgrep; this row said "the whole tree" until 2026-08-29. Every step in `.github/workflows/ci.yml` is accounted for by `tests/test_ci_parity.py`: each `run:` step calls a `make` target that `make verify` reaches, and each `uses:` step is either a setup or reporting action or a gating action registered against the target that reproduces it locally, which is what covers the `secret-scan` job, whose only step is an action. So the local gate is a strict superset of CI and the two cannot drift; the sentence said "every step ... is a `make` target", which was true only of the `run:` steps. CI runs `make verify-ci`, which is all of it except the working-tree secret pass: that one needs a binary the runner does not carry, and in CI the working tree is the committed tree anyway |
 | CI/CD | Applies |
 | Observability | Applies (Tier C, library/CLI; declared in `docs/ROADMAP.md`) |
 | Accessibility | Applies, in two halves, one of them open. Automated: html-validate and axe-core over every built page in both languages, plus structure, EN/ES parity and contrast checks in `make verify`. **Review, not yet done:** the keyboard-only and screen-reader walkthrough in each language, and the reflow check at 320 CSS pixels on the seven-column tables. A headless DOM cannot decide any of it. Tracked as [issue #6](https://github.com/ChelseaKR/homeroom/issues/6) and RR-05; owner Chelsea Kelly-Reif. The pages are live, so this is open work rather than work waiting on a publication decision |

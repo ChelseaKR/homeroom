@@ -48,6 +48,7 @@ from homeroom.context import (
     load_absenteeism_context,
     load_context,
 )
+from homeroom.directory import active_schools
 from homeroom.i18n import LOCALES, Locale, format_number, text
 from homeroom.measures import MeasureStatus
 from homeroom.profiles import SchoolProfile, assemble_profiles
@@ -1233,3 +1234,41 @@ def test_cli_can_name_one_school(
     printed = capsys.readouterr().out
     assert "pages: 2 (1 schools x 2 locales)" in printed
     assert "...and" not in printed
+
+
+# ----------------------------------------------------------------------------------
+# How many pages the accessibility gate actually reads
+# ----------------------------------------------------------------------------------
+
+A11Y_RUN = re.compile(r"^\tnode tools/a11y\.mjs (\S+)$", re.M)
+A11Y_ROW = re.compile(r"^\| Pages the accessibility gate checks \| (\d+)\b", re.M)
+
+
+def test_the_roadmap_states_how_many_pages_the_accessibility_gate_reads() -> None:
+    """The ledger said 6, meaning three fixture schools in two languages.
+
+    `make a11y` runs `tools/a11y.mjs` over two directories, and the checker
+    reads one directory with `readdirSync` and does not recurse, so the count
+    is both directories' own files: the school pages plus the landing page in
+    `build/site-offline`, and the ask pages in `build/site-offline/ask`. The
+    landing page and all six ask pages were being checked and not counted.
+    """
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    directories = A11Y_RUN.findall(makefile)
+    assert directories == ["build/site-offline", "build/site-offline/ask"], directories
+
+    checker = (ROOT / "tools" / "a11y.mjs").read_text(encoding="utf-8")
+    assert "recursive" not in checker, (
+        "tools/a11y.mjs now recurses, so the two runs overlap and this count is wrong"
+    )
+
+    recipe = next(
+        line for line in makefile.splitlines() if "homeroom.site --fixture" in line
+    )
+    schools = len(active_schools(DIRECTORY))
+    assert "--landing" in recipe and "--ask-endpoint" in recipe, recipe
+    pages = schools * len(LOCALES) + 1 + schools * len(LOCALES)
+
+    row = A11Y_ROW.search((ROOT / "docs" / "ROADMAP.md").read_text(encoding="utf-8"))
+    assert row, "docs/ROADMAP.md no longer states how many pages the gate checks"
+    assert int(row.group(1)) == pages, (row.group(1), pages)

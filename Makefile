@@ -78,8 +78,11 @@ SCHOOL ?= 57726786056246
 
 # The ask layer (ADR 0003) is opt-in at build time too. Set ASK_ENDPOINT to the
 # URL of a running ask service to add one link per school page and write the
-# ask pages under build/site/ask/; leave it empty (the default, because nothing
-# is deployed) and the build is byte-identical to one before ADR 0003.
+# ask pages under build/site/ask/; leave it empty and the build is
+# byte-identical to one before ADR 0003. The default is empty because a default
+# endpoint would bake one build's service into every build, not for want of one
+# to point at: a service has been deployed since 2026-08-22, and this comment
+# claimed the opposite until 2026-08-29. `deploy/ask/README.md` has the URL.
 ASK_ENDPOINT ?=
 
 site:
@@ -143,8 +146,9 @@ node-audit:
 #
 # The site is rendered here, on a machine that holds the acquired CDE files,
 # and the rendered pages are committed. It cannot be built in CI and it is not
-# meant to be: `data/raw/` is never in git, CI never touches the network, and
-# acquisition is a documented browser step per file (PROVENANCE.md). The
+# meant to be: `data/raw/` is never in git, no build step anywhere fetches a
+# source file, and acquisition is a documented browser step per file
+# (PROVENANCE.md). The
 # workflow in .github/workflows/pages.yml publishes this directory and builds
 # nothing. So the bytes in `site/` are the bytes served, they are reviewable in
 # a diff before they are published, and `tests/test_published_site.py` gates
