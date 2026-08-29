@@ -46,16 +46,13 @@ jobs:
           node-version: "22"
           cache: npm
 
-      - name: make verify (byte-for-byte the local target)
+      # `make verify` is the whole gate: it ends in determinism, secret-scan and
+      # sast, which the two jobs below also run individually so a failure names
+      # itself. Every step in this file runs a make target, and
+      # tests/test_ci_parity.py fails if one ever does not: a stage that exists
+      # only here is a stage `make verify` cannot reproduce.
+      - name: make verify
         run: make verify
-
-      - name: the offline page build must produce byte-identical output twice
-        run: |
-          make site-offline
-          find build/site-offline -type f | sort | xargs shasum -a 256 > "${RUNNER_TEMP}/first.txt"
-          make site-offline
-          find build/site-offline -type f | sort | xargs shasum -a 256 > "${RUNNER_TEMP}/second.txt"
-          diff "${RUNNER_TEMP}/first.txt" "${RUNNER_TEMP}/second.txt"
 
       - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         if: always()
@@ -72,9 +69,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # The action scans history only. `make secret-scan` runs that pass and a
+      # second one over the working tree, which is where an uncommitted key
+      # sits; see the target's comment for the demonstration.
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: make secret-scan
 
   sast:
     runs-on: ubuntu-latest
@@ -85,5 +86,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
-      - run: uvx --from semgrep==1.168.0 semgrep scan --error --metrics off --config p/python --config p/security-audit .
+      - run: make sast
+      - run: make workflow-audit
 

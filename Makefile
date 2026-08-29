@@ -1,10 +1,20 @@
 .PHONY: verify sync lint format typecheck test audit data data-offline \
         site site-offline pages node-sync htmlvalidate a11y ask-optin node-audit \
-        ask-bundle ask-serve publish
+        ask-bundle ask-serve publish determinism secret-scan sast workflow-audit
 
-# CI / `make verify` body — the two MUST stay byte-for-byte identical.
+# The gate. Every stage CI runs is a target here, and every CI step runs one of
+# these targets, so `make verify` green and CI green mean the same thing.
+#
+# They did not, until 2026-08-28. CI had three jobs; this target covered one of
+# them. `secret-scan`, `sast`, and the twice-build determinism check existed
+# only in .github/workflows/ci.yml, with no target to run them by, so a tree
+# that CI would reject passed `make verify` locally -- while AGENTS.md said
+# "`make verify` is the gate, byte-for-byte identical to CI" and the comment
+# that used to sit here said the two MUST stay identical. Neither was true.
+# `tests/test_ci_parity.py` now checks it instead of asserting it.
+#
 # See STANDARDS/CODE-QUALITY-STANDARD.md §2 and .github/workflows/ci.yml.
-verify: sync lint format typecheck test audit pages
+verify: sync lint format typecheck test audit pages determinism secret-scan sast workflow-audit
 
 sync:
 	# `--locked`, not `--frozen`. `--frozen` installs from uv.lock WITHOUT
@@ -133,3 +143,65 @@ publish:
 	# answers on github.io only.
 	echo $(SITE_DOMAIN) > $(PUBLISH_DIR)/CNAME
 	@echo "published into $(PUBLISH_DIR)/ for $(SITE_DOMAIN); commit it to deploy"
+
+# ----------------------------------------------------------------------------
+# The gates that used to live only in CI.
+# ----------------------------------------------------------------------------
+
+# The page build must be a function of its inputs, because `site/` is rendered
+# here and committed, and a build that differs run to run makes a diff
+# unreviewable.
+#
+# The hash comparison has a floor under it. `find | xargs shasum` over an empty
+# directory writes an empty file, and diffing two empty files succeeds, so
+# without the -s test this stage would report determinism having hashed nothing
+# at all -- which is what it did in CI before 2026-08-28.
+determinism:
+	rm -rf build/determinism && mkdir -p build/determinism
+	$(MAKE) site-offline
+	find build/site-offline -type f | sort | xargs shasum -a 256 > build/determinism/first.txt
+	@test -s build/determinism/first.txt || { echo "determinism: hashed zero files; the build produced nothing" >&2; exit 1; }
+	$(MAKE) site-offline
+	find build/site-offline -type f | sort | xargs shasum -a 256 > build/determinism/second.txt
+	diff build/determinism/first.txt build/determinism/second.txt
+	@echo "determinism: $$(wc -l < build/determinism/first.txt) files byte-identical across two builds"
+
+# Secrets, in both places one can be.
+#
+# `gitleaks git` reads history and is blind to the working tree: demonstrated on
+# this repo 2026-08-28, an uncommitted file holding a high-entropy GitHub token
+# left history mode reporting "68 commits scanned, no leaks found", exit 0. The
+# second pass reads the working tree instead, scoped to exactly the files git
+# would consider -- tracked plus untracked-and-not-ignored -- which is where an
+# uncommitted key actually sits, and which keeps the pass off node_modules/ and
+# .venv/ (577 MB and 71 s, versus 1.3 MB and 0.3 s).
+#
+# Two commands, each with its own exit status, deliberately not a loop: a shell
+# `for` loop exits with only its last iteration's status and would swallow a
+# finding from the first.
+SECRET_SCAN_TREE ?= build/secret-scan-tree
+secret-scan:
+	gitleaks git . --no-banner --redact
+	rm -rf $(SECRET_SCAN_TREE) && mkdir -p $(SECRET_SCAN_TREE)
+	git ls-files -co --exclude-standard -z | rsync -a --files-from=- --from0 . $(SECRET_SCAN_TREE)/
+	@test "$$(find $(SECRET_SCAN_TREE) -type f | wc -l)" -gt 0 || { echo "secret-scan: copied zero files; nothing was scanned" >&2; exit 1; }
+	gitleaks dir $(SECRET_SCAN_TREE) --no-banner --redact
+
+# Static analysis. `.semgrepignore` in the repository root is load-bearing:
+# semgrep's built-in ignore list drops tests/ from every scan, which on this
+# repo silently reduced a stated scope of 55 tracked Python files to 30.
+SEMGREP_VERSION ?= 1.168.0
+sast:
+	uvx --from semgrep==$(SEMGREP_VERSION) semgrep scan --error --metrics off --config p/python --config p/security-audit .
+
+# The workflows themselves. Three documents -- docs/audits/threat-model.md
+# (twice) and docs/ROADMAP.md's metrics ledger -- named zizmor as the control
+# holding `uses:` pins and `permissions:` blocks in place. It was not in this
+# repository at all until 2026-08-28: a claimed control that ran nowhere. It
+# runs here now, pinned like every other tool, so the claim is checkable.
+#
+# One finding is ignored, in `.github/workflows/pages.yml`, with the reasoning
+# written at the line it applies to. Nothing else is suppressed.
+ZIZMOR_VERSION ?= 1.16.3
+workflow-audit:
+	uvx zizmor@$(ZIZMOR_VERSION) --persona=regular --config .github/zizmor.yml .github/workflows/

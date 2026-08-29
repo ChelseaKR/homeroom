@@ -83,8 +83,12 @@ As of ADR 0003 it also carries an optional, opt-in AI question-answering layer
 
 ## Workflow
 
-- `make verify` is the gate, byte-for-byte identical to CI. Run it before
-  opening a PR.
+- `make verify` is the gate, and it runs every stage CI runs: lint, format,
+  types, tests, dependency audit, the page gates, the determinism check, the
+  secret scan, semgrep, and zizmor. Run it before opening a PR. This used to
+  be a claim; `tests/test_ci_parity.py` checks it, by requiring every step in
+  `.github/workflows/ci.yml` to be a `make` target that `verify` reaches. A
+  stage added to CI as inline script fails that test.
 - Stage explicit paths. Never `git add -A`.
 - Never force-push `main`. Never delete a branch without confirming it is a
   pure merge leftover.

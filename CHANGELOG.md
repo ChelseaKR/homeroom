@@ -7,6 +7,66 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- **`make verify` was green on trees CI rejects** (2026-08-28). `AGENTS.md` said
+  "`make verify` is the gate, byte-for-byte identical to CI" and the Makefile
+  said the two "MUST stay byte-for-byte identical". CI ran three jobs and
+  `make verify` covered one. `secret-scan`, `sast`, and the twice-build
+  determinism check existed only as steps inside
+  `.github/workflows/ci.yml`, with no target to run them by, so nobody could
+  run the gate the documentation described.
+  - Every CI stage is now a `make` target, `verify` reaches all of them, and
+    every step in `ci.yml` invokes one. `tests/test_ci_parity.py` checks those
+    three facts by reading the workflow, so a stage added to CI as inline
+    script fails the build that adds it. Demonstrated failing by adding a
+    CI-only `run: echo` step, and again by removing `sast` from `verify`'s
+    prerequisites.
+  - **The determinism check could pass having hashed nothing.** It wrote two
+    `find | xargs shasum` files and diffed them; over an empty directory that
+    is two empty files and a successful diff. Confirmed by running the old
+    command pair against an empty tree: exit 0. The target now fails if the
+    first hash file is empty, and prints how many files it compared.
+  - **The secret scan could not see an uncommitted key.** `gitleaks` in history
+    mode reads commits, not the working tree. Confirmed on this repository with
+    a high-entropy GitHub token in an untracked file: history mode reported
+    "68 commits scanned, no leaks found" and exited 0. `make secret-scan` keeps
+    that pass and adds a working-tree pass, which exits 1 on the same file. The
+    working-tree pass is scoped to what `git ls-files -co --exclude-standard`
+    lists, which is where an uncommitted key lives and which keeps the scan off
+    `node_modules/` and `.venv/`: 1.3 MB in 0.3 s rather than 577 MB in 72 s.
+    The two passes are two commands with two exit statuses, not a `for` loop,
+    which would report only its last iteration's.
+  - **Semgrep silently skipped every test.** Its built-in ignore list drops
+    `tests/`, so a job whose stated scope was the whole repository read 30 of
+    55 tracked Python files and said so only as "Files matching .semgrepignore
+    patterns: 25". A repository-root `.semgrepignore` replaces that list;
+    scope is now 55 of 55, still 0 findings. This project's tests are gates,
+    not scratch code.
+  - **zizmor was cited as a control in three documents and existed nowhere.**
+    `docs/audits/threat-model.md` named it twice, once for `uses:` pinning and
+    once as the "gate on permissions creep", and `docs/ROADMAP.md`'s metrics
+    ledger named it as the measurement for 100% SHA-pinned actions. It was not
+    in the Makefile, the workflows, or the dependencies. It runs now, pinned,
+    in `make workflow-audit`.
+    - Its default configuration could not have backed the claim it was cited
+      for: `unpinned-uses` accepts a tag by default, so `actions/setup-node@v7`
+      passes it. Verified by unpinning that action and watching the default
+      configuration report clean. `.github/zizmor.yml` sets the `hash-pin`
+      policy; with it, the same unpinned action is a High finding and the gate
+      exits 14.
+    - One finding is ignored: `dangerous-triggers` on `pages.yml`'s
+      `workflow_run`. The reasoning is written at the line it applies to, and
+      it is the only suppression.
+
+### Changed
+- `RR-02`'s mitigation text said dependencies are installed `--frozen`; the
+  Makefile has run `--locked` since 2026-08-26. `docs/audits/threat-model.md`
+  carried the same stale word and is corrected too.
+- The README's Accessibility conformance row named only the automated half of
+  the gate. It now names the open review half -- the keyboard and screen-reader
+  walkthrough and the 320px reflow check -- and links issue #6 and RR-05, which
+  is what `DOC-13` asks of a declared conformance gap. The row previously read
+  as fully satisfied. The Security & Supply-Chain row now says what actually
+  runs.
 - **The project's most important claim cited the wrong document** (2026-08-28,
   issue #35). The anti-ranking and suppression-fidelity rule was cited as
   "ADR 0000" in eight places across code, docs and tests. ADR 0000 is

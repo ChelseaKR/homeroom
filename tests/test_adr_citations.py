@@ -26,16 +26,23 @@ ADR_DIR = ROOT / "docs" / "adr"
 
 CITATION = re.compile(r"\bADR (\d{4})\b")
 
-# CHANGELOG.md is an append-only history. Two of its entries are *about* the old
-# numbering ("Two ADRs were both numbered 0000") and are accurate as history, so
-# rewriting them would falsify the record rather than fix a citation.
 SEARCH_ROOTS = ("src", "tests", "docs", "evals", "tools")
-SKIP = {
-    "CHANGELOG.md",
-    # This file names "ADR 0000" in its own prose to say what it prevents.
-    # Exempted by exact filename so the exemption cannot widen to anything else.
-    "test_adr_citations.py",
-}
+
+# The rule below is about a citation used as the *authority for a behaviour*, so
+# it applies to code and to the normative documents. Retrospective writing has to
+# be able to name the defect it narrates, or the record of a fix cannot describe
+# what was fixed. Two kinds of file are therefore out of scope, by a stated
+# principle rather than one exemption at a time:
+#
+#   - append-only history (`CHANGELOG.md`), two of whose entries are *about* the
+#     old numbering, and rewriting them would falsify the record;
+#   - `docs/plans/`, which is where audits and improvement plans describe what
+#     was wrong before it was fixed.
+#
+# This file is the third, and is named individually: it quotes "ADR 0000" in its
+# own prose to say what it prevents.
+SKIP_FILES = {"CHANGELOG.md", "test_adr_citations.py"}
+SKIP_DIRS = (Path("docs") / "plans",)
 
 # The process ADR. It records that this project keeps ADRs; it decides nothing
 # about schools, ranking, suppression, or the ask layer, so citing it as the
@@ -47,7 +54,10 @@ def cited_files() -> list[Path]:
     paths: list[Path] = []
     for root in SEARCH_ROOTS:
         for path in sorted((ROOT / root).rglob("*")):
-            if not path.is_file() or path.name in SKIP:
+            if not path.is_file() or path.name in SKIP_FILES:
+                continue
+            relative = path.relative_to(ROOT)
+            if any(relative.is_relative_to(d) for d in SKIP_DIRS):
                 continue
             if path.suffix not in {".py", ".md", ".mjs", ".yml", ".yaml", ".json"}:
                 continue
