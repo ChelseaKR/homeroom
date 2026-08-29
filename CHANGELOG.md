@@ -62,6 +62,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
       `workflow_run`. The reasoning is written at the line it applies to, and
       it is the only suppression.
 
+- **The gate over the bytes served at homeroom.chelseakr.com could vanish
+  silently.** `tests/test_published_site.py` opened with
+  `pytestmark = pytest.mark.skipif(not SITE.is_dir(), ...)`, on the reading that
+  a checkout with nothing published has nothing to check. That is not what this
+  repository is: `site/` is committed, it is what GitHub Pages serves, and
+  `make publish` begins with `rm -rf $(PUBLISH_DIR)`. So a missing `site/` means
+  an interrupted publish or a bad merge -- exactly the tree whose published
+  bytes most need checking -- and the whole module went green over it.
+  Confirmed by hiding `site/` and running the old file: **10 skipped, exit 0**.
+  The same tree now fails 6 of 11, starting with a floor that says what is
+  missing and how to restore it.
+
 ### Changed
 - `RR-02`'s mitigation text said dependencies are installed `--frozen`; the
   Makefile has run `--locked` since 2026-08-26. `docs/audits/threat-model.md`

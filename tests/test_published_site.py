@@ -24,8 +24,6 @@ import json
 import re
 from pathlib import Path
 
-import pytest
-
 from homeroom.i18n import LOCALES, text
 from tests.test_pages import FETCHING_ATTRIBUTES, SUBRESOURCE_TAGS, parse_markup
 
@@ -33,10 +31,25 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 DOMAIN = "homeroom.chelseakr.com"
 
-pytestmark = pytest.mark.skipif(
-    not SITE.is_dir(),
-    reason="no site/ directory: nothing has been published from this checkout",
-)
+
+def test_the_published_directory_is_here_at_all() -> None:
+    """Everything below reads `site/`, so this is the floor under all of it.
+
+    This module used to open with
+    `pytestmark = pytest.mark.skipif(not SITE.is_dir(), ...)`, on the reading
+    that a checkout with nothing published has nothing to check. That is not
+    what this repository is: `site/` is committed, it is the bytes served at
+    homeroom.chelseakr.com, and `make publish` begins with `rm -rf`. So a
+    missing `site/` is a half-finished publish or a bad merge, and the skip
+    turned every test in this file green for exactly the tree that most needed
+    them -- fourteen checks reporting success having read nothing.
+    """
+    assert SITE.is_dir(), (
+        "site/ is missing. It is committed, and it is what GitHub Pages "
+        "serves; if `make publish` was interrupted after its `rm -rf`, restore "
+        "it with `git checkout -- site` rather than publishing from here."
+    )
+    assert (SITE / "index.html").is_file(), "site/ exists but holds no index"
 
 
 def published() -> list[Path]:

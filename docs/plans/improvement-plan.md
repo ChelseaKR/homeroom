@@ -70,7 +70,15 @@ gained a floor under its hash comparison. The secret scan gained a working-tree
 pass. Semgrep gained `tests/`. zizmor exists, pinned, with a hash-pin policy and
 exactly one documented suppression.
 
-### Phase 4 -- documents that did not match behaviour -- DONE
+### Phase 4 -- a gate that could vanish over the tree that needed it -- DONE
+
+`tests/test_published_site.py` skipped its whole module when `site/` was
+absent. `site/` is committed and is what GitHub Pages serves, and `make publish`
+starts with `rm -rf`, so absence means an interrupted publish, not "nothing to
+check". Hiding `site/` and running the old file gives 10 skipped, exit 0. It now
+fails, starting with a floor naming what is missing.
+
+### Phase 5 -- documents that did not match behaviour -- DONE
 
 `RR-02` and the threat model said `--frozen`; the Makefile has said `--locked`
 since 2026-08-26. `AGENTS.md`'s identical-to-CI claim is now true and checked.
@@ -78,7 +86,7 @@ The README's Accessibility row named only the automated half of a two-half gate;
 it names both and links issue #6 and RR-05, which is what `DOC-13` asks. The
 Security row says what actually runs.
 
-### Phase 5 -- the accessibility walkthrough (issue #6) -- BLOCKED
+### Phase 6 -- the accessibility walkthrough (issue #6) -- BLOCKED
 
 Not doable from here, and saying otherwise would be the same failure this plan
 is about. It needs a person driving a real browser and a real screen reader over
