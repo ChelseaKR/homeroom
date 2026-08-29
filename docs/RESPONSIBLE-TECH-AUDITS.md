@@ -1,7 +1,7 @@
 # Responsible-Tech Audits: homeroom
 
 Instantiates `STANDARDS/RESPONSIBLE-TECH-FRAMEWORK.md`.
-Last regenerated: 2026-08-21 (ADR 0003: AI-EVAL and Governance activated; A, C, D, F re-audited for the ask layer).
+Last reviewed: 2026-08-21 (ADR 0003: AI-EVAL and Governance activated; A, C, D, F re-audited for the ask layer).
 
 This record is honest about its age: the repo is one day old. Each section states
 what is designed and enforced today versus what has not yet been audited. Nothing
