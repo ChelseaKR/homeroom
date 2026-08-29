@@ -102,8 +102,13 @@ ask-serve:
 # build is given a placeholder ask endpoint (an .invalid name, which can never
 # resolve) so the ask pages exist to be gated; tools/ask-optin.mjs proves they
 # request nothing until a question is submitted.
+#
+# It is also given a site url, so the canonical, sitemap and social markup that
+# only a hosted build carries is markup the gates actually read. The origin is a
+# reserved-TLD name, not homeroom.chelseakr.com: a fixture build is not the
+# published site, and must not claim the published site's addresses.
 site-offline:
-	uv run python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --ask-endpoint https://ask.example.invalid --out build/site-offline --landing
+	uv run python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --ask-endpoint https://ask.example.invalid --site-url https://homeroom.example --out build/site-offline --landing
 
 # The accessibility gate the README's standards table promises from the first
 # school page. Builds the pages from fixtures, then checks the markup two ways:
@@ -154,7 +159,7 @@ SITE_DOMAIN ?= homeroom.chelseakr.com
 publish:
 	@test -n "$(ASK_ENDPOINT)" || { echo "ASK_ENDPOINT is required: the deployed stack's FunctionUrl output" >&2; exit 1; }
 	rm -rf $(PUBLISH_DIR)
-	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out $(PUBLISH_DIR) --ask-endpoint $(ASK_ENDPOINT) --landing
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out $(PUBLISH_DIR) --ask-endpoint $(ASK_ENDPOINT) --site-url https://$(SITE_DOMAIN) --landing
 	# GitHub Pages reads the custom domain from this file in the published
 	# output; without it a deploy silently unsets the domain and the site
 	# answers on github.io only.

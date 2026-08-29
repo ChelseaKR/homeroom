@@ -195,3 +195,82 @@ def test_every_school_page_is_published_in_both_languages() -> None:
         stem = path.name.rsplit(".", 2)[0]
         for locale in LOCALES:
             assert (SITE / f"{stem}.{locale}.html").is_file(), (stem, locale)
+
+
+# ----------------------------------------------------------------------------------
+# The addresses the published bytes claim
+#
+# `make publish` is run by hand, on a machine holding the acquired files, so the
+# published bytes can fall behind the renderer with nothing noticing. These read
+# the published files and check the absolute addresses in them against the
+# domain the site answers on -- which, unlike the figures, is checkable with no
+# acquired file and no network.
+# ----------------------------------------------------------------------------------
+
+ORIGIN = f"https://{DOMAIN}"
+
+
+def indexable() -> list[Path]:
+    """Every published page that is not one of the noindex ask pages."""
+    return [path for path in published() if path.parent.name != "ask"]
+
+
+def published_url(path: Path) -> str:
+    """The address a published file answers on. The root is the bare origin."""
+    return ORIGIN + ("/" if path.name == "index.html" else f"/{path.name}")
+
+
+def test_every_published_page_carries_a_canonical_pointing_at_itself() -> None:
+    """A canonical naming another page hands a crawler the wrong address."""
+    assert indexable(), "nothing indexable is published"
+    for path in indexable():
+        document = parse_markup(path.read_text(encoding="utf-8"))
+        assert document.canonical == published_url(path), (
+            path.name,
+            document.canonical,
+        )
+
+
+def test_no_published_address_points_at_the_old_project_path_or_plain_http() -> None:
+    """The site used to answer on a github.io project path. It answers on TLS now."""
+    for path in published():
+        source = path.read_text(encoding="utf-8")
+        assert "github.io" not in source, path.name
+        assert f"http://{DOMAIN}" not in source, path.name
+
+
+def test_the_published_ask_pages_are_still_noindex() -> None:
+    assert ask_pages(), "no ask page published"
+    for path in ask_pages():
+        document = parse_markup(path.read_text(encoding="utf-8"))
+        assert document.metas.get("robots") == "noindex", path.name
+
+
+def test_robots_txt_is_published_and_advertises_the_sitemap() -> None:
+    """Without it that address is a 404 and the sitemap is never found."""
+    robots = SITE / "robots.txt"
+    assert robots.is_file(), "robots.txt is not published"
+    lines = [line for line in robots.read_text(encoding="utf-8").split("\n") if line]
+    assert lines == [
+        "User-agent: *",
+        "Allow: /",
+        f"Sitemap: {ORIGIN}/sitemap.xml",
+    ], lines
+
+
+def test_the_published_sitemap_lists_exactly_the_indexable_pages() -> None:
+    sitemap = SITE / "sitemap.xml"
+    assert sitemap.is_file(), "sitemap.xml is not published"
+    listed = set(re.findall(r"<loc>(.*?)</loc>", sitemap.read_text(encoding="utf-8")))
+    assert listed == {published_url(path) for path in indexable()}
+
+
+def test_every_sitemap_url_resolves_to_a_file_that_was_published() -> None:
+    """A sitemap entry for a page that is not there is a 404 handed to a crawler."""
+    listed = re.findall(
+        r"<loc>(.*?)</loc>", (SITE / "sitemap.xml").read_text(encoding="utf-8")
+    )
+    assert listed, "the sitemap lists nothing"
+    for url in listed:
+        assert url.startswith(f"{ORIGIN}/"), url
+        assert (SITE / (url[len(ORIGIN) + 1 :] or "index.html")).is_file(), url
