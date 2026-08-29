@@ -79,7 +79,7 @@ owning standard.
 
 | Metric | Target | Measured by | Gate | Owner |
 |--------|--------|-------------|------|-------|
-| Branch coverage | >= 85% | `pytest --cov` in CI | AUTO | Chelsea Kelly-Reif |
+| Branch coverage | >= 95% | `pytest --cov` in CI | AUTO | Chelsea Kelly-Reif |
 | SHA-pinned `uses:` | 100% | `zizmor` / Scorecard Pinned-Deps >=9 | AUTO | Chelsea Kelly-Reif |
 | Fixed HIGH+CRITICAL vulns (deps) | 0 | `pip-audit` in CI | AUTO | Chelsea Kelly-Reif |
 | Masked cells readable as numbers | 0 (type-enforced) | `Measure` raises on read; `tests/test_measures.py` | AUTO | Chelsea Kelly-Reif |
@@ -214,7 +214,7 @@ so no D5 figure can reach a page; the pages say that in words instead.
 | Spanish strings left identical to their English original | 3, all reviewed and named (the project's own name; CDE's two different Filipino category codes, `RE_F` in D2 and `RF` in D3, each the same word in Spanish) | `tests/test_i18n.py` |
 | D5 numbers on any page, including when the parsed file is loaded into the renderer | 0 | `tests/test_pages.py` |
 | Page re-runs producing different bytes | 0 | `tests/test_pages.py`, plus a double build compared by hash in CI |
-| Branch coverage after M4 | 99% (floor is 85%) | `make test` |
+| Branch coverage after M4 | 98.73% (floor is 95%) | `make test` |
 
 The withheld count on the real page is zero for the same reason the M3a table
 records: CDE does not mask the cells M4 publishes in this file. The withheld

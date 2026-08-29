@@ -76,5 +76,12 @@ markers = [
 branch = true
 source = ["src"]
 [tool.coverage.report]
-fail_under = 85   # apps/services/CLIs: >=85% — CODE-QUALITY-STANDARD §2
+# CODE-QUALITY-STANDARD §2 sets the apps/services/CLIs minimum at >=85%. That is a
+# minimum, not this repo's floor. The suite measures 98.73% branch coverage over 515
+# tests (2026-08-29), so 85 was never a floor under this suite: it was 13.7 points of
+# room in which a regression could land and still leave the build green. The gate now
+# sits a few points under what is actually measured, which is the slack
+# fare-policy-assistant states in its Makefile: enough to absorb Python-version and
+# optional-extra drift in CI, not enough to hide a real loss of covered code.
+fail_under = 95
 show_missing = true

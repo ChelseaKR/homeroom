@@ -51,7 +51,7 @@ typecheck:
 	uv run mypy --strict src
 
 test:
-	uv run pytest -n auto --cov=src --cov-branch --cov-report=xml --cov-fail-under=85
+	uv run pytest -n auto --cov=src --cov-branch --cov-report=xml --cov-fail-under=95
 
 audit:
 	uv run pip-audit
