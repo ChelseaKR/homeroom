@@ -15,7 +15,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.github/workflows/ci.yml`, with no target to run them by, so nobody could
   run the gate the documentation described.
   - Every CI stage is now a `make` target, `verify` reaches all of them, and
-    every step in `ci.yml` invokes one. `tests/test_ci_parity.py` checks those
+    every step in `ci.yml` invokes one. CI calls `make verify-ci`; `make verify`
+    is that plus the working-tree secret pass, so the local gate is a strict
+    superset and green locally implies green in CI. The one asymmetry is
+    deliberate: `gitleaks` is not on the runner image, putting it there means a
+    pinned download or a container to keep verifying, and the pass it adds finds
+    uncommitted files, of which CI has none. `tests/test_ci_parity.py` checks those
     three facts by reading the workflow, so a stage added to CI as inline
     script fails the build that adds it. Demonstrated failing by adding a
     CI-only `run: echo` step, and again by removing `sast` from `verify`'s

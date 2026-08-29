@@ -51,8 +51,8 @@ jobs:
       # itself. Every step in this file runs a make target, and
       # tests/test_ci_parity.py fails if one ever does not: a stage that exists
       # only here is a stage `make verify` cannot reproduce.
-      - name: make verify
-        run: make verify
+      - name: make verify-ci
+        run: make verify-ci
 
       - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         if: always()
@@ -75,7 +75,6 @@ jobs:
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: make secret-scan
 
   sast:
     runs-on: ubuntu-latest

@@ -1,6 +1,6 @@
 .PHONY: verify sync lint format typecheck test audit data data-offline \
         site site-offline pages node-sync htmlvalidate a11y ask-optin node-audit \
-        ask-bundle ask-serve publish determinism secret-scan sast workflow-audit
+        ask-bundle ask-serve publish determinism secret-scan sast workflow-audit verify-ci
 
 # The gate. Every stage CI runs is a target here, and every CI step runs one of
 # these targets, so `make verify` green and CI green mean the same thing.
@@ -14,7 +14,24 @@
 # `tests/test_ci_parity.py` now checks it instead of asserting it.
 #
 # See STANDARDS/CODE-QUALITY-STANDARD.md §2 and .github/workflows/ci.yml.
-verify: sync lint format typecheck test audit pages determinism secret-scan sast workflow-audit
+verify: verify-ci secret-scan
+	@echo "make verify: every stage CI runs, plus the working-tree secret scan."
+
+# Everything CI runs, and the target CI's verify job calls. `verify` is this
+# plus `secret-scan`, so the local gate is a strict superset: `make verify`
+# green implies CI green, never the other way round.
+#
+# `secret-scan` is the one stage that is local-only, and the reason is
+# specific rather than a shrug. It needs the `gitleaks` binary, which is not on
+# the GitHub runner image, and the honest ways to put it there are a pinned
+# download this repository would then have to keep verifying or a container it
+# would have to keep pinning -- both of which add supply-chain surface to a
+# workflow whose whole point is to have less of it. What that stage adds over
+# the `secret-scan` job's gitleaks action is the *working-tree* pass, and in CI
+# the working tree is the committed tree: there is no uncommitted file there for
+# it to find. The pass earns its keep on a developer's machine, before the
+# commit exists, which is where `make verify` runs. So it runs there.
+verify-ci: sync lint format typecheck test audit pages determinism sast workflow-audit
 
 sync:
 	# `--locked`, not `--frozen`. `--frozen` installs from uv.lock WITHOUT
