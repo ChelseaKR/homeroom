@@ -87,6 +87,124 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     `docs/audits/residual-risk-register.md`. A bypass that works only inside a
     pull request is no use when the pull request is what is wedged, and a tag is
     neither updated nor deleted through one.
+- **The most-suppressed group was the one the suppression story left out**
+  (2026-08-29). This project's argument is that CDE's masking falls hardest on
+  the smallest groups. The single most-withheld category in the acquired 2024-25
+  file is `GX`, Non-binary: 55 published and 1,990 withheld of the 2,045 schools
+  that report it at all, 97.3%. No document in the repository named it. README.md,
+  docs/ROADMAP.md, CHANGELOG.md and `docs/SUPPRESSION-SHOWCASE.md` all called `RI`
+  (American Indian or Alaska Native, 95.4%) the maximum, and RR-05 in the risk
+  register said two categories exceed 94% when three do (`GX`, `RI`, `RP`).
+  `GX` is a rendered subgroup, in `ABSENTEEISM_SUBGROUP_FAMILIES`' `gender` family
+  and on Birch Lane's published page in both languages, so nothing about it was
+  hidden from the pipeline; only from the prose.
+  - The sentences now carry both figures and the difference between them. `GX`'s
+    97.3% is over 2,045 schools, with 8,489 more carrying no Non-binary row at
+    all; `RI`'s 95.4% is over 9,801, which is nearly every active school. Neither
+    is the whole picture alone, and rounding one away would have been the easier
+    edit.
+  - The showcase table said "Among the 9,801 schools that publish any row for a
+    given category", which was true of every row it happened to list and false of
+    the file. Each row now carries its own denominator, and `SF` (Foster youth,
+    7,312) is in the table as a second category the single denominator would have
+    misdescribed.
+  - `RD` read "79.7%" where 7,806 of 9,801 is 79.6449. Every other row rounded
+    correctly.
+  - `tests/test_suppression_claims.py` gates all of it, on the shape
+    `tests/test_i18n.py` uses for the i18n key count: the showcase table is the
+    committed record, its own arithmetic is checked, the maximum must be a code
+    the pages actually render, every document stating the claim must name the
+    same category and share, and a document that stops making the claim fails
+    too. On a machine holding the acquired files it also checks the table against
+    `data/out/coverage.json`. Demonstrated failing by restoring the 79.7%, by
+    putting `RI`'s share back in the README, by deleting the `GX` row, and by
+    setting the register back to two categories.
+- **Four documents said no service was deployed, and one was** (2026-08-29). The
+  ask service has been live since 2026-08-22: `deploy/ask/README.md` records the
+  stack and Function URL, and the published pages under `site/ask/` carry the
+  endpoint. `SECURITY.md`'s scope section said "There is no deployed service";
+  `docs/audits/threat-model.md` said "no inbound network surface", "If deployed",
+  and "no deployment exists"; `docs/RESPONSIBLE-TECH-AUDITS.md` §F said "No hosted
+  service ... no inbound network surface"; the Makefile's `ASK_ENDPOINT` comment
+  said nothing was deployed. The threat model and the audit file were edited on
+  2026-08-28, six days after the deploy, and the denials survived the edit. A
+  security document that understates the attack surface tells a reporter there is
+  nothing there to look at.
+  - Every one of them now describes the deployed service, and each says what it
+    used to say rather than being quietly rewritten.
+  - RR-07's precondition was "no deployment until the ranking-refusal and
+    suppression suites have a live run recorded at zero on the model that would be
+    deployed, and a person has read a sample of real answers in each language".
+    The first half was met: `evals/results/global.anthropic.claude-sonnet-4-6/`
+    records ranking_refusal 62 of 62 and suppression 24 of 24, dated 2026-08-22,
+    on the model the stack invokes. The second was not, and still is not. That is
+    recorded in RR-07 and in the audit file's REVIEW item rather than removed: the
+    reading commitment is now an open obligation against a running service instead
+    of a gate in front of one, which is a worse position and is why it is written
+    down.
+  - `tests/test_published_site.py` derives the deployment state from the published
+    ask pages and the applied stack record, fails if any of those documents denies
+    it, fails if one stops stating it, and fails if RR-07's reading commitment or
+    the "Nobody has." admission is deleted. Quoted text is exempt, because
+    correcting a sentence here means quoting it. Demonstrated failing by putting
+    the SECURITY.md denial back, by deleting the RR-07 commitment, and by softening
+    "Nobody has." to "This is planned."
+- **CONTRIBUTING.md still promised a gate identical to CI** (2026-08-29). It said
+  `make verify` "is byte-for-byte identical to the `verify` job in
+  `.github/workflows/ci.yml`". The Makefile retracted exactly that on 2026-08-28
+  and AGENTS.md now says "a strict superset ... never the reverse"; this file was
+  missed in that pass. `make verify` is `verify-ci` plus the working-tree secret
+  scan, and CI runs `verify-ci`.
+- **The CI parity gate could not see two thirds of the workflow** (2026-08-29).
+  README.md said "Every step in `.github/workflows/ci.yml` is a `make` target",
+  and `tests/test_ci_parity.py` checked it by matching `run:` lines. Eight of
+  ci.yml's eleven steps are `uses:` steps, and the whole `secret-scan` job is one
+  of them: it runs no command, so the gate saw an empty job and passed. The gate
+  is widened rather than the sentence narrowed. Every `uses:` step must now be
+  either a setup or reporting action named in `SETUP_AND_REPORTING` or a gating
+  action registered in `GATING_ACTIONS` against the make target that reproduces
+  it, and every job must reach at least one target `verify` reaches. Demonstrated
+  failing by adding an unregistered scanner action, and again by adding a job whose
+  only step is a checkout.
+- **`0.1.0` was dated as a release that was never cut** (2026-08-29).
+  `CITATION.cff` carried `date-released: "2026-08-18"` and CHANGELOG.md opened a
+  section dated 2026-08-18 and headed "First tagged release". This repository has
+  no tag and
+  has published no release. Following olive-bark-logger, `date-released` is
+  omitted with the reason written in the file, the heading says what it is, and
+  `tests/test_release_metadata.py` holds `CITATION.cff`'s version to
+  `pyproject.toml`'s and refuses a dated heading while no release date is claimed.
+  Demonstrated failing by restoring each of the two.
+- **"CI never touches the network" was an absolute the gate does not keep**
+  (2026-08-29). README.md (twice), PROVENANCE.md, docs/ROADMAP.md and the Makefile
+  all stated it. `make verify-ci` reaches a package index or an advisory database
+  at `uv sync`, `npm ci`, `pip-audit`, `npm audit`, and the pinned `uvx` runs of
+  semgrep and zizmor. The intent was already stated correctly in the README's Data
+  Governance row: what never crosses the network is the data. Every instance now
+  says that instead.
+- **Smaller claims that were not true** (2026-08-29).
+  - `docs/ROADMAP.md` said the accessibility gate checks 6 pages. `make a11y` runs
+    `tools/a11y.mjs` over two directories and the checker does not recurse, so it
+    reads 13: six school pages and the landing page, plus six ask pages. Gated in
+    `tests/test_pages.py`, which derives the count from the fixture schools, the
+    locales, and the Makefile's own recipe.
+  - `docs/ROADMAP.md` said counting districts by name loses eleven because "ten
+    names cover two districts each, and 'Jefferson Elementary' covers three",
+    which is twelve. Ten names cover more than one district, nine of them two and
+    Jefferson three. README.md already had this right.
+  - `docs/ROADMAP.md` said all four cell states are present in Birch Lane's
+    chronic-absenteeism section. Three are; the fourth, a published zero, is on
+    the same page in the grade-span table.
+  - README.md said the landing page states that one school of 10,534 is published.
+    It does not print that ratio; it says Homeroom is in development and that the
+    listed schools are the ones published so far.
+  - README.md listed "a daily cap of 400 model calls" among the applied envelope
+    without the qualifier `deploy/ask/template.yaml` carries: the cap is per warm
+    container, which RR-09 already recorded as open.
+  - README.md said semgrep runs "over the whole tree". `.semgrepignore` excludes
+    vendored, generated and built output, including `site/`, which is the
+    directory actually served; `tests/test_published_site.py` is what gates those
+    bytes.
 - **`make verify` was green on trees CI rejects** (2026-08-28). `AGENTS.md` said
   "`make verify` is the gate, byte-for-byte identical to CI" and the Makefile
   said the two "MUST stay byte-for-byte identical". CI ran three jobs and
@@ -95,7 +213,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.github/workflows/ci.yml`, with no target to run them by, so nobody could
   run the gate the documentation described.
   - Every CI stage is now a `make` target, `verify` reaches all of them, and
-    every step in `ci.yml` invokes one. CI calls `make verify-ci`; `make verify`
+    every step in `ci.yml` that runs a command invokes one. CI calls
+    `make verify-ci`; `make verify`
     is that plus the working-tree secret pass, so the local gate is a strict
     superset and green locally implies green in CI. The one asymmetry is
     deliberate: `gitleaks` is not on the runner image, putting it there means a
@@ -565,8 +684,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`homeroom.render._absenteeism_section`); wired into `make data` and
   `make site`'s default invocation. Measured against the acquired files: total
   rate reported for 9,718 of 10,534 active schools, withheld for 83, not
-  published for 733; the most-withheld subgroup (American Indian or Alaska
-  Native) is withheld for 95.4% of the schools that have any row for it.
+  published for 733; the most-withheld subgroup is Non-binary (`GX`), withheld
+  for 1,990 of the 2,045 schools that have any row for it (97.3%), with the
+  other 8,489 carrying no such row at all. American Indian or Alaska Native
+  (`RI`) is withheld for 9,350 of 9,801 (95.4%), over a denominator that is
+  nearly every active school. This entry named `RI` as the maximum until
+  2026-08-29.
   `docs/SUPPRESSION-SHOWCASE.md` is the committed artifact walking four real rows,
   one of each cell state, from the source file to the rendered markup.
 - **D5's provisional column contract, checked against the real file and rewritten
@@ -594,13 +717,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Development Measurement, Incident Response, Data Governance) are now
   declared **Applies**, each naming what exists and what does not.
 
-## [0.1.0] - 2026-08-18
+## [0.1.0] - not released
 
-First tagged release: the CDS-code directory spine, Census Day enrollment, the
+Not a release. This heading read "[0.1.0] - 2026-08-18 / First tagged release"
+until 2026-08-29; `git tag` lists nothing in this repository and no release has
+ever been published, so both the date and the word "tagged" described something
+that never happened. `0.1.0` is the in-development version in `pyproject.toml`
+and `CITATION.cff`, and the section is kept as the boundary of the work it
+describes, not as a release. `.github/workflows/release.yml` still requires a
+signed tag, so cutting one is a deliberate act that has not been performed.
+
+The work: the CDS-code directory spine, Census Day enrollment, the
 teacher-assignment parser (no D5 file acquired), one school profile per active
 school as deterministic JSON artifacts, and static bilingual school pages built
-from those profiles. Nothing is deployed or hosted; pages render locally from
-files a person downloaded from CDE's public data pages.
+from those profiles. Nothing was deployed or hosted at that point; pages
+rendered locally from files a person downloaded from CDE's public data pages.
+The ask service was deployed later, on 2026-08-22 (ADR 0003, `deploy/ask/`).
 
 ### Added
 - `.github/dependabot.yml`: weekly `uv`, `npm` and `github-actions` updates.

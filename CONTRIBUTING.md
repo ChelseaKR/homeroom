@@ -7,9 +7,16 @@ uv sync
 make verify
 ```
 
-`make verify` is the single local gate and is byte-for-byte identical to the
-`verify` job in `.github/workflows/ci.yml`; if it is green locally, CI is
-green (`STANDARDS/CODE-QUALITY-STANDARD.md` §2).
+`make verify` is the single local gate. It is a strict superset of CI, not a copy
+of it: CI's `verify` job runs `make verify-ci`, and `make verify` is that plus the
+working-tree secret scan, which needs a binary the runner does not carry and which
+in CI would have no uncommitted file to find. So green locally implies green in CI,
+never the reverse (`STANDARDS/CODE-QUALITY-STANDARD.md` §2).
+
+This paragraph said `make verify` was "byte-for-byte identical to the `verify`
+job"; it was not, and the Makefile's own comment and `AGENTS.md` were corrected on
+2026-08-28 while this file was missed. Corrected 2026-08-29.
+`tests/test_ci_parity.py` is what holds the relationship in place.
 
 It ends in `make pages`, which builds the school pages from committed fixtures and
 runs `html-validate` and `axe-core` over every one of them, in both languages. That

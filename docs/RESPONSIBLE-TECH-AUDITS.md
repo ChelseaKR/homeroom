@@ -230,9 +230,14 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
 
 ## F. Security
 
-- Surface: a local pipeline over locally acquired public files. No hosted
-  service, no secrets in the data, no inbound network surface. The real exposure
-  is the supply chain (actions, dependencies) and the by-hand acquisition step.
+- Surface: a local pipeline over locally acquired public files, plus two hosted
+  things. The static pages are served by GitHub Pages; the ask service (ADR
+  0003) has been deployed since 2026-08-22 as an AWS Lambda behind an
+  unauthenticated Function URL in `us-west-2`, which is a real inbound surface
+  and is modelled in `docs/audits/threat-model.md` boundary 5. This bullet read
+  "No hosted service ... no inbound network surface" until 2026-08-29, a week
+  after the deploy. There are no secrets in the data. The other real exposures
+  are the supply chain (actions, dependencies) and the by-hand acquisition step.
 - What could go wrong: a compromised action or dependency alters published
   numbers or exfiltrates credentials from CI; a tampered or mis-saved source file
   changes what pages say; workflow permissions creep.
@@ -299,8 +304,12 @@ Applies as of ADR 0003 (2026-08-21).
     equally true of a file recording that every case failed. The recorded run
     was and remains 157 of 157, so nothing was masked; nothing would have
     noticed if something had been.
-  - REVIEW (open): a person reads a sample of real answers in each language
-    before any deployment. Nobody has. Accountable owner: Chelsea Kelly-Reif.
+  - REVIEW (open, and overtaken): a person reads a sample of real answers in
+    each language. Nobody has. This read "before any deployment"; the service
+    was deployed on 2026-08-22 without it, so what was written as a gate in
+    front of the service is now an unmet obligation against a running one. The
+    commitment is not withdrawn to match what happened. Accountable owner:
+    Chelsea Kelly-Reif. See RR-07 in `docs/audits/residual-risk-register.md`.
 
 ## Governance (AI repos only)
 

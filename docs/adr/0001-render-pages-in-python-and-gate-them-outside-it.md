@@ -63,6 +63,11 @@ toolchain lives outside the product and never ships in it.
 - **No deployment.** Nothing here publishes, serves, or hosts. Whether these pages
   go on the internet, and where, is a separate decision with its own consequences
   for families whose schools appear on them, and it is not made by a build.
+  (Noted 2026-08-29, without altering the decision above: that separate decision
+  was made on 2026-08-22. The pages are served at homeroom.chelseakr.com by
+  `.github/workflows/pages.yml`, which publishes the committed `site/` and still
+  builds nothing, and the ask service of ADR 0003 is deployed. The renderer is
+  still what this ADR describes.)
 
 ## Consequences
 

@@ -25,8 +25,12 @@ stated. No composite score, no ranking, ever (ADR 0002). No account, no tracking
   documented browser step per file, the way CDE's download pages are meant to be
   used (PROVENANCE.md). Rejected: automated fetch at build time, which hides
   provenance behind a script and makes every page depend on a live endpoint.
-- CI never touches the network; committed fixtures exercise every parsing and
-  rendering case, including suppression.
+- CI never fetches a source file: no build step reaches CDE, and committed
+  fixtures exercise every parsing and rendering case, including suppression.
+  CI is not offline, and this line said it was until 2026-08-29: `make verify-ci`
+  reaches a package index and an advisory database at `uv sync`, `npm ci`,
+  `pip-audit`, `npm audit`, and the pinned `uvx` runs of semgrep and zizmor. What
+  never crosses the network is the data.
 - The `Measure` type carries three statuses (reported, suppressed, not reported)
   and makes masked cells unreadable as numbers (ADR 0002).
 - Rendering target is static bilingual pages. The toolchain was chosen at M4 (ADR
@@ -102,7 +106,7 @@ Access dates and acquisition rules live in PROVENANCE.md.
 |-------|----------|--------|
 | Directory rows parsed, no drift errors | 18,396 | D1 `pubschls.txt`, acquired 2026-08-07 |
 | Active schools | 10,534 | D1 |
-| Districts | 1,059 by CDS code (corrected; 1,048 was recorded here, which counts distinct district *names* and so loses eleven districts: ten names cover two districts each, and "Jefferson Elementary" covers three) | D1 |
+| Districts | 1,059 by CDS code (corrected; 1,048 was recorded here, which counts distinct district *names* and so loses eleven districts: ten names cover more than one district each, nine of them two apiece and "Jefferson Elementary" three) | D1 |
 | Counties | 58 (all) | D1 |
 | Charter schools | 1,238 | D1 |
 | Enrollment rows parsed (2025-26 Census Day) | 269,090 | D2 |
@@ -154,9 +158,11 @@ each of the four cell states) from source file to rendered markup.
 | Total chronic-absenteeism rate: reported / suppressed / not reported | 9,718 / 83 / 733 | `make data`, D1 + D2 + D3, across 10,534 active schools |
 | Join gap: absenteeism rows without a directory match | 263 | D1 + D3 |
 | Join gap: active schools without an absenteeism row | 733 | D1 + D3 |
-| Subgroup category suppressed most often, of schools with any row for it | `RI` (American Indian or Alaska Native): 451 reported, 9,350 suppressed (95.4%) | `make data` |
+| Subgroup category suppressed most often, of schools with any row for it | `GX` (Non-binary): 55 reported, 1,990 suppressed of 2,045 with any row (97.3%). A rendered subgroup, in the `gender` family. Its denominator is the small one: 8,489 active schools have no `GX` row at all, where `RI` has one at 9,801 of 10,534 | `make data` |
+| Subgroup category suppressed most often among those with a row at nearly every school | `RI` (American Indian or Alaska Native): 451 reported, 9,350 suppressed of 9,801 with any row (95.4%). This row said `RI` was the maximum until 2026-08-29; `GX` above is | `make data` |
+| Subgroup categories suppressed for over 94% of the schools with any row for them | 3 (`GX` 97.3%, `RI` 95.4%, `RP` 94.6%) | `make data`, `docs/SUPPRESSION-SHOWCASE.md` |
 | Subgroup category suppressed least often, of schools with any row for it | `TA` (all students): 9,718 reported, 83 suppressed (0.8%) | `make data` |
-| Chronic-absenteeism section rendered on Birch Lane Elementary's page | 4 tables (total, race/ethnicity, gender, student groups), 19 rows total, all four cell states present on one real school | `make site`, CDS 57726786056246 |
+| Chronic-absenteeism section rendered on Birch Lane Elementary's page | 4 tables (total, race/ethnicity, gender, student groups), 19 rows total, three of the four cell states present in that section (published figure, withheld, no figure published). The fourth, a published zero, is on the same page in the grade-span table; this row claimed all four were in the D3 section until 2026-08-29 | `make site`, CDS 57726786056246 |
 | D3 figures computed rather than copied | 0 (the rate is read from `ChronicAbsenteeismRate`, never divided out of the count and eligible-enrollment columns) | `tests/test_absenteeism.py`, `tests/test_artifacts.py` |
 | WCAG violations with M3 present, axe-core A/AA plus best-practice | 0 across 6 rule sets, both languages | `tools/a11y.mjs`, fixture build with `--absenteeism` |
 | Page re-runs with D3 present producing different bytes | 0 | `tests/test_pages.py::test_absenteeism_reruns_are_byte_identical` |
@@ -206,7 +212,7 @@ so no D5 figure can reach a page; the pages say that in words instead.
 | Measures per page | 40 (1 total, 14 grade spans, 25 subgroups), each in three columns: this school, its district, California | `src/homeroom/render.py` |
 | Coverage published beside each figure | 3 columns per row (publishing, withholding, publishing nothing), counted across 10,534 active schools | D1 + D2 |
 | Total-enrollment coverage stated on every page | 9,860 publishing, 0 withheld, 674 publishing nothing | D1 + D2 |
-| Pages the accessibility gate checks | 6 (3 fixture schools x 2 languages) | `make pages` |
+| Pages the accessibility gate checks | 13 (`build/site-offline`: 3 fixture schools x 2 languages plus the landing page; `build/site-offline/ask`: 3 x 2 ask pages). `tools/a11y.mjs` is run over both directories and does not recurse, so counting one of them reported 6 | `make pages` |
 | WCAG violations, axe-core A/AA plus best-practice | 0 across 6 rule sets, both languages | `tools/a11y.mjs` |
 | html-validate errors, conformance plus a11y presets | 0 | `make htmlvalidate` |
 | User-visible strings carried in both languages | 193 keys per locale, 386 strings total (117 interface, 33 reporting categories, 14 grade spans, 4 subgroup families, 25 chronic-absenteeism categories); 122 keys and 71 interface at M4, before D3 added its own 25-code catalog and 10 interface strings, 157 before the ask layer (ADR 0003) added 33 fixed interface strings (its labels, every refusal, and the ask page's own copy, none of which the model writes), 190 before the landing page added the two strings its front door needs, and 192 before the ask page stopped using a refusal as its help text and needed a help string of its own | `src/homeroom/i18n.py` |

@@ -4,7 +4,12 @@ Every source is a California Department of Education public file, downloaded fro
 public data pages in a browser, the way the pages are meant to be used. The pipeline
 therefore treats source files as locally acquired inputs rather than fetching them at
 build time: record the access date beside each file when acquired, and the pipeline
-stamps it into coverage output. CI never touches the network.
+stamps it into coverage output. CI never fetches a source file: no step in the
+build or the gate reaches CDE. That is narrower than "CI never touches the
+network", which is what this line said until 2026-08-29 and which is not true of
+`make verify-ci`: `uv sync`, `npm ci`, `pip-audit`, `npm audit` and the pinned
+`uvx` runs of semgrep and zizmor all reach a package index or an advisory
+database. What never crosses the network is the data.
 
 | # | Source | What it provides | Acquisition | Status |
 |---|---|---|---|---|
