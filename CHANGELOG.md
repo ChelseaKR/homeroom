@@ -39,6 +39,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     the social tags from the renderer.
 
 ### Fixed
+- **The committed tag ruleset was a lockout, and its own guard required it**
+  (2026-08-29). `.github/rulesets/tags.json` is a tag ruleset with `update` and
+  `deletion` over `refs/tags/v*`, and it carried `"bypass_actors": []`. Applied
+  as committed, nobody -- the repository owner included -- could delete or
+  re-point a release tag, including a bad one, and no break-glass path would
+  remain to undo it with. GitHub answers 201 to such an apply, so nothing warns
+  you; the same mistake elsewhere in this portfolio took a sweep across eighteen
+  repositories to unwind.
+  - Nothing live contradicted the file. As of 2026-08-29
+    `gh api repos/ChelseaKR/homeroom/rulesets` returns `[]` and
+    `repos/ChelseaKR/homeroom/branches/main/protection` returns 404 "Branch not
+    protected", so the profile has been wrong unopposed: committed, never
+    applied, and read by exactly one thing.
+  - That one thing mandated the defect. `automation/check_release_ruleset.py`
+    listed `("bypass_actors", [])` among the fields it required to be exact, and
+    the signed release-tag message asserted `Tag-Ruleset-Bypass-Actors: empty`.
+    Correcting the profile alone would have turned the build red, and correcting
+    the guard alone would have left the profile wrong, so both moved together.
+  - The profile now carries exactly
+    `{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}`:
+    the owner's standing bypass, admin, and `always` rather than
+    `pull_request`. The guard expects that same one-element list, still by exact
+    equality and not membership, so an empty list, an absent key, a non-list, a
+    foreign actor, a second actor alongside the owner, and
+    `bypass_mode: "pull_request"` all fail. This is a correction of what the
+    guard points at, not a loosening of how hard it points. The signed tag
+    message names the bypass it vouches for, derived from the same constant so
+    the signature and the profile cannot drift apart.
+  - `tests/test_release_ruleset.py` runs the shipped validator, not a copy of
+    it, against each of those five losing shapes and against a correct profile
+    as a positive control, so the check cannot pass by refusing everything. A
+    missing file and a malformed file are both held to failure, through
+    `load_ruleset` -- which returns errors rather than raising, and would
+    otherwise hand a caller `None` to read as "nothing wrong" -- and again
+    through `main`, so neither can be reported as valid anywhere in the chain.
+  - Demonstrated failing five ways, each confirmed landed by a JSON parse rather
+    than a grep: the empty list, a deleted file, a malformed file that still
+    contains the literal string `bypass_actors` and the owner's actor id (a
+    grep-based check passes exactly that shape; `grep -c` finds it and the parse
+    refuses it), `bypass_mode: "pull_request"`, and reverting the guard's own
+    constant to `[]` with the profile left correct, which fails seven tests.
+  - CICD-15 and CI-CD-STANDARD §5.1 prescribe "empty bypass actors" and, where a
+    bypass exists, `bypass_mode: "pull_request"`. That standard is not vendored
+    here, so nothing upstream is rewritten; the divergence is declined on the
+    record in the guard's docstring, in the test module, and as RR-11 in
+    `docs/audits/residual-risk-register.md`. A bypass that works only inside a
+    pull request is no use when the pull request is what is wedged, and a tag is
+    neither updated nor deleted through one.
 - **`make verify` was green on trees CI rejects** (2026-08-28). `AGENTS.md` said
   "`make verify` is the gate, byte-for-byte identical to CI" and the Makefile
   said the two "MUST stay byte-for-byte identical". CI ran three jobs and
