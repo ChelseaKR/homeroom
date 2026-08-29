@@ -63,7 +63,13 @@ from homeroom.render import (
     render_school,
     site_coverage,
 )
-from homeroom.site import UnknownSchoolError, build_site, main, sources
+from homeroom.site import (
+    SiteUrlError,
+    UnknownSchoolError,
+    build_site,
+    main,
+    sources,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "fixtures"
@@ -105,6 +111,11 @@ class Document(HTMLParser):
         self.lang: str | None = None
         self.title: str = ""
         self.metas: dict[str, str] = {}
+        # `property=` metas (OpenGraph) are a separate namespace from `name=`
+        # metas. Collapsing the two into one dict would let an og tag stand in
+        # for a missing `name` tag, or the reverse.
+        self.properties: dict[str, str] = {}
+        self.canonical: str | None = None
         self.text: list[str] = []
         self._capture: list[list[str]] = []
         self._heading: str | None = None
@@ -125,8 +136,12 @@ class Document(HTMLParser):
             key = attr.get("name") or ("charset" if "charset" in attr else "")
             if key:
                 self.metas[key] = attr.get("content", attr.get("charset", ""))
+            if "property" in attr:
+                self.properties[attr["property"]] = attr.get("content", "")
         elif tag == "link" and attr.get("rel") == "alternate":
             self.alternates.append((attr.get("hreflang", ""), attr.get("href", "")))
+        elif tag == "link" and attr.get("rel") == "canonical":
+            self.canonical = attr.get("href", "")
         elif tag == "a" and "href" in attr:
             self.hrefs.append(attr["href"])
         self._note_structure(tag, attr)
@@ -865,6 +880,161 @@ def test_the_two_languages_are_different_documents(built: Path) -> None:
         assert b'lang="es"' in spanish
         assert "Cómo leer esta página".encode() in spanish
         assert b"How to read this page" in english
+
+
+# ----------------------------------------------------------------------------------
+# Where the pages say they live
+#
+# A hosted build publishes absolute addresses: a canonical link, the OpenGraph
+# url, and a sitemap. Every one of those is a claim about where a page is, and a
+# wrong one sends a reader somewhere the page is not. So they are checked here,
+# against the fixture build, which is the build that runs with no acquired file
+# and no network.
+# ----------------------------------------------------------------------------------
+
+HOSTED_ORIGIN = "https://homeroom.example"
+
+
+@pytest.fixture(scope="module")
+def hosted(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The fixture build as it is published: an origin, a landing page, ask pages."""
+    out = tmp_path_factory.mktemp("hosted")
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=True,
+        ask_endpoint="https://ask.example.invalid",
+        landing=True,
+        site_url=HOSTED_ORIGIN,
+    )
+    return out
+
+
+def test_a_build_given_no_origin_claims_no_address(built: Path) -> None:
+    """The `built` fixture names no origin, so nothing may say where it is hosted."""
+    for _, _, path in every_page(built):
+        document = parse(path)
+        assert document.canonical is None, path.name
+        assert document.properties == {}, path.name
+    assert not (built / "robots.txt").exists()
+    assert not (built / "sitemap.xml").exists()
+
+
+def test_every_indexable_page_carries_a_canonical_pointing_at_itself(
+    hosted: Path,
+) -> None:
+    for cds, locale, path in every_page(hosted):
+        document = parse(path)
+        assert document.canonical == f"{HOSTED_ORIGIN}/{page_name(cds, locale)}", path
+    index = parse(hosted / "index.html")
+    assert index.canonical == f"{HOSTED_ORIGIN}/", "the root is addressed as the root"
+
+
+def test_the_social_tags_repeat_the_pages_own_title_and_description(
+    hosted: Path,
+) -> None:
+    """A card that says something the page does not is a claim with no page behind it."""
+    landing: tuple[str, Locale, Path] = ("", "en", hosted / "index.html")
+    for _, locale, path in [*every_page(hosted), landing]:
+        document = parse(path)
+        assert document.properties["og:title"] == document.title, path.name
+        assert document.properties["og:description"] == document.metas["description"], (
+            path.name
+        )
+        assert document.properties["og:url"] == document.canonical, path.name
+        assert document.properties["og:type"] == "website", path.name
+        assert document.metas["twitter:card"] == "summary", path.name
+        assert document.metas["twitter:title"] == document.title, path.name
+        assert document.properties["og:locale"] == (
+            "es_ES" if locale == "es" else "en_US"
+        ), path.name
+
+
+def test_no_page_promises_a_social_image_the_site_does_not_ship(hosted: Path) -> None:
+    """An og:image naming a file that is not there is worse than none at all."""
+    published = {path.name for path in hosted.rglob("*") if path.is_file()}
+    for path in hosted.rglob("*.html"):
+        document = parse(path)
+        assert "og:image" not in document.properties, path.name
+        assert "twitter:image" not in document.metas, path.name
+    assert not any(name.endswith((".png", ".jpg", ".svg")) for name in published)
+
+
+def test_the_ask_pages_stay_out_of_the_index_and_out_of_the_sitemap(
+    hosted: Path,
+) -> None:
+    """They are noindex, so listing them would ask a crawler for two things at once."""
+    sitemap = (hosted / "sitemap.xml").read_text(encoding="utf-8")
+    asked = sorted((hosted / "ask").glob("*.html"))
+    assert asked, "no ask page was built, so this checked nothing"
+    for path in asked:
+        assert parse(path).metas["robots"] == "noindex", path.name
+        assert f"/ask/{path.name}" not in sitemap, path.name
+    assert "/ask/" not in sitemap
+
+
+def test_the_sitemap_lists_every_indexable_page_and_nothing_else(hosted: Path) -> None:
+    listed = set(re.findall(r"<loc>(.*?)</loc>", (hosted / "sitemap.xml").read_text()))
+    expected = {f"{HOSTED_ORIGIN}/"} | {
+        f"{HOSTED_ORIGIN}/{page_name(cds, locale)}"
+        for cds in SCHOOLS
+        for locale in LOCALES
+    }
+    assert listed == expected
+
+
+def test_robots_allows_everything_and_points_at_the_sitemap(hosted: Path) -> None:
+    """The one page kept out of an index is kept out by its own meta, not by here.
+
+    A `Disallow` on the ask pages would stop a crawler fetching them, and so
+    stop it ever reading the `noindex` those pages carry.
+    """
+    lines = (hosted / "robots.txt").read_text(encoding="utf-8").split("\n")
+    assert [line for line in lines if line] == [
+        "User-agent: *",
+        "Allow: /",
+        f"Sitemap: {HOSTED_ORIGIN}/sitemap.xml",
+    ]
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://homeroom.chelseakr.com",  # a canonical must not name the plaintext address
+        "https://homeroom.chelseakr.com/homeroom",  # a leftover project path
+        "https://",  # no host
+        "homeroom.chelseakr.com",  # no scheme
+        "https://homeroom.chelseakr.com/?utm_source=x",
+    ],
+)
+def test_an_origin_that_is_not_a_bare_https_origin_is_refused(
+    tmp_path: Path, origin: str
+) -> None:
+    """A mistyped origin does not fail loudly; it publishes a wrong address."""
+    with pytest.raises(SiteUrlError):
+        build_site(
+            directory=DIRECTORY,
+            enrollment=ENROLLMENT,
+            out_dir=tmp_path / "site",
+            is_fixture=True,
+            landing=True,
+            site_url=origin,
+        )
+
+
+def test_a_trailing_slash_on_the_origin_does_not_double_up(tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=True,
+        landing=True,
+        site_url=f"{HOSTED_ORIGIN}/",
+    )
+    assert parse(out / "index.html").canonical == f"{HOSTED_ORIGIN}/"
+    assert "//index.html" not in (out / "sitemap.xml").read_text(encoding="utf-8")
 
 
 # ----------------------------------------------------------------------------------

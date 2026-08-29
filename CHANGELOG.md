@@ -6,6 +6,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **The published site can say where it lives** (2026-08-28). Nothing rendered
+  by `homeroom.site` had ever named an address, so
+  `homeroom.chelseakr.com/robots.txt` and `/sitemap.xml` were both 404 and no
+  page carried a canonical link or an OpenGraph tag. Nothing said which of the
+  two addresses for the root page was the one to keep.
+  - `--site-url` on `homeroom.site` takes the https origin the build will be
+    served from and, given one, writes a self-referencing `<link rel="canonical">`
+    and the OpenGraph and Twitter tags on every indexable page, plus
+    `robots.txt` and `sitemap.xml`. Omitted, the output is byte-identical to a
+    build before this existed, on the same reasoning as `--landing` and
+    `--ask-endpoint`: a page cannot honestly claim a canonical address on a
+    build nobody has said where to host.
+  - The social tags repeat the page's own title and description rather than a
+    second set written for a card, and there is deliberately no `og:image`:
+    the site ships no image asset, and an `og:image` naming a file that is not
+    there is worse than none at all.
+  - The ask pages stay `noindex` and stay out of the sitemap. `robots.txt`
+    disallows nothing, because a `Disallow` on those pages would stop a
+    crawler fetching them and so stop it ever reading the `noindex`.
+  - The origin is validated. `--site-url` refuses anything that is not a bare
+    `https` origin, including plain `http` and a leftover project path; a
+    mistyped origin does not fail loudly, it publishes a wrong address.
+  - `make site-offline` now passes a reserved-TLD origin, so the fixture gates
+    read the markup a hosted build ships without a fixture page claiming the
+    real domain's addresses. `tests/test_published_site.py` checks the
+    committed bytes: a canonical per page, robots and sitemap present, every
+    sitemap URL resolving to a file that was published, and no `github.io` or
+    plain `http` address anywhere. Each was demonstrated failing, by deleting
+    the published file, by stripping the canonical from a page, and by removing
+    the social tags from the renderer.
+
 ### Fixed
 - **`make verify` was green on trees CI rejects** (2026-08-28). `AGENTS.md` said
   "`make verify` is the gate, byte-for-byte identical to CI" and the Makefile
