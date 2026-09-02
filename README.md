@@ -4,6 +4,33 @@
 
 > Working title. Not affiliated with the State of California or any school district.
 
+**Live at <https://homeroom.chelseakr.com>** — one school so far, in English and
+Spanish. What is published there, and why it is one school rather than every
+school the pipeline profiles, is under [Status](#status).
+
+## Quickstart
+
+No acquired data and no network. `site-offline` renders every fixture school in
+both languages, which is the same renderer and the same code path the published
+site is built with — only the inputs differ.
+
+```sh
+uv sync --locked --extra ask                    # or: make sync
+make site-offline                               # 3 fixture schools, English and Spanish
+python3 -m http.server -d build/site-offline    # then open http://localhost:8000
+```
+
+The pages carry a fixture banner in both languages, because a page built from
+sample rows must never be mistakable for one about a real school.
+
+| Command | What it does |
+|---|---|
+| `make verify` | The single local gate; run it before opening a PR. Needs Node 22 for the markup and accessibility stages, which run `npm ci`. See CONTRIBUTING.md. |
+| `make site-offline` | The school pages, from committed fixtures. |
+| `make data-offline` | The same pipeline's JSON artifacts (`data/out/`), from the same fixtures. |
+| `make site` | The pages for a real school. Needs the CDE extracts in `data/raw/`, which are not in git — PROVENANCE.md names each file and how to acquire it. |
+| `make publish` | Rebuilds the committed `site/` tree that is served at the live URL. Needs `data/raw/` and `ASK_ENDPOINT`. |
+
 ## The problem
 
 California publishes an enormous amount of data about its public schools: enrollment,

@@ -747,14 +747,51 @@ def canonical_url(site_url: str, path: str) -> str:
     return f"{site_url}/{path}"
 
 
-def _social_meta(*, title: str, description: str, url: str, locale: Locale) -> str:
+def social_card_name(locale: Locale) -> str:
+    """The preview card published for one locale.
+
+    There are two files, not one, for the reason there are two of every page:
+    Spanish here is a launch requirement rather than a translation phase, and a
+    card is the only surface a reader sees before deciding whether to open the
+    page. An English card above a Spanish page would be the first thing a
+    Spanish-reading family is shown, and it would tell them this site is not
+    quite for them.
+    """
+    return f"social-card.{locale}.png"
+
+
+def social_card_alt(locale: Locale) -> str:
+    """What the card says, for a client that announces the alt text instead.
+
+    Composed from the strings already on the card rather than written again, so
+    there is nothing here for a translator to keep in sync and nothing to drift.
+    """
+    return (
+        f"{text(locale, 'site_name')}: {text(locale, 'site_tagline')} "
+        f"{text(locale, 'footer_no_ranking')}"
+    )
+
+
+def _social_meta(
+    *, title: str, description: str, url: str, locale: Locale, image: str
+) -> str:
     """The OpenGraph and Twitter tags shared by every indexable page.
 
     The title and description are the page's own, not a second set written for a
     social card: a card saying something the page does not is a claim this
-    project has no basis for. There is deliberately no ``og:image``; the site
-    ships no image asset, and an ``og:image`` naming a file that does not exist
-    is worse than none at all.
+    project has no basis for. The card image is held to the same rule -- it is
+    drawn from ``i18n.py`` by ``tools/make_social_card.py``, so it can only ever
+    repeat the site's own name, tagline and no-ranking rule.
+
+    ``image`` is absolute, and it is the only URL here that has to be for a
+    reason other than tidiness: a crawler reads ``og:image`` with no document to
+    resolve it against, so a relative value yields no card at all, silently, and
+    the only symptom is a bare link in somebody else's window. ``site.py`` builds
+    it with ``canonical_url`` and copies the file it names into the output, so
+    the tag cannot name a file the build did not publish. That was the objection
+    to ``og:image`` recorded here until now -- the site shipped no image asset,
+    and a tag naming a missing file is worse than no tag. It is answered by
+    publishing the file, not by dropping the requirement.
     """
     other = OTHER_LOCALE[locale]
     return "\n".join(
@@ -766,9 +803,12 @@ def _social_meta(*, title: str, description: str, url: str, locale: Locale) -> s
             f'<meta property="og:title" content="{_esc(title)}">',
             f'<meta property="og:description" content="{_esc(description)}">',
             f'<meta property="og:url" content="{_esc(url)}">',
-            '<meta name="twitter:card" content="summary">',
+            f'<meta property="og:image" content="{_esc(image)}">',
+            f'<meta property="og:image:alt" content="{_esc(social_card_alt(locale))}">',
+            '<meta name="twitter:card" content="summary_large_image">',
             f'<meta name="twitter:title" content="{_esc(title)}">',
             f'<meta name="twitter:description" content="{_esc(description)}">',
+            f'<meta name="twitter:image" content="{_esc(image)}">',
         )
     )
 
@@ -794,7 +834,13 @@ def _head(
         url = canonical_url(site_url, page_name(school.cds_code, locale))
         addressed = (
             f'<link rel="canonical" href="{_esc(url)}">\n'
-            + _social_meta(title=title, description=description, url=url, locale=locale)
+            + _social_meta(
+                title=title,
+                description=description,
+                url=url,
+                locale=locale,
+                image=canonical_url(site_url, social_card_name(locale)),
+            )
             + "\n"
         )
     return (

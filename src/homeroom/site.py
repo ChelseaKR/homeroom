@@ -23,6 +23,7 @@ clock. CI builds twice and compares hashes.
 from __future__ import annotations
 
 import argparse
+import shutil
 from dataclasses import dataclass
 from html import escape
 from pathlib import Path
@@ -53,7 +54,51 @@ from homeroom.render import (
     page_name,
     render_school,
     site_coverage,
+    social_card_name,
 )
+
+#: Where the preview cards live. Inside the package rather than beside it, so an
+#: installed wheel carries them the same way a checkout does. They are the only
+#: bytes this project publishes that no build step produces: rasterising text
+#: needs a font renderer and ``dependencies = []`` is a property this package
+#: keeps, so ``tools/make_social_card.py`` draws them out-of-band from the same
+#: ``i18n.py`` table the pages are rendered from, and the result is committed.
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+
+
+class MissingAssetError(FileNotFoundError):
+    """A page's ``og:image`` would name a file this build cannot publish.
+
+    Raised rather than warned, and rather than skipped, because the two quiet
+    outcomes are both worse. Emitting the tag anyway publishes a card pointing
+    at a 404, which renders worse than the ``summary`` card this site carried
+    before there was an image. Dropping the tag instead would leave a hosted
+    build silently without a card and nothing to notice it, which is exactly the
+    failure the deployment checks in this repository exist to refuse.
+    """
+
+
+def _publish_social_cards(out_dir: Path) -> list[Path]:
+    """Copy one preview card per locale into the build.
+
+    Only ever called for a build that was given an origin: without one no page
+    carries social markup at all, and a build that names no address must stay
+    byte-identical to a build made before any of this existed.
+    """
+    written: list[Path] = []
+    for locale in LOCALES:
+        name = social_card_name(locale)
+        source = ASSETS_DIR / name
+        if not source.is_file():
+            raise MissingAssetError(
+                f"{source} is missing, but every {locale} page in a hosted build "
+                f"names it as its og:image. Redraw the cards with "
+                f"`uv run --with pillow python tools/make_social_card.py`."
+            )
+        destination = out_dir / name
+        shutil.copyfile(source, destination)
+        written.append(destination)
+    return written
 
 
 class UnknownSchoolError(ValueError):
@@ -222,10 +267,15 @@ def build_site(
 
     ``site_url`` is the origin the output will be served from. Given, every
     indexable page gains a canonical address and its social tags, and the build
-    also writes ``robots.txt`` and ``sitemap.xml``. Left out, no page names an
-    address, no crawler file is written, and the output is byte-identical to a
-    build before any of this: a page cannot honestly claim a canonical address
-    on a build that has not been told where it will be served.
+    also writes ``robots.txt``, ``sitemap.xml`` and one preview card per locale.
+    Left out, no page names an address, no crawler file is written, no card is
+    copied, and the output is byte-identical to a build before any of this: a
+    page cannot honestly claim a canonical address on a build that has not been
+    told where it will be served.
+
+    The cards are copied under the same condition that emits the tag naming
+    them, in the same function, so a hosted build cannot publish an ``og:image``
+    pointing at a file it did not also publish.
     """
     if site_url is not None:
         site_url = normalise_site_url(site_url)
@@ -306,6 +356,7 @@ def build_site(
         pages.append(index)
         indexable.insert(0, "index.html")
     if site_url is not None:
+        pages.extend(_publish_social_cards(out_dir))
         robots = out_dir / "robots.txt"
         robots.write_text(robots_txt(site_url), encoding="utf-8")
         pages.append(robots)

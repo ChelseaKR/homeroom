@@ -231,6 +231,67 @@ def test_every_published_page_carries_a_canonical_pointing_at_itself() -> None:
         )
 
 
+def test_every_published_page_carries_the_social_tags_a_shared_link_needs() -> None:
+    """Shared anywhere, these pages have to arrive as more than a bare URL.
+
+    `make publish` is run by hand and the output is committed, so the published
+    bytes can fall behind the renderer with nothing noticing -- which is the
+    hazard this whole module exists for. `tests/test_pages.py` checks that the
+    renderer emits these tags; this checks that the bytes actually served carry
+    them, because those are two different facts about two different trees.
+    """
+    assert indexable(), "nothing indexable is published"
+    for path in indexable():
+        document = parse_markup(path.read_text(encoding="utf-8"))
+        for tag in ("og:title", "og:description", "og:image"):
+            assert document.properties.get(tag), (path.name, tag)
+        assert document.properties["og:url"] == published_url(path), path.name
+        assert document.properties["og:type"] == "website", path.name
+        assert document.metas.get("twitter:card") == "summary_large_image", path.name
+        assert document.metas.get("twitter:image") == document.properties["og:image"], (
+            path.name
+        )
+
+
+def test_every_published_card_is_a_file_that_was_actually_published() -> None:
+    """`og:image` is the one address here a reader never sees fail.
+
+    A canonical or an internal link that 404s is visible to somebody. A preview
+    card that 404s renders as a bare link in a window nobody involved is
+    looking at, so nothing but a check like this one would ever report it -- and
+    a card type of `summary_large_image` over a missing image is worse than the
+    `summary` card these pages carried before there was an image to promise.
+    """
+    for path in indexable():
+        document = parse_markup(path.read_text(encoding="utf-8"))
+        image = document.properties["og:image"]
+        assert image.startswith(f"{ORIGIN}/"), (path.name, image)
+        card = SITE / image.removeprefix(f"{ORIGIN}/")
+        assert card.is_file(), (path.name, image)
+        assert card.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n", card.name
+
+
+def test_each_published_language_carries_its_own_card() -> None:
+    """Spanish here is a launch requirement, not a later translation phase.
+
+    A preview is what a family sees before deciding whether to open the page, so
+    an English card over the Spanish page would be the first thing a
+    Spanish-reading parent is shown and the first thing telling them this site
+    is not quite for them.
+    """
+    for path in indexable():
+        if path.name == "index.html":
+            continue
+        locale = path.name.rsplit(".", 2)[1]
+        document = parse_markup(path.read_text(encoding="utf-8"))
+        assert document.properties["og:image"].endswith(f"social-card.{locale}.png"), (
+            path.name,
+            document.properties["og:image"],
+        )
+        alt = document.properties.get("og:image:alt", "")
+        assert text(locale, "site_tagline") in alt, path.name
+
+
 def test_no_published_address_points_at_the_old_project_path_or_plain_http() -> None:
     """The site used to answer on a github.io project path. It answers on TLS now."""
     for path in published():
