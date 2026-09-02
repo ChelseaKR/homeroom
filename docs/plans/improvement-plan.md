@@ -55,6 +55,19 @@ numbers, `figure` and `comparison` get only what their own cited cells publish.
 The independent eval scorer carried the identical construction and is narrowed
 the same way, by its own code path.
 
+Narrowing by kind reached the coverage tally, the build size and the grade span.
+It could not reach the third sort of number in the pool: the digit inside a
+measure's own label. "Grade 4" has to be sayable in a `figure` claim, because
+naming the row is half the sentence, so the label's digits stayed licensed as
+bare tokens for every kind -- and in the same committed fixture Grade 4 enrols
+9 students, so "Example Elementary enrolled 4 students in Grade 4" verified
+clean and was shown, with the number it borrowed sitting in the same sentence.
+That one is narrowed by position instead (`strip_label_references`, 2026-09-02):
+the digits written against the label's word come out of the claim before the
+check, in either language and in the shapes narration writes ("Grade 4", "4th
+grade", "Grades 7 and 8", "Grados 7 y 8"), and every other digit is matched
+against the cited cell as before. Both the verifier and the eval scorer.
+
 ### Phase 2 -- the ADR citation trail (issue #35) -- DONE
 
 Eight sites retargeted from the process meta-ADR to ADR 0002, the Accepted

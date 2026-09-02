@@ -44,6 +44,7 @@ EXAMPLE = "01100170112345"
 TOTAL = f"{EXAMPLE}|enrollment.total|2025-26"
 RATE = f"{EXAMPLE}|absenteeism.total|2024-25"
 WITHHELD = f"{EXAMPLE}|enrollment.group.RE_B|2025-26"
+GRADE_4 = f"{EXAMPLE}|enrollment.grade.GR_04|2025-26"  # "Grade 4", 9 students
 
 
 def cell(cell_id: str) -> Citation:
@@ -468,6 +469,26 @@ def test_citation_scorer_catches_a_coverage_tally_stated_as_the_school_figure(
         shown("note", "Across 3 schools, 1 publishes it.", f"{TOTAL}|school")
     )
     assert score_citation(case("citation"), note, example).passed
+
+
+def test_citation_scorer_catches_a_measure_label_digit_stated_as_the_figure(
+    example: SchoolEvidence,
+) -> None:
+    """Issue #34, the label instance: Grade 4 enrols 9 students, and the row is
+    named "Grade 4". The scorer must catch the sentence that states the label's
+    own digit as the count, and must not fire on the sentence that only names
+    the row -- otherwise the enrolment-by-grade answer scores as ungrounded."""
+    borrowed = response(
+        shown("figure", "Grade 4 enrolled 4 students.", f"{GRADE_4}|school")
+    )
+    assert any(
+        n.startswith("ungrounded_number_shown")
+        for n in score_citation(case("citation"), borrowed, example).notes
+    )
+    named = response(
+        shown("figure", "Grade 4 enrolled 9 students.", f"{GRADE_4}|school")
+    )
+    assert score_citation(case("citation"), named, example).passed
 
 
 def test_comparability_scorer_catches_cross_record_benchmarks_and_aggregates(

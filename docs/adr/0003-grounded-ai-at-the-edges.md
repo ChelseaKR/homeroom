@@ -81,7 +81,10 @@ Concretely:
    identifier from the committed corpus of CDE definitions. The verifier then
    checks, programmatically, that every cited record exists for this school,
    that every number in the sentence is a number one of its cited records
-   actually publishes (or a year, a grade label, or the CDS code), that a
+   actually publishes (or a year, or the CDS code; a grade label's own digit is
+   licensed only where the sentence writes it against the label -- "Grade 4",
+   "Grades 7 and 8" -- and never as a bare token, so it cannot be restated as
+   the school's figure), that a
    sentence about a withheld or unpublished record carries no digit and says
    "not published" or "withheld" in the reader's language, that a comparison
    cites the school record and its own district or statewide cell and states

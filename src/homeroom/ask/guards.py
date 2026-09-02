@@ -12,6 +12,9 @@ Three guards:
   function that makes a model sentence obey it.
 * :func:`numbers_in` extracts every number a sentence states, so the verifier
   can check each one against the cells the sentence cites.
+  :func:`strip_label_references` takes out the digits that are part of a
+  measure's *name* ("Grade 4") first, so those are licensed where they are
+  written and not as bare tokens anywhere in the claim (issue #34).
 * :func:`says_not_published` and :func:`renders_absence_as_value` decide whether
   a sentence about a withheld or unpublished cell says so honestly or turns the
   absence into a zero, a "none", or a "no students".
@@ -20,6 +23,7 @@ Three guards:
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 
 _JUDGMENT_EN = (
     r"better|worse|best|worst|top|bottom|superior|inferior|excellent|poor|"
@@ -114,6 +118,60 @@ def number_forms(value: float) -> set[str]:
     if float(value).is_integer():
         return {str(int(value))}
     return {f"{value:.1f}", repr(float(value))}
+
+
+_LABEL_TAIL = re.compile(r"^(?P<stem>.*?)\s*\d[\d\s,]*$")
+_ORDINAL = r"(?:st|nd|rd|th|º|°|ª)?"
+_JOIN = r"(?:\s*(?:,|&|[-\u2013]|\band\b|\by\b)\s*)"
+_RUN = rf"\d+{_ORDINAL}(?:{_JOIN}\d+{_ORDINAL})*"
+
+
+def label_reference(label: str) -> re.Pattern[str] | None:
+    """Where a sentence names ``label`` by its number, or ``None`` for no number.
+
+    A measure label such as "Grade 4" carries a digit that belongs to the
+    measure's *name*, not to the school's figure for it. ``None`` for every
+    label that is words alone ("All students", "Hispanic or Latino"), which is
+    most of them, and for any label whose digits do not sit at the end after a
+    word to anchor them -- all 24 digit-bearing labels in the catalog are
+    "Grade N"/"Grado N", and a shape this cannot anchor licenses nothing rather
+    than licensing a bare token, which is the safe direction to fail.
+
+    The pattern matches the number only where it is written against the label's
+    own word, in either order and in either language: "Grade 4", "Grades 7 and
+    8", "4th grade", "Grado 4", "Grados 7 y 8".
+    """
+    match = _LABEL_TAIL.match(label.strip())
+    if match is None:
+        return None
+    stem = match.group("stem").strip()
+    if not stem:
+        return None
+    word = rf"{re.escape(stem)}(?:e?s)?"
+    return re.compile(rf"(?:{word}\s*{_RUN}|{_RUN}\s*{word})", re.IGNORECASE)
+
+
+def strip_label_references(text: str, labels: Iterable[str]) -> str:
+    """``text`` with every "Grade 4"-shaped naming of ``labels`` blanked out.
+
+    A label's digit has to be sayable -- "Grade 4 has 9 students" is the
+    sentence a page wants -- but licensing the bare token ``4`` for the whole
+    claim let "the school enrolled 4 students in Grade 4" verify clean against
+    a cell whose value is 9. That is a number licensed by proximity to the
+    record rather than by the cell it cites, which is the defect issue #34 was
+    opened for; the coverage tally was one instance of it and the label is
+    another.
+
+    So the licence is positional. The digits written against the label's word
+    are removed here and never enter the check; a digit anywhere else in the
+    sentence survives and is matched against the cited cell's published value
+    like any other number.
+    """
+    for label in labels:
+        pattern = label_reference(label)
+        if pattern is not None:
+            text = pattern.sub(" ", text)
+    return text
 
 
 _NOT_PUBLISHED = re.compile(

@@ -12,11 +12,14 @@ What is checked, per claim:
   language in either language (:func:`homeroom.ask.guards.judgment_hits`);
 * every citation resolves to one of this school's cells or to a corpus passage;
 * every number in the text is a number one of its cited cells publishes, or a
-  year, a digit from a cited measure's label, or (for a verified quote) a number
-  in the quote. A number from nowhere is withheld. Coverage tallies, the build
-  size, and the grade span are context about the data rather than the school's
-  measured value, so they are licensed only for the `note` kind, whose subject
-  is that context (see :data:`CONTEXT_CLAIM_KINDS`);
+  year, or (for a verified quote) a number in the quote. A number from nowhere
+  is withheld. Coverage tallies, the build size, and the grade span are context
+  about the data rather than the school's measured value, so they are licensed
+  only for the `note` kind, whose subject is that context (see
+  :data:`CONTEXT_CLAIM_KINDS`). A digit that belongs to a cited measure's *name*
+  ("Grade 4") is licensed where it is written against that name and nowhere
+  else, by :func:`homeroom.ask.guards.strip_label_references`, so it cannot be
+  restated as the school's figure;
 * if any cited cell is withheld or unpublished, the text says so and does not
   turn the absence into a zero, a "none", or a "no students";
 * a comparison cites exactly a school cell and its own district or state cell,
@@ -41,6 +44,7 @@ from homeroom.ask.guards import (
     numbers_in,
     renders_absence_as_value,
     says_not_published,
+    strip_label_references,
     year_tokens,
 )
 from homeroom.ask.narration import CLAIM_KINDS
@@ -236,7 +240,31 @@ So context numbers are licensed only for the kind whose whole job is context.
 ``note`` is documented to the model as "context about the data (which year, why
 a figure is withheld)"; ``figure`` and ``comparison`` state cells' values and
 get only the values their own cited cells publish.
+
+A measure's *label* carries the third sort of number, and narrowing by kind
+cannot reach it: "Grade 4" has to be sayable in a figure claim, because naming
+the row is half the sentence. That one is narrowed by position instead --
+:func:`homeroom.ask.guards.strip_label_references` -- so the digit is licensed
+where it is written against the label's own word and nowhere else. Until
+2026-09-02 it was licensed as a bare token, and "Example Elementary enrolled 4
+students in Grade 4" verified clean against a cell whose value is 9.
 """
+
+
+def _cited_labels(resolved: _Resolved) -> list[str]:
+    """Every cited measure's label, in both languages.
+
+    Both, not the answer's own, because the label is the measure's name and a
+    sentence may carry it in either: a Spanish answer names CDE's categories,
+    and the fixtures' school and district names are English inside one. Which
+    language a label is written in does not change that its digits are part of
+    the name (issue #34, :func:`strip_label_references`).
+    """
+    return [
+        record.spec.label(locale)
+        for _, record, _, _ in resolved.cells
+        for locale in LOCALES
+    ]
 
 
 def _allowed_numbers(
@@ -254,8 +282,6 @@ def _allowed_numbers(
         if context:
             for count in record.coverage.values():
                 allowed |= number_forms(count)
-        for locale in LOCALES:
-            allowed.update(numbers_in(record.spec.label(locale)))
     if resolved.cells and context:
         allowed |= number_forms(evidence.schools_in_build)
         allowed.update(numbers_in(evidence.grades_served.replace("-", " ")))
@@ -469,7 +495,8 @@ def _verify_one(
     if isinstance(quote, WithheldClaim):
         return quote
     allowed = _allowed_numbers(resolved, evidence, quote, claim.kind)
-    stray = [n for n in numbers_in(claim.text) if n not in allowed]
+    stated = strip_label_references(claim.text, _cited_labels(resolved))
+    stray = [n for n in numbers_in(stated) if n not in allowed]
     if stray:
         return WithheldClaim("unverifiable_number", claim.text, ", ".join(stray))
     absence = _check_absence(claim, resolved)

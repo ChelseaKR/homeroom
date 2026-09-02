@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
+from homeroom.ask.catalog import CATALOG
 from homeroom.ask.guards import (
     judgment_hits,
+    label_reference,
     number_forms,
     numbers_in,
     renders_absence_as_value,
     says_not_published,
+    strip_label_references,
     year_tokens,
 )
+from homeroom.i18n import LOCALES
 
 
 @pytest.mark.parametrize(
@@ -74,6 +80,60 @@ def test_academic_years_are_not_read_as_two_numbers() -> None:
     assert numbers_in("2025/26 enrollment: 512") == ["512"]
     assert year_tokens("2024-25") == {"2024-25", "2024", "25", "2025"}
     assert year_tokens("2025-26") == {"2025-26", "2025", "26", "2026"}
+
+
+GRADES = ["Grade 4", "Grado 4", "Grade 7", "Grado 7", "Grade 8", "Grado 8"]
+
+
+@pytest.mark.parametrize(
+    ("sentence", "left"),
+    [
+        # The digit written against the row's name is the row's name.
+        ("Grade 4 has 9 students.", ["9"]),
+        ("4th grade has 9 students.", ["9"]),
+        ("Grado 4 tiene 9 estudiantes.", ["9"]),
+        ("Grades 7 and 8 are not served, so both counts are 0.", ["0"]),
+        ("Grados 7 y 8 no se ofrecen.", []),
+        # The same digit written anywhere else is a number the sentence asserts.
+        ("Example Elementary enrolled 4 students in Grade 4.", ["4"]),
+        ("Grade 4 enrolled 4 students.", ["4"]),
+        ("Grade 8 has 7 students.", ["7"]),
+    ],
+)
+def test_a_label_digit_is_licensed_where_it_names_the_row_and_nowhere_else(
+    sentence: str, left: list[str]
+) -> None:
+    """Issue #34: "Grade 4" names a row, so its 4 is not a figure; a 4 written
+    anywhere else in the same sentence still is, and must survive to be checked
+    against the cited cell."""
+    assert numbers_in(strip_label_references(sentence, GRADES)) == left
+
+
+def test_every_digit_bearing_label_in_the_catalog_can_be_anchored() -> None:
+    """`label_reference` licenses a label's digit only where the label's *word*
+    is written next to it, so a label whose digits it cannot anchor licenses
+    nothing at all and every sentence naming that row would be withheld. That
+    is the safe direction, but it should be a decision rather than a surprise:
+    this holds the docstring's count to the catalog it describes."""
+    digit_labels = [
+        spec.label(locale)
+        for spec in CATALOG.values()
+        for locale in LOCALES
+        if re.search(r"\d", spec.label(locale))
+    ]
+    assert len(digit_labels) == 24, digit_labels
+    assert all(label.split()[0] in {"Grade", "Grado"} for label in digit_labels)
+    assert all(label_reference(label) is not None for label in digit_labels)
+
+
+def test_a_label_without_a_number_licenses_nothing_and_removes_nothing() -> None:
+    """Most labels are words. "All students" must not swallow any digit, and a
+    label that is only digits has no name to be written against."""
+    sentence = "All students: 100 enrolled, 12.5% chronically absent."
+    assert numbers_in(strip_label_references(sentence, ["All students", "12"])) == [
+        "100",
+        "12.5",
+    ]
 
 
 def test_number_forms_are_exact_not_rounded() -> None:
