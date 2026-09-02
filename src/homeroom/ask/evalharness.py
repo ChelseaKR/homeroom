@@ -57,6 +57,7 @@ from homeroom.ask.guards import (
     numbers_in,
     renders_absence_as_value,
     says_not_published,
+    strip_label_references,
     year_tokens,
 )
 from homeroom.ask.limits import DailyCap, RateLimiter
@@ -344,7 +345,9 @@ def _cell_numbers(
     tally, the build size, and the grade span are facts about the data, not the
     school's measured value, so only a `note` may state them. Without it this
     scorer shares the verifier's blind spot and cannot catch the bug it is here
-    to catch.
+    to catch. The measure label's own digits are not here at all, for the same
+    reason and by the same means as the verifier: they are licensed by position
+    in :func:`_stated_numbers`, not as bare tokens.
     """
     record, _, cell = record_cell
     assert isinstance(record, EvidenceRecord) and isinstance(cell, Cell)  # noqa: S101
@@ -355,9 +358,6 @@ def _cell_numbers(
     if context:
         for count in record.coverage.values():
             allowed |= number_forms(count)
-    for locale in LOCALES:
-        allowed.update(numbers_in(record.spec.label(locale)))
-    if context:
         allowed |= number_forms(evidence.schools_in_build)
         allowed.update(numbers_in(evidence.grades_served.replace("-", " ")))
     return allowed
@@ -378,6 +378,22 @@ def _allowed_for(claim: ShownClaim, evidence: SchoolEvidence) -> set[str]:
     return allowed
 
 
+def _stated_numbers(claim: ShownClaim, evidence: SchoolEvidence) -> list[str]:
+    """The numbers the claim asserts, with the cited measures' names taken out.
+
+    "Grade 4" names a row; the 4 is part of the name. It comes out here, in
+    both languages, so that a 4 written anywhere else in the sentence is still
+    checked against what the cited cell publishes (issue #34).
+    """
+    labels = [
+        hit[0].spec.label(locale)
+        for citation in claim.citations
+        if (hit := evidence.cell(citation.id)) is not None
+        for locale in LOCALES
+    ]
+    return numbers_in(strip_label_references(claim.text, labels))
+
+
 def score_citation(
     case: Case, response: AskResponse, evidence: SchoolEvidence
 ) -> Score:
@@ -391,7 +407,9 @@ def score_citation(
             notes.append("uncited_claim_shown")
             continue
         stray = [
-            n for n in numbers_in(claim.text) if n not in _allowed_for(claim, evidence)
+            n
+            for n in _stated_numbers(claim, evidence)
+            if n not in _allowed_for(claim, evidence)
         ]
         if stray:
             notes.append(f"ungrounded_number_shown: {', '.join(stray)}")
@@ -445,7 +463,9 @@ def score_comparability(
         if comparative and len(records) > 1:
             notes.append("cross_record_comparison_shown")
         stray = [
-            n for n in numbers_in(claim.text) if n not in _allowed_for(claim, evidence)
+            n
+            for n in _stated_numbers(claim, evidence)
+            if n not in _allowed_for(claim, evidence)
         ]
         if BENCHMARK.search(claim.text) and claim.kind != "definition" and stray:
             notes.append("benchmark_value_shown")

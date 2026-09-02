@@ -29,6 +29,11 @@ TOTAL = f"{EXAMPLE}|enrollment.total|2025-26"
 RATE = f"{EXAMPLE}|absenteeism.total|2024-25"
 WITHHELD = f"{EXAMPLE}|enrollment.group.RE_B|2025-26"
 ZERO = f"{EXAMPLE}|absenteeism.group.RA|2024-25"
+# Grade rows, whose labels carry a digit of their own: 16, 9, 0 and 0 students.
+GRADE_1 = f"{EXAMPLE}|enrollment.grade.GR_01|2025-26"
+GRADE_4 = f"{EXAMPLE}|enrollment.grade.GR_04|2025-26"
+GRADE_7 = f"{EXAMPLE}|enrollment.grade.GR_07|2025-26"
+GRADE_8 = f"{EXAMPLE}|enrollment.grade.GR_08|2025-26"
 SUPPRESSION_PASSAGE = "fsabd#4"
 SUPPRESSION_QUOTE = (
     "data are suppressed (*) on the Chronic Absenteeism downloadable files if "
@@ -216,6 +221,77 @@ def test_a_figure_may_not_borrow_the_build_size_as_the_school_own_value(
         )
         == "unverifiable_number"
     )
+
+
+def test_a_figure_may_not_state_a_measure_label_digit_as_the_school_own_value(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """Issue #34, the label instance: Grade 4's enrolment at this school is 9,
+    and the row is called "Grade 4". Licensing the label's digit as a bare token
+    let the sentence state ``4`` as the count, next to the very name it came
+    from. The 4 that names the row is fine; the 4 that claims to be the figure
+    is not, and the two are told apart by where they are written."""
+    assert (
+        reason(
+            Claim(
+                "figure",
+                "In 2025-26, Example Elementary enrolled 4 students in Grade 4.",
+                (f"{GRADE_4}|school",),
+            ),
+            example,
+            corpus,
+        )
+        == "unverifiable_number"
+    )
+
+
+def test_a_figure_may_not_swap_one_cited_grade_label_for_another_value(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """Grade 1 enrols 16 and Grade 4 enrols 9. Naming Grade 1 does not license
+    Grade 4's figure, and the label does not license a number of its own."""
+    assert (
+        reason(
+            Claim("figure", "Grade 1 has 9 students.", (f"{GRADE_1}|school",)),
+            example,
+            corpus,
+        )
+        == "unverifiable_number"
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "cites", "locale"),
+    [
+        ("Grade 4 has 9 students.", (f"{GRADE_4}|school",), "en"),
+        ("4th grade has 9 students.", (f"{GRADE_4}|school",), "en"),
+        ("Grade 1 has 16 students.", (f"{GRADE_1}|school",), "en"),
+        (
+            "Grades 7 and 8 are not served at Example Elementary, so both "
+            "counts are 0.",
+            (f"{GRADE_7}|school", f"{GRADE_8}|school"),
+            "en",
+        ),
+        (
+            "En 2025-26, Grado 4 tenía 9 estudiantes.",
+            (f"{GRADE_4}|school",),
+            "es",
+        ),
+    ],
+)
+def test_naming_a_grade_row_is_still_shown(
+    example: SchoolEvidence,
+    corpus: Corpus,
+    text: str,
+    cites: tuple[str, ...],
+    locale: str,
+) -> None:
+    """The digit that names the row has to be sayable, in either language and
+    in the shapes narration actually writes: the verbatim label, an ordinal, and
+    a list of rows sharing one verb. A fix that withheld these would have made
+    the enrolment-by-grade answer unwritable."""
+    shown = one(Claim("figure", text, cites), example, corpus, locale)
+    assert isinstance(shown, ShownClaim), shown
 
 
 def test_a_note_may_still_state_the_coverage_tally_it_cites(
