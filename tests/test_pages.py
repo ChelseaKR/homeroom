@@ -36,6 +36,7 @@ from pathlib import Path
 
 import pytest
 
+from homeroom import site as site_module
 from homeroom.artifacts import (
     ABSENTEEISM_ACCESS_DATE,
     DIRECTORY_ACCESS_DATE,
@@ -58,6 +59,7 @@ from homeroom.render import (
     DIRECTORY_URL,
     ENROLLMENT_URL,
     LIGHT,
+    OTHER_LOCALE,
     STATE_COLOURS,
     SiteCoverage,
     page_name,
@@ -945,7 +947,7 @@ def test_the_social_tags_repeat_the_pages_own_title_and_description(
         )
         assert document.properties["og:url"] == document.canonical, path.name
         assert document.properties["og:type"] == "website", path.name
-        assert document.metas["twitter:card"] == "summary", path.name
+        assert document.metas["twitter:card"] == "summary_large_image", path.name
         assert document.metas["twitter:title"] == document.title, path.name
         assert document.properties["og:locale"] == (
             "es_ES" if locale == "es" else "en_US"
@@ -953,13 +955,73 @@ def test_the_social_tags_repeat_the_pages_own_title_and_description(
 
 
 def test_no_page_promises_a_social_image_the_site_does_not_ship(hosted: Path) -> None:
-    """An og:image naming a file that is not there is worse than none at all."""
+    """An og:image naming a file that is not there is worse than none at all.
+
+    This test used to assert the site shipped no image and no page named one.
+    It does now, so the claim it holds is the one that mattered all along: the
+    tag names a file this build actually wrote. `_publish_social_cards` copies
+    the cards inside the same `site_url is not None` branch that emits the tag,
+    so the two cannot come apart -- and this is what says so, by resolving every
+    `og:image` on every page back to a file in the output directory.
+    """
     published = {path.name for path in hosted.rglob("*") if path.is_file()}
+    assert any(name.endswith(".png") for name in published), "no card was published"
     for path in hosted.rglob("*.html"):
         document = parse(path)
-        assert "og:image" not in document.properties, path.name
-        assert "twitter:image" not in document.metas, path.name
-    assert not any(name.endswith((".png", ".jpg", ".svg")) for name in published)
+        image = document.properties.get("og:image")
+        if image is None:
+            # The ask pages are noindex and carry no social markup at all.
+            assert path.parent.name == "ask", path.name
+            continue
+        assert image.startswith(f"{HOSTED_ORIGIN}/"), (path.name, image)
+        assert image.rsplit("/", 1)[-1] in published, (path.name, image)
+        assert document.metas["twitter:image"] == image, path.name
+
+
+def test_each_language_gets_its_own_card_and_the_alt_text_is_in_that_language(
+    hosted: Path,
+) -> None:
+    """A Spanish page above an English card tells a family this is not for them.
+
+    Spanish is a launch requirement in this repository rather than a later
+    translation phase, and a preview is the one surface a reader sees *before*
+    deciding whether to open the page -- so it is the last place the Spanish
+    should thin out. The cards are drawn from the same `i18n.py` table the pages
+    are rendered from, which is why this can check the pairing rather than the
+    wording.
+    """
+    for _, locale, path in every_page(hosted):
+        document = parse(path)
+        assert document.properties["og:image"].endswith(f"social-card.{locale}.png"), (
+            path.name,
+            document.properties["og:image"],
+        )
+        alt = document.properties["og:image:alt"]
+        assert alt, path.name
+        assert text(locale, "site_tagline") in alt, path.name
+        assert text(OTHER_LOCALE[locale], "site_tagline") not in alt, path.name
+
+
+def test_a_hosted_build_refuses_to_name_a_card_it_cannot_publish(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The failure mode a missing asset would otherwise have: a card 404.
+
+    Every page in a hosted build names its card, so the copy is not optional and
+    a build that cannot make it has to stop. Skipping the copy would publish
+    pages pointing at nothing; skipping the tag instead would quietly drop the
+    card from a hosted site with nothing to notice.
+    """
+    monkeypatch.setattr(site_module, "ASSETS_DIR", tmp_path / "not-here")
+    with pytest.raises(site_module.MissingAssetError, match="make_social_card"):
+        build_site(
+            directory=DIRECTORY,
+            enrollment=ENROLLMENT,
+            out_dir=tmp_path / "out",
+            is_fixture=True,
+            landing=True,
+            site_url=HOSTED_ORIGIN,
+        )
 
 
 def test_the_ask_pages_stay_out_of_the_index_and_out_of_the_sitemap(

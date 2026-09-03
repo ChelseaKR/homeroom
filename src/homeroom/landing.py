@@ -22,6 +22,7 @@ from homeroom.render import (
     _social_meta,
     canonical_url,
     page_name,
+    social_card_name,
 )
 
 LANDING_STYLE = """
@@ -76,7 +77,13 @@ def render_landing(
         url = canonical_url(site_url, "index.html")
         addressed = (
             f'<link rel="canonical" href="{_esc(url)}">\n'
-            + _social_meta(title=title, description=description, url=url, locale="en")
+            + _social_meta(
+                title=title,
+                description=description,
+                url=url,
+                locale="en",
+                image=canonical_url(site_url, social_card_name("en")),
+            )
             + "\n"
         )
     return (
