@@ -73,7 +73,7 @@ gate, byte-for-byte identical locally and in CI.
 | M4 (done 2026-08-08) | First bilingual school page, with district and statewide context | One real school rendered EN/ES from acquired data (Birch Lane Elementary, Davis Joint Unified, CDS 57726786056246); a11y and EN/ES parity gates wired and merge-blocking from this milestone; each measure sits beside its district and statewide figure, read from CDE's own `Charter=ALL` aggregate rows and never summed from schools |
 | D5a (rebuilt against the real file 2026-08-21) | D5 teacher assignment monitoring parser | Parser, spine join, artifact and coverage output built and verified against the real acquired 2023-24 file; every rendering case and the drift refusals covered; no D5 number published on any page or in `make data`'s default invocation, and PROVENANCE says why |
 | A1 (built and deployed 2026-08-22, ADR 0003) | Grounded ask layer | One school per request; structuring, narration, verifier; fixed bilingual refusals; corpus of CDE definitions with hashes and retrieval dates; five committed evaluation suites with provenance-stamped results (157/157 on Bedrock claude-sonnet-4-6, 2026-08-22, real data; 23 of 534 model sentences withheld by the verifier); opt-in ask page that makes no request until a question is submitted, proven in a DOM; school pages byte-identical to a build without it; deployed 2026-08-22 as CloudFormation stack `homeroom-ask` in us-west-2 on Bedrock `global.anthropic.claude-sonnet-4-6`, verified live (cited answer, ranking bait refused, foreign origin rejected) |
-| M5 | D4, D6 | Dashboard indicators and per-pupil spending joined where published. (D5 is acquired and schema-verified as of D5a; publishing it on a page is a separate decision this roadmap has not made, tracked at issue level rather than promised a milestone here) |
+| M5 | D4, D6 | Dashboard indicators and per-pupil spending joined where published. (D5 is acquired and schema-verified as of D5a; publishing it on a page is a separate decision this roadmap has not made, tracked at issue level rather than promised a milestone here.) Both sources were surveyed 2026-09-05 and both exist and are readable, one of them at a different address than this project had recorded; neither is acquired and neither publishes a number. What M5 now waits on is not a file but two decisions, and they are recorded under "M5 source survey" below |
 
 ## Metrics ledger
 
@@ -226,6 +226,63 @@ The withheld count on the real page is zero for the same reason the M3a table
 records: CDE does not mask the cells M4 publishes in this file. The withheld
 rendering path is load-bearing anyway, and the fixture pages exercise it, because
 D3 is a masked-heavy dataset and these are the pages it will land on.
+
+### M5 source survey (2026-09-05)
+
+M5 is the one unshipped milestone in the table above, and it had never been
+established that its two sources exist in the shape the milestone assumes. They
+were surveyed on 2026-09-05: every figure below was measured by opening the real
+published files, not read off a description of them. Neither source is acquired.
+The files are not in `data/raw/`, no access date is recorded, and no number from
+either reaches an artifact or a page; PROVENANCE.md D4 and D6 carry the full
+record and say why *surveyed* is a weaker word than *acquired*.
+
+Two things were found that a plan written from the download pages would have got
+wrong, and one of them was already written down here as fact.
+
+| Value | Measured | Source |
+|-------|----------|--------|
+| D4 files behind "the Dashboard indicators", 2025 | 9 (eight state indicators -- ELA, Math, Science, Chronic Absenteeism, Suspension, Graduation, College/Career, English Learner Progress -- plus a Growth Model file), not one file | D4 download pages under `/ta/ac/cm/` |
+| D4 bytes and data rows across those nine | 153,581,873 bytes, 1,104,219 rows | D4, surveyed 2026-09-05 |
+| D4 column counts | 17 (Growth) to 109 (College/Career); 22 columns common to all eight indicator files | D4 |
+| D4 files spelling the change-level column `changelevel` / `changeLevel` | 7 / 1 (Chronic Absenteeism is the one); a parser matching a single spelling drops the column on the other file without failing | D4 |
+| D4 cells masked with `*`, the sentinel D2 and D3 use | 0 of all nine files. Suppression here is a *blank cell*: 37,763 of the 114,225 chronic rows carry a blank `currnumer` and `currstatus` while `currdenom` is populated | D4 |
+| D4 rows where `color` is `0`, which CDE's layout defines as "No Color" rather than a value | 55,651 of 114,225 (chronic). `statuslevel`, `changelevel` and `box` use `0` the same way | D4 record layout `/ta/ac/cm/chronic24.asp` |
+| D4 `studentgroup` codes needing reviewed display names | 21 across the nine files (2 in ELPI, 20 in ELA/Math/Science); a third vocabulary, sharing codes with neither D2's nor D3's | D4 |
+| D4 school coverage | 2,551 schools (College/Career, Graduation) to 9,969 (Suspension); 9,971 distinct schools across all nine | D4 |
+| D4 context available from CDE's own aggregate rows | Yes: `rtype` carries `D` (district) and `X` (state) rows, so district and statewide figures are read, never summed | D4 |
+| D6 school-level rows in the source this roadmap had recorded (SACS / Current Expense of Education) | 0. Both are LEA-level; Current Expense of Education says on its own page it "is calculated at a school district level", and SACS ships as self-extracting Windows `.exe` archives for Microsoft Access | https://www.cde.ca.gov/ds/fd/ec/, https://www.cde.ca.gov/ds/fd/fd/ |
+| Distinct values in `STEXP`, the per-pupil column of the SARC file that is school-grained | 1 (11146.18) across all 10,274 school rows: the statewide figure repeated, not the school's. CDE's note on that page: "The CDE provides State Expenditures Per Pupil (Unrestricted) ... The remaining data is to be provided by the LEA" | `sarc2425/expend.txt`, surveyed 2026-09-05 |
+| D6 source that does publish a school figure | ESSA Per-Pupil Expenditure, https://www.cde.ca.gov/fg/ac/es/essappedata.asp -- required by ESEA sections 1111(h)(1)(C)(x) and 1111(h)(2)(C), and at a different address than this project had recorded | D6 |
+| D6 school rows, columns, and CDS shape | 10,065 rows over 11 columns (header on row 7), every CDS code 14 characters, none duplicated | `essappe2425data.xlsx`, 1,035,042 bytes |
+| D6 district context rows | 1,980, on the workbook's second sheet and a different 7-column layout: CDE's own LEA aggregate, never a sum of schools. It is not column-comparable to the school sheet, which has no counterpart to its `Expenditures-Excluded ($)` column | D6 |
+| D6 withheld rows, and the sentinel | 187 of 10,065, marked `DNR` ("Did Not Report") rather than `*`, and always all four expenditure columns together, never a subset | D6 |
+| D6 genuine zeros, which are not the same thing | 1,352 / 842 / 817 / 140 across the four expenditure columns, so zero-versus-withheld is live in this file rather than theoretical | D6 |
+| D6 published totals | 0. The file publishes four per-pupil components (School-Federal, School-State & Local, Central-Federal, Central-State & Local) and no total, so a single "per-pupil spending" figure would have to be summed rather than copied | D6 |
+| D6 denominators in use | 3: `Student Membership Type` is Census Day Enrollment on 9,767 rows, Cumulative Enrollment on 203, Annual ADA on 95, so two schools' figures are not necessarily per the same count | D6 |
+
+What M5 waits on is therefore not a file. It is two decisions, and both are the
+kind this project makes explicitly rather than in a parser:
+
+1. **May a Dashboard band be shown at all?** `color`, `statuslevel`,
+   `changelevel` and `box` are an ordered, state-assigned performance band
+   (1=Red through 5=Blue; `box` is a position in a 5x5 grid). Rendering one is
+   rendering an ordering of schools, which is what ADR 0002 refuses. The plain
+   figures in the same files -- `currstatus`, `currnumer`, `currdenom`, `change`
+   -- are copyable cells and raise no such question, and D4 without the bands is
+   a coherent, smaller deliverable. This is the same shape of decision as the
+   open one about publishing D5, and it needs an ADR either way.
+2. **What number is "per-pupil spending"?** There is no published total, so the
+   honest options are to show CDE's four components as four measures or to show
+   none. Summing them is a computed cell, and on a `DNR` row a sum would read a
+   withheld component as zero -- the exact failure the no-derived-values rule
+   exists to prevent. The mixed denominators are a second reason not to let one
+   number stand alone.
+
+A third item is smaller but real: D6 publishes XLSX only, with no TXT or CSV, so
+reading it needs a stdlib XLSX reader (`zipfile` plus `xml.etree` over the shared
+string table). That stays inside ADR 0001's stdlib-only rule -- no new dependency
+-- but it is new surface, and worth naming before it is written rather than after.
 
 ## Scoping: N/A declarations
 
