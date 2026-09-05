@@ -162,8 +162,20 @@ argument for it at all, and PROVENANCE.md says publishing it is a separate,
 not-yet-made decision. No school page shows a teacher figure; each page says so
 in words, and a test renders a profile that does carry parsed assignment
 outcomes to prove none of them reaches the markup. The remaining datasets (D4,
-the state dashboard indicators, and D6, per-pupil spending) are a plan recorded
-in PROVENANCE.md too.
+the state dashboard indicators, and D6, per-pupil spending) were surveyed on
+2026-09-05: both exist and are readable, D6 at a different address than this
+project had recorded, and neither is acquired or publishes anything. D4 turned
+out to be nine files rather than one, sharing 22 columns and not a schema, in
+which suppression is a blank cell and `0` means "No Color" rather than zero. D6
+turned out not to be in the SACS files this repository had pointed at, which are
+district-level; the school-level source is CDE's ESSA per-pupil expenditure
+workbook, which publishes four components and no total, so the one number a
+reader would expect does not exist in the file and could only be computed. Both
+therefore wait on a decision rather than a download: whether an ordered
+Dashboard band may be shown at all under ADR 0002, and what "per-pupil spending"
+is allowed to mean when the state publishes no total. PROVENANCE.md D4 and D6
+carry the measurements and docs/ROADMAP.md "M5 source survey" states the
+decisions.
 
 **Live at <https://homeroom.chelseakr.com>** since 2026-08-22, by the owner's
 decision. Whether these pages belonged on the internet was a separate question

@@ -8,6 +8,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **M5's two sources were surveyed against the real published files, and one of
+  them was not where this repository said it was** (2026-09-05). D4 and D6 were
+  the last two rows in PROVENANCE.md reading "Planned", which is a status that
+  can hide either "not started" or "not possible", and nothing here had checked
+  which. Both exist. D4 is nine files, not one: eight state-indicator files plus
+  a Growth Model file, 153,581,873 bytes and 1,104,219 rows, sharing 22 columns
+  and not a schema (17 to 109 columns each), one of which spells `changeLevel`
+  where the other seven spell `changelevel`. It masks nothing with `*`;
+  suppression is a blank cell, and `0` in `color`, `statuslevel`, `changelevel`
+  and `box` is CDE's "No Color", not a value -- 55,651 of 114,225 chronic rows
+  read `color` = 0, which a parser reading it as an integer would publish as a
+  band. D6's recorded pointer, "SACS/LCFF public files", was aimed at
+  district-level data: Current Expense of Education says on its own page that it
+  is calculated at district level, SACS ships as Windows `.exe` archives for
+  Microsoft Access, and the SARC file that is school-grained carries one distinct
+  value in its per-pupil column -- 11146.18, the statewide figure, on all 10,274
+  rows. The school-level source is CDE's ESSA Per-Pupil Expenditure workbook,
+  10,065 school rows, whose sentinel is `DNR` rather than `*` and which publishes
+  four per-pupil components and no total. Neither source is acquired: the files
+  are not in `data/raw/`, no access date is recorded, and no number from either
+  reaches an artifact or a page. PROVENANCE.md D4 and D6 carry the measurements,
+  docs/ROADMAP.md gains an "M5 source survey" section, and PROVENANCE.md's rules
+  now define *surveyed* as the weaker word it is.
+
 - **Every figure the documents quote off `evals/results/` is now re-derived from
   it** (2026-08-29). `test_every_results_file_either_ran_with_provenance_or_says_not_run`
   holds each results file to the harness's own exit condition, which is the right
