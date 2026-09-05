@@ -35,6 +35,7 @@ jobs:
     name: Provisional releases are not implemented
     if: inputs.release_mode == 'provisional'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions: {}
     steps:
       - name: Fail closed
@@ -47,6 +48,7 @@ jobs:
     name: Verify tag and build deterministic package evidence
     if: inputs.release_mode == 'normal'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     outputs:
@@ -222,6 +224,7 @@ jobs:
     name: Checkout-free keyless signer
     needs: verify-build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       id-token: write
     steps:
@@ -301,6 +304,7 @@ jobs:
     name: Publish verified release
     needs: [verify-build, sign-attest]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -328,6 +332,7 @@ jobs:
     name: Verify published bytes, signatures, and predicates
     needs: [verify-build, publish]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
