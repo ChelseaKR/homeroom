@@ -351,8 +351,12 @@ def _unquoted(claim: ShownClaim) -> str:
     the whole claim unless the quote is verbatim from a cited passage, so nothing
     can enter this way that CDE did not write. CDE's glossary names school types
     and, in one passage, an example school, and none of that is the model naming
-    a school. Only this check skips the quote; the judgment and ordering checks
-    above still read every word of the claim.
+    a school.
+
+    :func:`_stated_numbers` reads the claim through here for the same reason and
+    against a different sentence: the digits inside the quotation are CDE
+    saying them, and the ones outside it are the model saying them about this
+    school. The judgment and ordering checks still read every word of the claim.
     """
     if not claim.quote:
         return claim.text
@@ -480,7 +484,9 @@ def _cell_numbers(
     scorer shares the verifier's blind spot and cannot catch the bug it is here
     to catch. The measure label's own digits are not here at all, for the same
     reason and by the same means as the verifier: they are licensed by position
-    in :func:`_stated_numbers`, not as bare tokens.
+    in :func:`_stated_numbers`, not as bare tokens. Nor is a quoted passage's,
+    for the same reason again and by means the verifier does not share; the
+    reasoning is in :func:`_stated_numbers`.
     """
     record, _, cell = record_cell
     assert isinstance(record, EvidenceRecord) and isinstance(cell, Cell)  # noqa: S101
@@ -497,6 +503,14 @@ def _cell_numbers(
 
 
 def _allowed_for(claim: ShownClaim, evidence: SchoolEvidence) -> set[str]:
+    """Every number this displayed claim's own citations publish.
+
+    A quoted passage is not among them. It used to be: every number anywhere in
+    ``claim.quote`` went into this pool as a bare token, matching the verifier
+    line by line, so the one bug the scorer could not catch was the one it
+    shared (issue #64). What replaces it is not the verifier's rule copied
+    across -- see :func:`_stated_numbers`.
+    """
     context = claim.kind in CONTEXT_CLAIM_KINDS
     allowed: set[str] = set()
     for citation in claim.citations:
@@ -506,17 +520,31 @@ def _allowed_for(claim: ShownClaim, evidence: SchoolEvidence) -> set[str]:
     for source in evidence.sources.values():
         if source.academic_year:
             allowed |= year_tokens(source.academic_year)
-    if claim.quote:
-        allowed.update(numbers_in(claim.quote))
     return allowed
 
 
 def _stated_numbers(claim: ShownClaim, evidence: SchoolEvidence) -> list[str]:
-    """The numbers the claim asserts, with the cited measures' names taken out.
+    """The numbers the claim asserts, with the cited measures' names and its own
+    quotation taken out.
 
     "Grade 4" names a row; the 4 is part of the name. It comes out here, in
     both languages, so that a 4 written anywhere else in the sentence is still
     checked against what the cited cell publishes (issue #34).
+
+    The quotation comes out for the same reason (issue #64), through this
+    module's own :func:`_unquoted`. That leaves the scorer one rule, and
+    deliberately a different one from the verifier's: *a number a displayed
+    claim states outside its own verified quote is a number one of its cited
+    cells has to publish*. It names no claim kind. The verifier's rule does --
+    it licenses the quotation only for the kind the ``quote`` field belongs to
+    (``verifier.QUOTE_CLAIM_KINDS``) -- and that difference is the point.
+    Importing that set, the way ``CONTEXT_CLAIM_KINDS`` is imported above, would
+    make a wrong entry in it invisible here; stating the rule without any kind
+    at all makes this check strictly the wider of the two, so a claim the
+    verifier licenses through a kind it should not have is still caught by the
+    number it states. Context numbers cannot be written that way -- a coverage
+    tally is licensed by *whose* sentence it is, which is a kind -- and the
+    quote can, because it is licensed by *where* in the sentence it is written.
     """
     labels = [
         hit[0].spec.label(locale)
@@ -524,7 +552,7 @@ def _stated_numbers(claim: ShownClaim, evidence: SchoolEvidence) -> list[str]:
         if (hit := evidence.cell(citation.id)) is not None
         for locale in LOCALES
     ]
-    return numbers_in(strip_label_references(claim.text, labels))
+    return numbers_in(strip_label_references(_unquoted(claim), labels))
 
 
 def score_citation(

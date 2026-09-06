@@ -84,7 +84,9 @@ Concretely:
    actually publishes (or a year, or the CDS code; a grade label's own digit is
    licensed only where the sentence writes it against the label -- "Grade 4",
    "Grades 7 and 8" -- and never as a bare token, so it cannot be restated as
-   the school's figure), that a
+   the school's figure, and a quoted CDE passage's digits are licensed the same
+   way, where the sentence quotes them and only for the `definition` kind the
+   quote field belongs to), that a
    sentence about a withheld or unpublished record carries no digit and says
    "not published" or "withheld" in the reader's language, that a comparison
    cites the school record and its own district or statewide cell and states

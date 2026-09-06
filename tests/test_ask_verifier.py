@@ -43,6 +43,12 @@ SUPPRESSION_QUOTE = (
     "the cell size within a selected student population (Chronic Absenteeism "
     "Eligible Cumulative Enrollment) is 10 or less"
 )
+# CDE's statutory definition of a chronic absentee, and the 10 in it. The
+# fixture school's own rate is 12.5, so the two numbers collide (issue #64).
+ABSENTEE_PASSAGE = "cwa#13"
+ABSENTEE_QUOTE = (
+    "a pupil who is absent on 10 percent or more of the schooldays in the school year"
+)
 
 
 def one(
@@ -331,6 +337,121 @@ def test_a_figure_still_shows_the_value_its_own_cell_publishes(
     assert isinstance(shown, ShownClaim)
 
 
+@pytest.mark.parametrize("kind", ["figure", "comparison", "definition", "note"])
+def test_no_kind_may_state_a_quoted_passage_number_as_the_school_own_value(
+    kind: str, example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """Issue #64: CDE's definition of a chronic absentee contains the number 10.
+
+    Example Elementary's published rate is 12.5, and
+    :func:`homeroom.ask.narration.narration_prompt` puts the ``cwa`` passages
+    and the school's absenteeism cells into the same model turn whenever the
+    lookup names both -- the committed eval case ``cit-006`` is exactly that
+    lookup. So the model holds the school's cell and a licensing quote at once,
+    and until 2026-09-05 ``_allowed_numbers`` ended by adding every number
+    anywhere in a verified quote to the allowed set as a bare token, for any
+    kind. The sentence below then verified clean, beside a real citation of the
+    cell it contradicts, wrong by 2.5 points; the same sentence without the
+    passage cite was withheld, so the quote was the whole difference.
+
+    Every kind is checked because the kind is the model's to write. Narrowing
+    the quote pool by kind alone -- the way the coverage tally is narrowed --
+    would have left this sentence one word away from passing again, since
+    nothing stops a claim that reads like a figure from being labelled
+    ``definition``. The licence has to be positional, so the digits CDE wrote
+    are licensed where the sentence quotes them and nowhere else.
+    """
+    assert (
+        reason(
+            Claim(
+                kind,
+                "At Example Elementary, 10 percent of students were "
+                "chronically absent in 2024-25.",
+                (f"{RATE}|school", ABSENTEE_PASSAGE),
+                quote=ABSENTEE_QUOTE,
+            ),
+            example,
+            corpus,
+        )
+        == "unverifiable_number"
+    )
+
+
+def test_a_quote_still_licenses_the_number_the_sentence_quotes(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """The narrowing must leave the definition answer writable.
+
+    A definition that puts CDE's words in the sentence keeps CDE's digits with
+    them, which is the shape the recorded run's absenteeism definitions take.
+    The school's own figure is unaffected either way: it is licensed by the cell
+    it cites, quote or no quote. And a quote on a kind the schema does not give
+    one to stays legal and stays displayed -- it simply licenses nothing, so a
+    note may still show CDE's words beside the data they describe.
+    """
+    quoting = one(
+        Claim(
+            "definition",
+            f"California defines a chronic absentee as '{ABSENTEE_QUOTE}'.",
+            (ABSENTEE_PASSAGE,),
+            quote=ABSENTEE_QUOTE,
+        ),
+        example,
+        corpus,
+    )
+    assert isinstance(quoting, ShownClaim)
+    assert quoting.quote == ABSENTEE_QUOTE
+
+    with_the_cell = one(
+        Claim(
+            "figure",
+            "In 2024-25, Example Elementary's chronic absenteeism rate was 12.5%.",
+            (f"{RATE}|school", ABSENTEE_PASSAGE),
+            quote=ABSENTEE_QUOTE,
+        ),
+        example,
+        corpus,
+    )
+    assert isinstance(with_the_cell, ShownClaim)
+
+    noted = one(
+        Claim(
+            "note",
+            "The state's own wording is quoted beneath this answer.",
+            (ABSENTEE_PASSAGE,),
+            quote=ABSENTEE_QUOTE,
+        ),
+        example,
+        corpus,
+    )
+    assert isinstance(noted, ShownClaim)
+    assert noted.quote == ABSENTEE_QUOTE
+
+
+def test_a_quote_on_any_kind_is_still_held_to_being_verbatim(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """Loosening nothing: the quote check that existed still runs on every kind.
+
+    The fix narrows what a quote licenses, not what a quote has to be. A figure
+    carrying a paraphrase in the quote field is withheld as it always was, so
+    the passage a reader sees under a sentence is still CDE's own text.
+    """
+    assert (
+        reason(
+            Claim(
+                "figure",
+                "The rate was 12.5%.",
+                (f"{RATE}|school", ABSENTEE_PASSAGE),
+                quote="a student who misses about a tenth of the school year",
+            ),
+            example,
+            corpus,
+        )
+        == "quote_not_verbatim"
+    )
+
+
 # ----------------------------------------------------------------------------------
 # Every failure class is withheld
 # ----------------------------------------------------------------------------------
@@ -582,10 +703,19 @@ def test_definition_without_quote_and_quote_not_verbatim(
 def test_a_number_inside_a_verified_quote_is_allowed_but_not_one_outside(
     example: SchoolEvidence, corpus: Corpus
 ) -> None:
+    """Inside and outside are places in the sentence, not membership of the quote.
+
+    Until 2026-09-05 "inside" meant "anywhere in the quote string": the quote's
+    numbers went into the allowed set as bare tokens and were then accepted
+    anywhere in the claim, so the second claim below -- which quotes nothing,
+    and writes CDE's threshold as its own prose beside the passage it cites --
+    was the same to this check as the first (issue #64). It is not: one is CDE
+    saying 10, the other is the model saying it.
+    """
     shown = one(
         Claim(
             "definition",
-            "A group of 10 or fewer students is withheld.",
+            f"CDE withholds a small group's figure: '{SUPPRESSION_QUOTE}'.",
             (SUPPRESSION_PASSAGE,),
             quote=SUPPRESSION_QUOTE,
         ),
@@ -593,6 +723,19 @@ def test_a_number_inside_a_verified_quote_is_allowed_but_not_one_outside(
         corpus,
     )
     assert isinstance(shown, ShownClaim)
+    assert (
+        reason(
+            Claim(
+                "definition",
+                "A group of 10 or fewer students is withheld.",
+                (SUPPRESSION_PASSAGE,),
+                quote=SUPPRESSION_QUOTE,
+            ),
+            example,
+            corpus,
+        )
+        == "unverifiable_number"
+    )
     assert (
         reason(
             Claim(
@@ -868,8 +1011,8 @@ def test_comparative_words_in_a_definition_are_not_a_cell_comparison(
     shown = one(
         Claim(
             "definition",
-            "Students expected to attend fewer than 31 days are not counted as "
-            "eligible, compared with those enrolled for the year.",
+            f"Some students are not counted as eligible, compared with those "
+            f"enrolled for fewer days: '{quote}'",
             ("fsabd#59",),
             quote=quote,
         ),

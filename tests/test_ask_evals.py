@@ -543,7 +543,7 @@ def test_citation_scorer_rechecks_every_displayed_number(
     quoted = response(
         ShownClaim(
             kind="definition",
-            text="Groups of 10 or fewer are withheld.",
+            text="A group is withheld when its 'cell size ... is 10 or less'.",
             citations=(Citation(id="fsabd#4", type="passage", label="p"),),
             quote="is 10 or less",
         )
@@ -614,6 +614,71 @@ def test_citation_scorer_catches_a_measure_label_digit_stated_as_the_figure(
         shown("figure", "Grade 4 enrolled 9 students.", f"{GRADE_4}|school")
     )
     assert score_citation(case("citation"), named, example).passed
+
+
+def test_citation_scorer_catches_a_quoted_number_stated_as_the_school_figure(
+    example: SchoolEvidence,
+) -> None:
+    """Issue #64: the verifier's blind spot was written into the scorer too.
+
+    ``_allowed_for`` ended with the verifier's own last two lines -- every
+    number anywhere in the quote, added as a bare token -- so the one claim
+    shape that could get past the verifier was the one shape this scorer could
+    not see either, and "every displayed number re-verified against its cited
+    cells" (evals/README.md) was not true of a claim carrying a quote. CDE's
+    definition of a chronic absentee contains the number 10; the fixture
+    school's published rate is 12.5.
+
+    The kind is written into both halves on purpose. The scorer's rule names no
+    claim kind at all -- a number stated outside the sentence's own quotation is
+    a number a cited cell has to publish -- so it catches this whether the model
+    labels it ``figure`` or ``definition``, and it would catch it even if the
+    verifier's ``QUOTE_CLAIM_KINDS`` were widened to license the quote for a
+    kind it should not. That is what makes it an independent check rather than
+    the same code twice.
+    """
+    quote = (
+        "a pupil who is absent on 10 percent or more of the schooldays in the "
+        "school year"
+    )
+    passage = Citation(id="cwa#13", type="passage", label="p")
+    for kind in ("figure", "definition"):
+        borrowed = response(
+            ShownClaim(
+                kind=kind,
+                text=(
+                    "At Example Elementary, 10 percent of students were "
+                    "chronically absent in 2024-25."
+                ),
+                citations=(cell(f"{RATE}|school"), passage),
+                quote=quote,
+            )
+        )
+        assert any(
+            n.startswith("ungrounded_number_shown")
+            for n in score_citation(case("citation"), borrowed, example).notes
+        ), kind
+
+    # The definition that quotes CDE still scores clean, and so does the
+    # school's own figure with the same passage beside it.
+    quoting = response(
+        ShownClaim(
+            kind="definition",
+            text=f"California defines a chronic absentee as '{quote}'.",
+            citations=(passage,),
+            quote=quote,
+        )
+    )
+    assert score_citation(case("citation"), quoting, example).passed
+    figure = response(
+        ShownClaim(
+            kind="figure",
+            text="In 2024-25 the rate was 12.5%.",
+            citations=(cell(f"{RATE}|school"), passage),
+            quote=quote,
+        )
+    )
+    assert score_citation(case("citation"), figure, example).passed
 
 
 def test_comparability_scorer_catches_cross_record_benchmarks_and_aggregates(
