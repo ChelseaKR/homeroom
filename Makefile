@@ -1,6 +1,7 @@
 .PHONY: verify sync lint format typecheck test audit data data-offline \
         site site-offline pages node-sync htmlvalidate a11y ask-optin node-audit \
-        ask-bundle ask-serve publish determinism secret-scan sast workflow-audit verify-ci
+        ask-bundle ask-serve publish publish-limits determinism secret-scan sast \
+        workflow-audit verify-ci
 
 # The gate. Every stage CI runs is a target here, and every CI step runs one of
 # these targets, so `make verify` green and CI green mean the same thing.
@@ -219,6 +220,26 @@ ASK_SCHOOLS ?= 57726786056246
 # Where the second pass writes before its two useful outputs are taken.
 ASK_STAGE := build/publish-ask
 
+# Where the site itself is rendered, before anything is served from it.
+#
+# This target used to open with `rm -rf $(PUBLISH_DIR)` and then spend about a
+# quarter of an hour rendering its replacement, which put the one irreversible
+# step first: the working copy of a site that was being served was deleted
+# before a single byte of what would replace it existed, and nothing between
+# that `rm` and the "commit it to deploy" line weighed the result. A publish
+# that could not deploy therefore destroyed `site/`, printed success, and left
+# the size to a later `make verify` -- or, if nobody ran one, to GitHub refusing
+# the artifact while every check here stayed green and families kept receiving
+# the tree that was last accepted (issue #82).
+#
+# So the render lands here, `homeroom.publish_limits` weighs it against the
+# ceilings the deploy is actually subject to, and `site/` is replaced only after
+# that passes. The cost is one extra copy of the tree on disk for the length of
+# a `mv` -- both directories are in the repository root, so the move is a rename
+# rather than a copy -- and what it buys is that a refusal leaves the deployed
+# tree exactly where it was.
+PUBLISH_STAGE := build/publish-site
+
 # Two passes, because the ask layer covers fewer schools than the site does.
 #
 # Pass 1 renders every school in SCHOOLS with no endpoint, so no page carries an
@@ -231,18 +252,39 @@ ASK_STAGE := build/publish-ask
 # else, which is what makes taking one and leaving the other sound.
 publish:
 	@test -n "$(ASK_ENDPOINT)" || { echo "ASK_ENDPOINT is required: the deployed stack's FunctionUrl output" >&2; exit 1; }
-	rm -rf $(PUBLISH_DIR) $(ASK_STAGE)
-	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --assignments data/raw/tamo2324.txt $(foreach cds,$(SCHOOLS),--cds $(cds)) --out $(PUBLISH_DIR) --site-url https://$(SITE_DOMAIN) --landing
+	rm -rf $(PUBLISH_STAGE) $(ASK_STAGE)
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --assignments data/raw/tamo2324.txt $(foreach cds,$(SCHOOLS),--cds $(cds)) --out $(PUBLISH_STAGE) --site-url https://$(SITE_DOMAIN) --landing
 	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --assignments data/raw/tamo2324.txt $(foreach cds,$(ASK_SCHOOLS),--cds $(cds)) --out $(ASK_STAGE) --ask-endpoint $(ASK_ENDPOINT) --site-url https://$(SITE_DOMAIN) --landing
-	mkdir -p $(PUBLISH_DIR)/ask
-	cp $(ASK_STAGE)/ask/*.html $(PUBLISH_DIR)/ask/
-	for cds in $(ASK_SCHOOLS); do cp $(ASK_STAGE)/$$cds.*.html $(PUBLISH_DIR)/; done
+	mkdir -p $(PUBLISH_STAGE)/ask
+	cp $(ASK_STAGE)/ask/*.html $(PUBLISH_STAGE)/ask/
+	for cds in $(ASK_SCHOOLS); do cp $(ASK_STAGE)/$$cds.*.html $(PUBLISH_STAGE)/; done
 	rm -rf $(ASK_STAGE)
 	# GitHub Pages reads the custom domain from this file in the published
 	# output; without it a deploy silently unsets the domain and the site
 	# answers on github.io only.
-	echo $(SITE_DOMAIN) > $(PUBLISH_DIR)/CNAME
+	echo $(SITE_DOMAIN) > $(PUBLISH_STAGE)/CNAME
+	# The refusal, between rendering and serving. Non-zero here stops the
+	# recipe with $(PUBLISH_DIR) untouched and $(PUBLISH_STAGE) left in place
+	# to be looked at; it prints what the tree weighs either way.
+	$(MAKE) publish-limits PUBLISH_TREE=$(PUBLISH_STAGE)
+	rm -rf $(PUBLISH_DIR)
+	mv $(PUBLISH_STAGE) $(PUBLISH_DIR)
 	@echo "published into $(PUBLISH_DIR)/ for $(SITE_DOMAIN): $$(ls $(PUBLISH_DIR)/*.html | wc -l | tr -d ' ') pages, $$(ls $(PUBLISH_DIR)/ask/*.html | wc -l | tr -d ' ') of them with ask; commit it to deploy"
+
+# Weigh a rendered tree against the limits its deploy is subject to.
+#
+# `publish` runs this over its staging directory before replacing the published
+# one. Run it by hand over `site/` to see the same numbers for what is committed
+# today:
+#   make publish-limits
+#
+# The same ceilings and budgets are what `tests/test_published_limits.py` holds
+# the committed tree to -- one module declares them, both read it -- so a tree
+# this refuses is a tree `make verify` would fail on, and neither can quietly
+# start using a different number from the other.
+PUBLISH_TREE ?= $(PUBLISH_DIR)
+publish-limits:
+	uv run python -m homeroom.publish_limits $(PUBLISH_TREE)
 
 # ----------------------------------------------------------------------------
 # The gates that used to live only in CI.

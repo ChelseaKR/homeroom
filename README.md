@@ -30,7 +30,8 @@ sample rows must never be mistakable for one about a real school.
 | `make site-offline` | The school pages, from committed fixtures. |
 | `make data-offline` | The same pipeline's JSON artifacts (`data/out/`), from the same fixtures. |
 | `make site` | The pages for a real school. Needs the CDE extracts in `data/raw/`, which are not in git — PROVENANCE.md names each file and how to acquire it. |
-| `make publish` | Rebuilds the committed `site/` tree that is served at the live URL. Needs `data/raw/` and `ASK_ENDPOINT`. |
+| `make publish` | Rebuilds the committed `site/` tree that is served at the live URL. Needs `data/raw/` and `ASK_ENDPOINT`. Renders into `build/publish-site/` and replaces `site/` only once that tree is inside the limits its deploy is subject to. |
+| `make publish-limits` | Weighs `site/` against those limits and prints what it weighs. `make publish` runs it over what it has just rendered. |
 
 ## The problem
 
@@ -256,13 +257,30 @@ untouched and still the deploy families receive. The cutover and the rollback
 are the owner's to make, and `deploy/site/README.md` carries both in order,
 with what to check after each step.
 
-That limit is written down for a build to read, in `tests/test_published_limits.py`:
-the published tree against the Pages ceiling, `sitemap.xml` against the sitemap
-protocol's 50,000 URLs and 50 MB, and any single published file against what the
-live-site sentinel can fetch. Each fails at 90% of its limit rather than at it,
-so a tree that trips one is still a tree Pages will serve while it is sorted
-out — at 86.8% of the ceiling, the site has about 32 MB of that budget left,
-which is less than one new section on every page, as the D5 figure above shows.
+That limit is written down for a build to read, in
+`src/homeroom/publish_limits.py`: the published tree against the Pages ceiling,
+`sitemap.xml` against the sitemap protocol's 50,000 URLs and 50 MB, and any
+single file against the 100 MB Pages will serve. Each fails at 90% of its limit
+rather than at it, so a tree that trips one is still a tree Pages will serve
+while it is sorted out — at 86.8% of the ceiling, the site has about 32 MB of
+that budget left, which is less than one new section on every page, as the D5
+figure above shows. `tests/test_published_limits.py` holds the committed tree to
+those numbers, and to one more the sentinel sets: no published file may be
+larger than half of what `tools/verify_live_site.py` can fetch, because past
+that bound the daily check of the deployment stops comparing anything at all.
+
+**`make publish` reads the same numbers, one step earlier.** It used to open
+with `rm -rf site` and then spend about a quarter of an hour rendering the
+replacement, which put the irreversible step first: a publish that could not
+deploy destroyed the working copy of a site that was being served, printed
+"commit it to deploy", and left the size to a later `make verify` — or to GitHub
+refusing the artifact while every check here stayed green. It now renders into
+`build/publish-site/`, weighs that, and moves it over `site/` only if it passes.
+A refusal names the ceiling, the budget, the measurement and where the bytes
+are, points at the decision in
+[#82](https://github.com/ChelseaKR/homeroom/issues/82), takes none of it, and
+leaves `site/` exactly as it was.
+
 `tests/test_published_site.py` also walks the published tree the way a family
 does, index to county to district to school in both languages, because a school
 that is published and unreachable is not published.

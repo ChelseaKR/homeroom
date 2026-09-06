@@ -40,10 +40,23 @@ what the deploy would have told them anyway.
 
 from __future__ import annotations
 
-from collections import Counter
 from functools import cache
 from pathlib import Path
 
+from homeroom.publish_limits import (
+    PAGES_SITE_LIMIT_BYTES,
+    PUBLISHED_BUDGET_BYTES,
+    PUBLISHED_BUDGET_SHARE,
+    SITEMAP_BYTE_BUDGET,
+    SITEMAP_BYTE_LIMIT,
+    SITEMAP_URL_BUDGET,
+    SITEMAP_URL_LIMIT,
+    NothingWasWeighed,
+    mb,
+    measure,
+    total_bytes,
+    where_the_bytes_are,
+)
 from tests.test_live_sentinel import sentinel
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -52,43 +65,39 @@ SITE = ROOT / "site"
 # ----------------------------------------------------------------------------------
 # The limits, and the budgets kept under them
 # ----------------------------------------------------------------------------------
+#
+# Every ceiling and budget below is imported from `homeroom.publish_limits`
+# rather than declared here, and the reason is that this module is no longer the
+# only reader of them. `make publish` weighs the tree it has just rendered
+# against the same numbers before it replaces `site/`, so a budget retyped in
+# two places would be a build step and a test gate quietly disagreeing about
+# what may be published -- which is the shape of defect this file exists to
+# catch, not one to introduce. What stays local is the per-file budget, which is
+# derived from `tools/verify_live_site.py` rather than from a documented limit.
 
-#: What GitHub allows a published Pages site.
-#: <https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits>
-#: says "1 GB" and does not say which GB, so this takes the smaller reading. The
-#: larger one (2^30) would put this gate 74 MB above a cliff that might be at
-#: 10^9, which is the one direction a size gate must not be wrong in.
-PAGES_SITE_LIMIT_BYTES = 1_000_000_000
-
-#: The share of that ceiling this repository will publish. 10% of the cap is
-#: ~100 MB, which is about 2,500 school pages at what they currently weigh: room
-#: to notice, publish something smaller, and still have the site up while it is
-#: sorted out. From the 2026-09-06 measurement it leaves 32 MB, which is less
-#: than one new per-page section across 21,068 school pages -- and that is the
-#: finding rather than a badly chosen number. Measured, not supposed: rendering
-#: 240 pages with and without D5 (ADR 0005) puts that one section at 8,723 bytes
-#: a page, so publishing it costs 184 MB and takes the tree past the ceiling
-#: itself, not merely past this budget (issue #82). At 86.8% of the cap there is
-#: no room for a new measure on every page, and the point of putting the budget
-#: where a build can see it is that the next thing published has to say what
-#: comes off first.
-PUBLISHED_BUDGET_SHARE = 0.90
-PUBLISHED_BUDGET_BYTES = int(PAGES_SITE_LIMIT_BYTES * PUBLISHED_BUDGET_SHARE)
-
-#: <https://www.sitemaps.org/protocol.html>: one sitemap file carries "no more
-#: than 50,000 URLs" and is "no larger than 50MB (52,428,800 bytes)
-#: uncompressed". Past either, the protocol's answer is a sitemap index over
-#: several files, which this project would have to write.
-SITEMAP_URL_LIMIT = 50_000
-SITEMAP_BYTE_LIMIT = 52_428_800
-
-#: The same 90% of each. The URL cap is the one that binds: at the measured 78
-#: bytes an entry, 50,000 URLs is under 4 MB, so this sitemap reaches the URL
-#: cap with 46 MB of its byte allowance unspent. The byte budget only becomes
-#: the live one if the addresses get much longer than the CDS digits they are
-#: now -- a slug per school, say -- which is a reason to keep both.
-SITEMAP_URL_BUDGET = int(SITEMAP_URL_LIMIT * PUBLISHED_BUDGET_SHARE)
-SITEMAP_BYTE_BUDGET = int(SITEMAP_BYTE_LIMIT * PUBLISHED_BUDGET_SHARE)
+# `PUBLISHED_BUDGET_SHARE` is 90% of the Pages ceiling. 10% of the cap is
+# ~100 MB, which is about 2,500 school pages at what they currently weigh: room
+# to notice, publish something smaller, and still have the site up while it is
+# sorted out. From the 2026-09-06 measurement it leaves 32 MB, which is less
+# than one new per-page section across 21,068 school pages -- and that is the
+# finding rather than a badly chosen number. Measured, not supposed: rendering
+# 240 pages with and without D5 (ADR 0005) puts that one section at 8,723 bytes
+# a page, so publishing it costs 184 MB and takes the tree past the ceiling
+# itself, not merely past this budget (issue #82). At 86.8% of the cap there is
+# no room for a new measure on every page, and the point of putting the budget
+# where a build can see it is that the next thing published has to say what
+# comes off first.
+#
+# `SITEMAP_URL_LIMIT` and `SITEMAP_BYTE_LIMIT` come from
+# <https://www.sitemaps.org/protocol.html>: one sitemap file carries "no more
+# than 50,000 URLs" and is "no larger than 50MB (52,428,800 bytes)
+# uncompressed". Past either, the protocol's answer is a sitemap index over
+# several files, which this project would have to write. The budgets are the
+# same 90% of each, and the URL cap is the one that binds: at the measured 78
+# bytes an entry, 50,000 URLs is under 4 MB, so this sitemap reaches the URL cap
+# with 46 MB of its byte allowance unspent. The byte budget only becomes the
+# live one if the addresses get much longer than the CDS digits they are now --
+# a slug per school, say -- which is a reason to keep both.
 
 #: The smallest ceiling over a single published file, read from the tool that
 #: sets it rather than retyped: `tools/verify_live_site.py` refuses to read more
@@ -115,48 +124,23 @@ FILE_BUDGET_BYTES = SENTINEL_READ_LIMIT_BYTES // 2
 
 @cache
 def published_files() -> tuple[tuple[Path, int], ...]:
-    """Every published file with its size, measured once for the whole module.
+    """Every published file, path relative to `site/`, with its size.
 
     Every file, not every page: the preview cards, `robots.txt`, `CNAME` and the
     sitemap are uploaded with the markup and count against the same ceiling.
     Measured at 0.2s over the 23,310 files published on 2026-09-05, which is why
-    this reads them all rather than sampling.
+    this reads them all rather than sampling. Cached, because five checks below
+    read it.
+
+    This is `homeroom.publish_limits.measure` pointed at the committed tree --
+    the same reader `make publish` runs over the tree it has just rendered, so a
+    file the build weighs and a file this suite weighs are the same file.
     """
-    return tuple(
-        (path, path.stat().st_size)
-        for path in sorted(SITE.rglob("*"))
-        if path.is_file()
-    )
+    return measure(SITE)
 
 
 def published_bytes() -> int:
-    return sum(size for _, size in published_files())
-
-
-def mb(count: int) -> str:
-    """Decimal MB, to match the decimal GB the Pages ceiling is read as."""
-    return f"{count / 1_000_000:,.1f} MB"
-
-
-def where_the_bytes_are() -> str:
-    """The tree grouped by its top level, which is how it has actually grown.
-
-    Reported in the size failure below because "site/ is too big" is not
-    actionable and "district/ is 2,118 files and 17.8 MB" is. The growth so far
-    arrived as whole areas: all 10,534 schools at the root, then `county/` and
-    `district/` on top of them.
-    """
-    sizes: Counter[str] = Counter()
-    counts: Counter[str] = Counter()
-    for path, size in published_files():
-        relative = path.relative_to(SITE)
-        area = f"{relative.parts[0]}/" if len(relative.parts) > 1 else "(root)"
-        sizes[area] += size
-        counts[area] += 1
-    return "; ".join(
-        f"{area} {counts[area]:,} files, {mb(size)}"
-        for area, size in sizes.most_common()
-    )
+    return total_bytes(published_files())
 
 
 def sitemap_source() -> str:
@@ -172,20 +156,29 @@ def test_these_gates_are_weighing_a_real_published_tree() -> None:
     """A budget over an empty directory passes, having weighed nothing.
 
     That is the failure mode a limit check is most exposed to, and this
-    repository refuses it in the same shape twice already: `MINIMUM_FILES` in
-    `tools/verify_live_site.py`, and the `-s` test in the Makefile's
+    repository refuses it in the same shape three times already: `MINIMUM_FILES`
+    in `tools/verify_live_site.py`, the `-s` test in the Makefile's
     `determinism` target, which was added after CI spent a while comparing two
-    empty hash files and reporting success. So the floor is stated here rather
-    than assumed by the three checks below, all of which would pass on a `site/`
-    that a half-finished `make publish` had emptied.
+    empty hash files and reporting success, and `NothingWasWeighed` in
+    `homeroom.publish_limits`. So the floor is stated here rather than assumed
+    by the three checks below, all of which would pass on a `site/` that a
+    half-finished `make publish` had emptied.
+
+    The reader raises rather than returning an empty tuple, so this catches the
+    raise and states it as this module's own floor. `make publish` no longer
+    empties `site/` before it has something to put there, which is the change
+    that made the raise the right shape: an empty `site/` in a checkout is now a
+    deleted tree rather than an interrupted publish, and `git checkout -- site`
+    is still the answer to both.
     """
-    files = published_files()
-    assert files, (
-        "site/ holds no file, so every budget below would pass having measured "
-        "nothing. `make publish` begins with `rm -rf`; restore the tree with "
-        "`git checkout -- site`."
-    )
-    names = {path.relative_to(SITE).as_posix() for path, _ in files}
+    try:
+        files = published_files()
+    except NothingWasWeighed as empty:
+        raise AssertionError(
+            f"{empty}, so every budget below would pass having measured "
+            "nothing. Restore the tree with `git checkout -- site`."
+        ) from empty
+    names = {path.as_posix() for path, _ in files}
     assert "index.html" in names, "site/ has no front door"
     assert "sitemap.xml" in names, "site/ publishes no sitemap to hold to a limit"
     schools = [
@@ -233,7 +226,7 @@ def test_the_published_tree_stays_inside_the_size_a_deploy_will_accept() -> None
         f"{mb(PAGES_SITE_LIMIT_BYTES)} GitHub allows a published Pages site "
         "(docs.github.com/en/pages/getting-started-with-github-pages/"
         "github-pages-limits). "
-        f"Where the bytes are: {where_the_bytes_are()}. "
+        f"Where the bytes are: {where_the_bytes_are(published_files())}. "
         f"The budget is {PUBLISHED_BUDGET_SHARE:.0%} of the ceiling so that "
         "this fails while the site is still deployable; raising it spends the "
         "margin rather than the problem. Publish fewer pages, or decide what "
@@ -273,9 +266,7 @@ def test_no_published_file_is_too_large_for_the_check_that_watches_the_deploy() 
         "`tools/verify_live_site.py` can read from the origin; past that bound "
         "the daily check of the deployment exits 'could not run' rather than "
         "comparing anything: "
-        + ", ".join(
-            f"{path.relative_to(SITE)} at {mb(size)}" for size, path in over[:5]
-        )
+        + ", ".join(f"{path} at {mb(size)}" for size, path in over[:5])
     )
 
 
