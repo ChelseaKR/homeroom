@@ -284,6 +284,24 @@ reading it needs a stdlib XLSX reader (`zipfile` plus `xml.etree` over the share
 string table). That stays inside ADR 0001's stdlib-only rule -- no new dependency
 -- but it is new surface, and worth naming before it is written rather than after.
 
+**That reader now exists: `src/homeroom/xlsx.py`, written 2026-09-05, and it
+changes none of the above.** It reads a file format -- bytes of an .xlsx in, rows
+of cells out -- and nothing else. It does not know what `DNR` means, which
+columns hold per-pupil dollars, or that CDS codes exist; it publishes no number,
+adds no page, and touches no artifact. D6 remains **unacquired**: it is not in
+`data/raw/`, no access date is recorded for it, nothing in the build or the gate
+fetches it, and both decisions above are still open. What the reader buys is that
+when one of them is made, the file's format is not also an open question. It is
+covered by `tests/test_xlsx.py`, whose fixtures are assembled in the tests from
+hand-written XML rather than committed as binary, over the hazards the format
+actually has -- the shared string table, inline strings, cells with no value,
+skipped cells and skipped rows (column position comes from the `r` attribute, so
+a sparse row cannot shift left), numbers held as text and as numbers, and
+formula results -- and over its refusals, which follow `DirectoryDriftError` and
+`parse_cell`: a missing sheet, an unresolvable shared-string index, an
+unparseable cell reference, an unreviewed cell type, or a zip that would expand
+absurdly all raise rather than return an empty answer.
+
 ## Scoping: N/A declarations
 
 Mirrors the README Standards Conformance table; never a silent skip.

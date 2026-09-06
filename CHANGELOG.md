@@ -35,6 +35,76 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A stdlib XLSX reader, written on its own before anything needs it**
+  (2026-09-05). The M5 source survey found that D6, ESSA Per-Pupil Expenditure,
+  publishes XLSX only -- no TXT, no CSV -- so the `csv.DictReader` every other
+  parser in this project opens with has nothing to point at, and it named the
+  consequence rather than absorbing it: reading that source needs `zipfile` plus
+  `xml.etree` over the shared string table, which is inside ADR 0001's
+  stdlib-only rule but is new surface, "worth naming before it is written rather
+  than after". `src/homeroom/xlsx.py` is that surface, written by itself, so the
+  file format is settled before any argument about per-pupil spending starts
+  borrowing from it.
+
+  **It reads a format and nothing else.** Bytes of an .xlsx in, rows of cells
+  out. It does not know what `DNR` means, which columns hold dollars, that a
+  header might sit on row 7, or that CDS codes exist. It converts nothing
+  either: a numeric cell comes back as the digits the workbook holds, as text,
+  because what a number *is* -- reported, suppressed, not reported -- is
+  `parse_cell`'s decision about a data source, not a decision about a container
+  format. A date comes back as the serial number Excel stored, unconverted, for
+  the same reason. **D6 is still unacquired**: it is not in `data/raw/`, no
+  access date exists for it, no number from it is published, nothing here
+  fetches anything, and both M5 decisions -- whether a Dashboard band may be
+  shown, and what number "per-pupil spending" would even be -- are still open.
+
+  The hazard the module is built around is that XLSX omits what is empty. A row
+  with values in the first and eleventh columns writes two `<c>` elements, not
+  eleven, and a sheet whose data starts on row 7 writes no rows 1-6. A reader
+  that takes a value's column from its position among the cells present rather
+  than from its own `r` attribute shifts every value left, raises nothing while
+  doing it, and produces a complete, plausible table of numbers filed under the
+  wrong headings -- which for this project is the worst available failure. So
+  the reader refuses to count: a `<row>` or `<c>` with no `r` attribute is an
+  error, not an assumption, and `Row.values(width)` places cells by index and
+  raises on one that falls outside the width the caller says it verified rather
+  than dropping it to fit.
+
+  Everything it will not do is a named error, following `DirectoryDriftError`
+  and `parse_cell` rather than inventing a new posture: a missing sheet (naming
+  the sheets the workbook does carry), a shared-string index that resolves to
+  nothing, an unparseable cell reference, a cell whose reference names a
+  different row than the one it sits in, two cells in one column, rows out of
+  order, a workbook in the strict-OOXML namespace, and a cell type this reader
+  has not been verified against. That last one includes `b`, `e` and `d`, which
+  are real parts of the format: `#DIV/0!` read as the text `#DIV/0!` would be a
+  spreadsheet error rendered as data, and a boolean read as `1` would be a
+  number nobody published, so both stop rather than resolve.
+
+  A zip is attacker-shaped input even when a state agency published it. The
+  archive's declared uncompressed size and member count are checked before a
+  byte is read, and then each part is streamed under a hard cap that does not
+  consult what the zip header declared -- the shape `tools/verify_live_site.py`
+  already uses for HTTP bodies. Rows and columns are bounded by the format's own
+  limits, 1,048,576 and 16,384, so those bounds are not a number somebody chose.
+  Parts are parsed incrementally and released as they go rather than read into
+  one tree. And a part carrying a DTD is refused, because `xml.etree` expands
+  internal general entities -- measured on this interpreter, not assumed -- and
+  a spreadsheet part has no use for one, so closing that vector costs nothing
+  and is what keeps the stdlib parser an honest choice rather than an accepted
+  risk.
+
+  `tests/test_xlsx.py` builds every fixture in the test with `zipfile` and
+  hand-written XML instead of committing binary blobs, so each one states which
+  hazard it encodes and a reader can check the claim without opening a
+  spreadsheet. 59 tests over the shared string table (including a string split
+  into runs by one bolded word, and a phonetic guide that is text *about* a
+  string rather than part of it), inline strings, cells with no value, skipped
+  cells and skipped rows, numbers held as text and as numbers, formula results,
+  determinism, and every refusal above. The suite is 680 tests at 98.83% branch
+  coverage, both re-measured rather than edited to fit; the module itself is at
+  100%.
+
 - **A front door you can find your school through** (2026-09-05). Publishing all
   10,534 schools left the landing page listing every one of them, twice, once
   per locale: 21,069 links in 2.45MB. That is not a front door, it is a wall of
