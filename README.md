@@ -223,13 +223,29 @@ builds nothing, so the bytes reviewed in a pull request are the bytes served,
 and `tests/test_published_site.py` gates them in `make verify` on a machine with
 no acquired file present.
 
-Publishing every school put a number on that trade. `site/` is 836 MB across
-21,076 files, against the 1 GB GitHub Pages allows a published site, and it packs
+Publishing every school put a number on that trade. `site/` is 867.6 MB across
+23,310 files, against the 1 GB GitHub Pages allows a published site, and it packs
 to about 46 MB in git because the pages differ from each other in so few bytes.
+This paragraph said 836 MB across 21,076 files until 2026-09-05, which was the
+tree before the same day's 2,234 county and district pages went on top of it.
 The remaining headroom is what the ask layer is measured against: rendering ask
 pages for all 10,534 schools rather than two would be roughly 1.1 GB, which does
 not fit. So that scope is bounded twice over, by the spend envelope first and by
 this limit second, and `make publish` prints both counts when it finishes.
+
+That limit is written down for a build to read, in `tests/test_published_limits.py`:
+the published tree against the Pages ceiling, `sitemap.xml` against the sitemap
+protocol's 50,000 URLs and 50 MB, and any single published file against what the
+live-site sentinel can fetch. Each fails at 90% of its limit rather than at it,
+so a tree that trips one is still a tree Pages will serve while it is sorted
+out — at 86.8% of the ceiling, the site has about 32 MB of that budget left,
+which is less than one new section on every page: publishing D5 on the school
+pages, decided in ADR 0005, is a measured 8,723 bytes each and so 184 MB, which
+is past the ceiling itself and not only past the budget ([#82](https://github.com/ChelseaKR/homeroom/issues/82)).
+`tests/test_published_site.py`
+also walks the published tree the way a family does, index to county to district
+to school in both languages, because a school that is published and unreachable
+is not published.
 
 ## AI at the edges (ADR 0003)
 

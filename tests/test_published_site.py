@@ -354,6 +354,112 @@ def test_every_school_page_is_published_in_both_languages() -> None:
 
 
 # ----------------------------------------------------------------------------------
+# Whether a family can get to what was published
+# ----------------------------------------------------------------------------------
+
+
+def links_into(facts: PageFacts, directory: Path, locale: str) -> list[Path]:
+    """Where one page's own links land, kept to one directory and one language.
+
+    Resolved against the linking page rather than read as text, because the
+    steps of the walk are written relative: the front door names
+    `county/01.en.html`, a county page names `../district/0110017.en.html`, and
+    a district page names `../01100170130229.en.html`. Normalised rather than
+    `resolve()`d, so the result is comparable to the paths `published()`
+    collected under `site/` and no symlink between here and the checkout can
+    make the two spellings of the same file look like different files.
+
+    The directory filter is what keeps the walk a walk. A county page also links
+    back up to `index.html` and a district page back to its county, and
+    following those would report every step reaching every other one.
+    """
+    found = []
+    for href in facts.hrefs:
+        if href.startswith(("http://", "https://", "mailto:", "#")):
+            continue
+        target = Path(os.path.normpath(facts.path.parent / href.split("#", 1)[0]))
+        if target.parent == directory and target.name.endswith(f".{locale}.html"):
+            found.append(target)
+    return found
+
+
+def reachable_school_pages(locale: str) -> set[Path]:
+    """Every school page a reader can actually get to from the root, in one locale.
+
+    Three pages stand between the front door and a school -- index, county,
+    district -- so this walks them in that order rather than pattern-matching
+    the markup: a county page that lists 57 of 58 districts, or a district page
+    that lists no school, is well-formed, links only to pages that exist, and
+    is checked by nothing else here.
+
+    It costs one pass over facts `pages()` has already gathered. `hrefs` is on
+    `PageFacts` because the dead-link check needs it, so nothing is parsed twice
+    and the walk is dictionary lookups over strings.
+    """
+    by_path = {facts.path: facts for facts in pages()}
+    index = by_path.get(SITE / "index.html")
+    assert index is not None, "site/index.html is not published; there is no front door"
+    counties = links_into(index, SITE / "county", locale)
+    assert counties, f"the front door reaches no county page in {locale}"
+    reached: set[Path] = set()
+    for county in counties:
+        county_facts = by_path.get(county)
+        assert county_facts is not None, (
+            f"index.html links {county.name}, which is not published"
+        )
+        districts = links_into(county_facts, SITE / "district", locale)
+        assert districts, f"county/{county.name} reaches no district page"
+        for district in districts:
+            district_facts = by_path.get(district)
+            assert district_facts is not None, (
+                f"county/{county.name} links {district.name}, which is not published"
+            )
+            reached.update(links_into(district_facts, SITE, locale))
+    return reached
+
+
+def test_every_published_school_page_is_reachable_from_the_front_door() -> None:
+    """A school that is published and unreachable is not published for a family.
+
+    `tests/test_landing.py` walks index to county to district to school, and
+    walks it over a fixture build of three schools. That proves the renderer can
+    build a reachable hierarchy; it says nothing about the one that was actually
+    published, which is 10,534 schools over 23,310 files and is written by a
+    `make publish` run by hand on a machine holding the acquired files. Between
+    those two facts sits the failure this exists for: a county or district page
+    generated from the wrong slice of schools orphans thousands of pages at
+    once, and every gate in this file passes on the result. The pages are all
+    there, each is valid, each carries its notices and its canonical, no link is
+    dead -- and nobody can get to them, because being linked from somewhere is
+    not the property that was ever checked. Only being linked from the root is.
+
+    Both directions are compared. Missing means orphaned pages; extra means the
+    hierarchy names a school page that was not published, which is the same
+    404 the dead-link check finds, arriving here first because this walk is
+    what a reader does.
+    """
+    for locale in LOCALES:
+        published_here = {
+            facts.path
+            for facts in school_facts()
+            if facts.name.endswith(f".{locale}.html")
+        }
+        assert published_here, f"no {locale} school page is published"
+        reached = reachable_school_pages(locale)
+        orphaned = sorted(path.name for path in published_here - reached)
+        assert not orphaned, (
+            f"{len(orphaned)} of {len(published_here)} published {locale} school "
+            "pages cannot be reached from index.html by county and district, so "
+            f"a family has no way to them: {orphaned[:5]}"
+        )
+        unpublished = sorted(path.name for path in reached - published_here)
+        assert not unpublished, (
+            f"the {locale} browse hierarchy names {len(unpublished)} school "
+            f"page(s) that were not published: {unpublished[:5]}"
+        )
+
+
+# ----------------------------------------------------------------------------------
 # The addresses the published bytes claim
 #
 # `make publish` is run by hand, on a machine holding the acquired files, so the
