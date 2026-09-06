@@ -227,6 +227,94 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   otherwise would be worse than none. What is left possible is an outright lie
   across five files, which is a deliberate act rather than a quiet edit.
 
+- **The two ceilings the published site sits under are measured by a build now**
+  (2026-09-05). `site/` is committed and uploaded as it stands, so what GitHub
+  Pages and the sitemap protocol will accept are limits on bytes in this
+  repository rather than on anything a later build could adjust -- and nothing
+  here measured either of them. Both were close enough to matter on the day they
+  were first measured. `site/` is **867,639,523 bytes across 23,310 files, 86.8%
+  of the 1 GB** GitHub allows a published site; `sitemap.xml` is **23,303 URLs
+  and 1,821,378 bytes, 46.6%** of the protocol's 50,000-URL cap and 3.5% of its
+  50 MB one. Neither figure existed a day earlier: the tree went 212 KB, then
+  836 MB, then this, inside 2026-09-05, as all 10,534 schools were published and
+  2,234 county and district pages went on top of them. (`du -sh site` says 856M
+  for the same tree. That is allocated blocks, 23,310 files each rounded up to a
+  4 KiB boundary; what the deploy uploads and what GitHub measures is the
+  apparent size, and these gates read that.)
+
+  Failure is silent in both cases, which is the argument for a gate rather than
+  a sentence in the README. An artifact over the Pages limit is refused at
+  deploy time: `make publish` succeeds, the diff reviews clean, every existing
+  check stays green, and families keep receiving whatever was last served, or
+  nothing. A sitemap over its caps is one a crawler may stop reading part-way
+  down, and the symptom -- schools quietly absent from search results -- arrives
+  months later attached to no error anywhere.
+
+  `tests/test_published_limits.py` fails at 90% of each limit rather than at it,
+  because a gate that fires only on a tree that is already undeployable reports
+  what the deploy would have reported anyway. 10% of the Pages ceiling is about
+  100 MB, or roughly 2,500 school pages at what they weigh now: room to notice,
+  decide and republish while the site is still being served. Measured against
+  today's tree that budget leaves **32 MB**, which is less than one new
+  per-page section across 21,068 school pages -- and that is the finding rather
+  than a badly chosen threshold. It is measured rather than supposed: rendering
+  240 real pages with and without D5 puts that one section at 8,723 bytes a
+  page, so the section ADR 0005 decided to publish costs 184 MB and carries the
+  tree past the 1 GB ceiling itself, not merely past this budget (issue #82). The headroom was already load-bearing (ask
+  pages for all 10,534 schools rather than two would be about 1.1 GB and do not
+  fit), and it was written down only in README prose, where no build can read
+  it.
+
+  A third gate bounds a single published file at 8 MiB, which is half the 16 MiB
+  `tools/verify_live_site.py` will read from the origin, and takes that number
+  out of the tool rather than retyping it. Past the tool's bound the daily
+  deployment check does not skip the file: it raises, and the run exits 4,
+  "could not run". So one oversized file takes the whole live-site sentinel
+  offline, and `sitemap.xml` -- the file here nearest to growing without a bound
+  -- is in the spine that sentinel compares every morning rather than in the
+  sample it rotates through. That also makes 16 MiB, not the protocol's 50 MB,
+  the sitemap's effective byte ceiling in this repository. At the measured 78
+  bytes an entry the URL cap still arrives first by a wide margin; both are
+  checked because which one binds is a property of the addresses, which are CDS
+  digits today and could be something longer tomorrow.
+
+  Every failure names the limit, its source, the budget and the current
+  measurement, and the size failure prints where the bytes are by area -- "(root)
+  21,074 files, 848.1 MB; district/ 2,118 files, 17.8 MB; county/ 116 files,
+  1.1 MB; ask/ 2 files, 0.0 MB" -- because "site/ is too big" is not something a
+  reader can act on and "the district pages are 17.8 MB" is. A fifth check is
+  the floor under the other four: a size budget over an empty directory passes
+  having weighed nothing, which is the same vacuity `MINIMUM_FILES` refuses in
+  `tools/verify_live_site.py` and the `-s` test refuses in the `determinism`
+  target. `docs/ROADMAP.md`'s metrics ledger carries all of it as rows, beside
+  this project's other automated gates.
+
+- **Every published school page is walked to from the front door, in the tree
+  that was actually published** (2026-09-05). `tests/test_landing.py` walks
+  index to county to district to school, and has since the browse hierarchy
+  landed this morning -- over a fixture build of three schools. Nothing walked
+  the 23,310 files that were published. Between those two facts sits a whole
+  class of failure with no check in it: a county or district page generated from
+  the wrong slice of schools orphans thousands of pages at once, and every gate
+  in `tests/test_published_site.py` passes on the result. The pages are all
+  there, each one is valid, each carries its notices and its canonical, and no
+  link is dead -- because being linked from *somewhere* was the property being
+  checked, and being reachable from the *root* was not. A school that is
+  published and unreachable is not published for a family.
+
+  `test_every_published_school_page_is_reachable_from_the_front_door` walks the
+  real tree in both languages: 58 counties, 1,059 districts and all 10,534
+  schools per locale, with the reached set and the published set compared in
+  both directions, so an orphaned page and a hierarchy naming a page that was
+  never published are separate failures with separate messages. It costs 2.2s
+  on a module that already parses the corpus once, because `pages()` carries
+  each page's `hrefs` for the dead-link check and this walk is dictionary
+  lookups over facts that are already in memory; nothing is read or parsed
+  twice. Verified against a mutation rather than only against a green run:
+  blanking one district page's links reports "16 of 10534 published en school
+  pages cannot be reached from index.html by county and district", and blanking
+  one county page's reports "county/01.en.html reaches no district page".
+
 - **A front door you can find your school through** (2026-09-05). Publishing all
   10,534 schools left the landing page listing every one of them, twice, once
   per locale: 21,069 links in 2.45MB. That is not a front door, it is a wall of

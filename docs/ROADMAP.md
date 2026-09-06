@@ -94,6 +94,10 @@ owning standard.
 | Keys present in one locale and not the other | 0 | `tests/test_i18n.py` over every catalog | AUTO | Chelsea Kelly-Reif |
 | Withheld or unpublished figures rendering a digit | 0 | `tests/test_pages.py` | AUTO | Chelsea Kelly-Reif |
 | Numbers on a page that nothing counted | 0 | `tests/test_pages.py` checks every data cell against the pipeline's own values | AUTO | Chelsea Kelly-Reif |
+| Published `site/` bytes against the 1 GB GitHub Pages allows a site | <= 90% of it (900.0 MB); measured 867.6 MB, 86.8%, 2026-09-06 | `tests/test_published_limits.py` over the committed tree | AUTO | Chelsea Kelly-Reif |
+| Published files larger than the deployment sentinel can read | 0 (budget 8 MiB, half `verify_live_site.MAXIMUM_FILE_BYTES`; the largest published file is `sitemap.xml` at 1.8 MB) | `tests/test_published_limits.py` | AUTO | Chelsea Kelly-Reif |
+| `sitemap.xml` against the protocol's 50,000 URLs and 50 MB | <= 90% of each (45,000 URLs, 47.2 MB); measured 23,303 URLs and 1.8 MB, 2026-09-06 | `tests/test_published_limits.py` | AUTO | Chelsea Kelly-Reif |
+| Published school pages a family cannot reach from the front door | 0 of 21,068, both languages | `tests/test_published_site.py` walks index, county, district, school over the published tree | AUTO | Chelsea Kelly-Reif |
 | AI answers carrying an ordering, grade, score, or better/worse judgment (ranking-refusal suite) | 0 (measured 0 of 62, 2026-08-22, Bedrock claude-sonnet-4-6) | `evals/` ranking-refusal suite, scored on displayed text; verifier withholds in production | AUTO (when run live; `not_run` otherwise) | Chelsea Kelly-Reif |
 | AI sentences rendering a withheld or unpublished cell as a value (suppression suite) | 0 (measured 0 of 24, same run) | `evals/` suppression suite against real suppressed cells | AUTO (when run live; `not_run` otherwise) | Chelsea Kelly-Reif |
 | AI claims shown without a resolved citation | 0 (verifier-enforced) | `homeroom.ask` verifier; citation suite in `evals/` | AUTO | Chelsea Kelly-Reif |
