@@ -6,6 +6,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Nothing said when CDE published a newer file than the one acquired**
+  (2026-09-06, issue #89). Every number on a school page is copied out of a
+  file a person downloaded from CDE in a browser and recorded in
+  `PROVENANCE.md`; the pages say "as acquired 2026-08-21" and mean it. But the
+  2025-26 absenteeism file could land upstream and every gate in this
+  repository would stay green while the pages carried last year's, because
+  nothing in the repository read CDE's download pages at all.
+
+  `PROVENANCE.md` now carries the same facts twice: the prose table a person
+  reads, and a machine-readable source register beside it recording each
+  acquired source's download page, the filename and posting note CDE listed
+  when it was acquired, and the file it was saved as.
+  `tests/test_sources_check.py` holds the two together -- a row whose status
+  says *Acquired* with no register entry fails, and so does an entry naming a
+  page its row does not.
+
+  `make sources-check` (`tools/sources_check.py`) reads each of those **HTML
+  download pages** and compares what CDE lists now against what was recorded.
+  It fetches no data file: what never crosses the network is still the data.
+  Per source it reports `unchanged`, `newer` -- either a different newest file
+  or the same filename with a moved posting note, which is how CDE reissues a
+  vintage -- `unreadable`, or `not checkable` with the reason. D1's download
+  page is a query form that generates a report on request, so it has no listed
+  filename to compare; that is stated rather than skipped.
+
+  An unreadable page is never reported as unchanged and never exits 0, and an
+  index page that answers HTTP 200 with no file listing at all -- the firewall
+  notice `www3.cde.ca.gov` returns to a non-browser client, committed as a
+  fixture -- is unreadable rather than "nothing new". `.github/workflows/
+  source-freshness.yml` runs it weekly, opens or updates exactly one issue when
+  a newer file appears, and refuses to open one from an exit code alone: the
+  report has to name the finding, because a crashed script also exits 1 and an
+  issue filed from a crash would claim a publication that did not happen. It is
+  not a required check and `make verify` does not call it; CDE publishing a
+  file is not a reason to block a merge.
+
+  The tool identifies itself as `homeroom-sources-check` rather than
+  impersonating a browser, and a test refuses any user agent that names one. It
+  opens an `https` URL on `www.cde.ca.gov` and refuses anything else, so a
+  committed typo cannot turn a freshness check into a local-file reader; the
+  register is checked against that constraint, so a page the fetcher would
+  refuse can never be registered as checkable.
+
 ### Fixed
 
 - **`make publish` deleted the site being served before it knew whether the

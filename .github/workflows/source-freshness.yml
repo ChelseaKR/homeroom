@@ -1,0 +1,141 @@
+# Has CDE published a newer file than the one Homeroom acquired?
+#
+# Every number on a school page is copied out of a file a person downloaded
+# from CDE in a browser and recorded in PROVENANCE.md. The pages say "as
+# acquired 2026-08-21" and mean it. What nothing said, until this workflow
+# existed, was when CDE published a newer one: the 2025-26 absenteeism file
+# could land and every gate in this repository would stay green while the
+# pages carried last year's.
+#
+# It reads CDE's HTML download pages and nothing else. No data file is
+# fetched and nothing is acquired: acquiring a source is a browser step a
+# person takes, recorded in PROVENANCE.md in the same commit that parses it.
+# What never crosses the network is the data.
+#
+# Like the live integrity sentinel, this reads the network, which is the one
+# thing the merge gate must never do. That is why it lives in its own
+# workflow and is NOT a required check: it grades CDE's publishing schedule,
+# and CDE publishing a file is not a reason to block a merge. `make verify`
+# does not call it, and tests/test_ci_parity.py holds ci.yml -- not this
+# file -- to the Makefile.
+#
+# An unreadable page exits non-zero and opens nothing. A check that cannot
+# reach its subject reports that; it never reports "no change".
+#
+# Runs weekly and on demand (Actions > source freshness > Run workflow).
+name: source freshness
+
+on:
+  schedule:
+    # Mondays, well after the daily live-integrity read.
+    - cron: "41 15 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never cancel: a cancelled run is neither a finding nor a clean read, and
+  # this is a check whose silence must always mean "looked, nothing new".
+  group: source-freshness
+  cancel-in-progress: false
+
+jobs:
+  check-sources:
+    name: CDE has not published a newer file than the acquired one
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Read each acquired source's CDE download page
+        id: check
+        run: |
+          set -uo pipefail
+          python3 tools/sources_check.py --out "${RUNNER_TEMP}/freshness.md"
+          echo "rc=$?" >> "${GITHUB_OUTPUT}"
+          cat "${RUNNER_TEMP}/freshness.md" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Decide what the exit code and the report actually say
+        id: verdict
+        env:
+          RC: ${{ steps.check.outputs.rc }}
+        run: |
+          set -euo pipefail
+          report="${RUNNER_TEMP}/freshness.md"
+          # The exit code alone is not trusted. A crashed script also exits 1,
+          # and an issue opened from a crash would say "CDE published a newer
+          # file" on no evidence at all. The report has to carry the finding.
+          if [ ! -s "${report}" ]; then
+            echo "::error::sources_check wrote no report, so this run is not evidence of anything"
+            exit 1
+          fi
+          if grep -q '\*\*newer\*\*' "${report}"; then
+            found=newer
+          else
+            found=none
+          fi
+          echo "found=${found}" >> "${GITHUB_OUTPUT}"
+
+          case "${RC}:${found}" in
+            0:none) echo "every acquired source still lists the file it was acquired from" ;;
+            1:newer) echo "a newer file is listed; the issue step will record it" ;;
+            1:none)
+              echo "::error::sources_check exited 1 but its report names no newer file; treat this as the check failing, not as a finding"
+              exit 1 ;;
+            *)
+              echo "::error::sources_check exited ${RC}: at least one CDE download page could not be read, so this run is not evidence that nothing has changed"
+              exit 1 ;;
+          esac
+
+      - name: Open or update the one source-freshness issue
+        if: steps.verdict.outputs.found == 'newer'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # One issue, forever. The same finding on consecutive runs updates it
+          # rather than opening a second: a freshness check that files a
+          # duplicate every week trains its reader to close them unread, which
+          # is the same outcome as not having the check.
+          title="CDE lists a newer file than the one acquired"
+          {
+            cat "${RUNNER_TEMP}/freshness.md"
+            echo
+            echo "Read by [this run](${RUN_URL}) on $(date -u +%Y-%m-%d)."
+            echo
+            echo "This issue is updated in place by the source-freshness workflow;"
+            echo "it is not reopened or duplicated. Acquiring a source is a browser"
+            echo "step a person takes: download it, record the acquisition and the"
+            echo "measured schema in \`PROVENANCE.md\` (including its entry in the"
+            echo "machine-readable register), and parse it in the same commit."
+          } > "${RUNNER_TEMP}/issue.md"
+
+          existing="$(gh issue list --state open --label source-freshness \
+            --json number,title \
+            --jq "[.[] | select(.title == \"${title}\")] | .[0].number // empty")"
+
+          if [ -n "${existing}" ]; then
+            gh issue edit "${existing}" --body-file "${RUNNER_TEMP}/issue.md"
+            echo "updated issue #${existing}" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            gh label create source-freshness \
+              --description "CDE published a newer file than the one acquired" \
+              --color 0E8A16 2>/dev/null || true
+            gh issue create --title "${title}" --label source-freshness \
+              --body-file "${RUNNER_TEMP}/issue.md"
+          fi

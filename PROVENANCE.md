@@ -44,6 +44,70 @@ Rules:
   as a survey rather than an acquisition for exactly that reason; acquiring either source is
   still a person's step.
 
+## Source register (machine readable)
+
+The table above is the record a person reads. This block is the same facts in a
+form `tools/sources_check.py` can read, so the freshness check and the prose
+cannot drift apart: `tests/test_sources_check.py` asserts that every source
+here appears in the table above with the same download page and the same saved
+filename, that every table row whose status says *Acquired* has an entry here,
+and that an entry which cannot be checked says why rather than being left out.
+
+`listed_file` and `listed_note` are what CDE's own download page said about the
+file on `listed_read`, copied verbatim from the page. They are not this
+project's description of the file: the check compares the page's current words
+against these, and a difference is a signal to acquire deliberately, never a
+reason to fetch anything automatically. Nothing here crosses the network at
+build time; `sources-check` is run by hand or by the source-freshness workflow,
+and it reads only the HTML index page, never a data file.
+
+```json
+{
+  "schema": "homeroom/source-register/v1",
+  "sources": [
+    {
+      "id": "D1",
+      "index_url": "https://www.cde.ca.gov/schooldirectory/",
+      "saved_as": "pubschls.txt",
+      "acquired": "2026-08-07",
+      "not_checkable": "the school directory is a query form that generates a text report on request, not a page that indexes dated files; there is no listed filename or posting date to compare. Re-acquiring it is a browser step and its currency is checked by the row count and the endpoint HEAD recorded in the table above."
+    },
+    {
+      "id": "D2",
+      "index_url": "https://www.cde.ca.gov/ds/ad/filesenrcensus.asp",
+      "saved_as": "cdenroll2526.txt",
+      "acquired": "2026-08-07",
+      "listed_file": "cdenroll2526.txt",
+      "listed_note": "TXT; 31MB; Posted 16-Apr-2026",
+      "listed_read": "2026-09-06"
+    },
+    {
+      "id": "D3",
+      "index_url": "https://www.cde.ca.gov/ds/ad/filesabd.asp",
+      "saved_as": "chronicabsenteeism25.txt",
+      "acquired": "2026-08-21",
+      "listed_file": "chronicabsenteeism25-v2.txt",
+      "listed_note": "TXT; 33MB; Updated 13-Mar-2026",
+      "listed_read": "2026-09-06"
+    },
+    {
+      "id": "D5",
+      "index_url": "https://www.cde.ca.gov/ds/ad/filestamo.asp",
+      "saved_as": "tamo2324.txt",
+      "acquired": "2026-08-21",
+      "listed_file": "tamo2324.txt",
+      "listed_note": "TXT; 229MB; Posted 24-Sep-2025",
+      "listed_read": "2026-09-06"
+    }
+  ]
+}
+```
+
+D4 and D6 are surveyed, not acquired, and carry no entry: there is no
+acquisition for a check to compare a listing against. Acquiring either adds a
+row here in the same commit that records the acquisition above, and the parity
+test is what makes that not optional.
+
 ## Documentation corpus (ADR 0003)
 
 The ask layer quotes CDE's own definitions rather than paraphrasing them. The

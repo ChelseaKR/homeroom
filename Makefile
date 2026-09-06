@@ -347,3 +347,15 @@ sast:
 ZIZMOR_VERSION ?= 1.16.3
 workflow-audit:
 	uvx zizmor@$(ZIZMOR_VERSION) --persona=regular --config .github/zizmor.yml .github/workflows/
+
+# Has CDE published a newer file than the one PROVENANCE.md records as acquired?
+# Reads CDE's HTML download pages and nothing else -- no data file is fetched and
+# nothing is acquired; acquiring a source is a browser step a person takes.
+#
+# Deliberately NOT reachable from `verify`. It reads the network, which the merge
+# gate must never do, and CDE publishing a file is not a reason to block a merge.
+# It runs weekly from .github/workflows/source-freshness.yml and by hand here.
+# Exits 0 unchanged, 1 a newer file is listed, 4 a page could not be read.
+.PHONY: sources-check
+sources-check:
+	python3 tools/sources_check.py
