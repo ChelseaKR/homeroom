@@ -8,6 +8,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Every active school is published; the ask layer stays where it was**
+  (2026-09-05).
+  The site served one school from 2026-08-22 to now: Birch Lane Elementary, the
+  M4 school, out of the 10,534 the pipeline has profiled since M3a. Publishing
+  the rest was never a technical step -- `--cds` has always accepted "omit to
+  render every school" -- it was the decision about which schools to put in
+  front of families, and it has now been made the same way the first one was, by
+  a person. `site/` holds 21,069 school pages, English and Spanish for all 10,534
+  active schools, plus the landing page, sitemap, robots.txt and both cards.
+  `make publish` renders them in 42s.
+
+  The ask layer did not widen with them, and `make publish` is two passes so that
+  it did not have to. Pass 1 renders every school in `SCHOOLS` (empty, meaning
+  all) with no endpoint, so no page carries an ask link. Pass 2 renders
+  `ASK_SCHOOLS` again with the endpoint and contributes exactly two things: the
+  ask pages, and those schools' school pages, which are pass 1's bytes plus the
+  one link line. Pass 2's own index, sitemap, robots and cards describe a site of
+  `ASK_SCHOOLS` alone and are discarded with the stage directory. Keeping the ask
+  layer at two pages is a decision about an approved spend envelope -- the service
+  calls a paid model per question and a CloudWatch alarm watches daily
+  invocations against it -- rather than a consequence of how many schools
+  California has. A school page carrying an ask link with nothing behind it fails
+  `test_no_published_link_points_at_a_page_that_was_not_published`, so the two
+  halves cannot drift apart quietly.
+
+  Two limits were measured rather than assumed, because both bound what can be
+  published next. `site/` is 836 MB, against the 1 GB GitHub Pages allows a
+  published site; ask pages for all 10,534 schools instead of two would be about
+  1.1 GB, which does not fit. And 836 MB of near-identical HTML packs to about
+  46 MB in git, so the repository grew by tens of megabytes rather than by the
+  figure the working tree shows. README's Status section carried the old shape --
+  "one school out of the 10,534 the pipeline profiles" -- and now carries this
+  one, with the ratio it used to state recorded as what it said until 2026-09-05.
+
 - **M5's two sources were surveyed against the real published files, and one of
   them was not where this repository said it was** (2026-09-05). D4 and D6 were
   the last two rows in PROVENANCE.md reading "Planned", which is a status that
@@ -60,6 +94,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   agreeing one.
 
 ### Changed
+
+- **The live sentinel compares a spine every run and rotates through the school
+  pages** (2026-09-05). `tools/verify_live_site.py` fetched every published file,
+  which was eight of them. Publishing all 10,534 schools made it 21,076, so the
+  daily scheduled run would have pulled 836MB from the origin every morning,
+  three times over on its retry loop, and taken hours to do it. Bounding a
+  sentinel is the change most likely to turn it into nothing, so the split is by
+  what the two halves can go wrong. Everything that is not a school page --
+  index, sitemap, robots, CNAME, both cards, every ask page -- is compared on
+  every run, and that is where a stale or failed deploy shows up first, because
+  the index and the sitemap change whenever the site does. The school pages
+  rotate: each run takes a window of 200 chosen by the UTC date, so consecutive
+  days walk the corpus and every page is reached in about fifteen weeks. A run is
+  210 requests instead of 21,078. `--sample 0` still compares all of them, which
+  is the right thing to do by hand after a publish. `tests/test_live_sentinel.py`
+  holds the part that could silently under-check: that the spine is always in,
+  that consecutive windows do not overlap, that rotation reaches every page, that
+  a same-day re-run repeats its window rather than wandering, and that a sample
+  wider than the corpus is a full sweep rather than a wrapped and doubled one.
+
 - **Every gate stage runs `uv run --locked`, never a bare `uv run`** (2026-08-29).
   A bare `uv run` performs an implicit sync: when `uv.lock` no longer agrees with
   `pyproject.toml` it rewrites the tracked lockfile in place and carries on.

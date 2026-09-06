@@ -4,9 +4,10 @@
 
 > Working title. Not affiliated with the State of California or any school district.
 
-**Live at <https://homeroom.chelseakr.com>** — one school so far, in English and
-Spanish. What is published there, and why it is one school rather than every
-school the pipeline profiles, is under [Status](#status).
+**Live at <https://homeroom.chelseakr.com>** — every active California school,
+10,534 of them, in English and Spanish. What is published there, and why the ask
+layer covers two of those pages rather than all 21,069, is under
+[Status](#status).
 
 ## Quickstart
 
@@ -181,17 +182,28 @@ decisions.
 decision. Whether these pages belonged on the internet was a separate question
 about real schools and real children, and no build made it; a person did.
 
-What is published there is what this repository has actually built and checked:
-Birch Lane Elementary in Davis Joint Unified, in English and Spanish, with the
-ask layer below wired to a running service. That is one school out of the 10,534
-the pipeline profiles. The landing page does not print that ratio; what it says,
-in both languages, is that Homeroom is in development, that the schools listed
-are the ones published so far, and that more are added as each source is acquired
-and checked. This paragraph said "the landing page says so" until 2026-08-29,
-which read as a claim that the 10,534 figure is on the page. It is not, and the
-page does not imply the state is covered either. Publishing more is `make publish` with more
-`--cds` codes; it is a decision about which schools to put in front of families,
-not a technical step.
+What is published there is every active school in the directory file: 10,534
+schools, 21,069 pages, English and Spanish for each. Until 2026-09-05 it was one
+-- Birch Lane Elementary in Davis Joint Unified -- and this section said so. The
+ratio it described, one school out of the 10,534 the pipeline profiles, is no
+longer the shape of the site.
+
+The ask layer did not widen with the pages. It is published for the schools named
+in `ASK_SCHOOLS`, which is still Birch Lane in both languages. Widening the pages
+was a decision about which schools to put in front of families. Widening the ask
+layer is a different decision, about an approved spend envelope: the service
+calls a paid model per question, a CloudWatch alarm watches daily invocations
+against that envelope, and it is the one surface here that can be asked something
+nobody reviewed. That decision has not been made. The two halves cannot drift
+apart quietly, because a school page carrying an ask link with nothing behind it
+fails `test_no_published_link_points_at_a_page_that_was_not_published`.
+
+The landing page does not print any ratio; what it says, in both languages, is
+that Homeroom is in development, that the schools listed are the ones published
+so far, and that more are added as each source is acquired and checked. This
+paragraph said "the landing page says so" until 2026-08-29, which read as a claim
+that the 10,534 figure is on the page. It is not, and the page does not imply the
+state is covered either.
 
 The site is rendered here and committed to `site/`, because it cannot be built
 in CI: the acquired CDE files never enter git and nothing in CI fetches them.
@@ -199,6 +211,14 @@ The workflow in `.github/workflows/pages.yml` publishes that directory and
 builds nothing, so the bytes reviewed in a pull request are the bytes served,
 and `tests/test_published_site.py` gates them in `make verify` on a machine with
 no acquired file present.
+
+Publishing every school put a number on that trade. `site/` is 836 MB across
+21,076 files, against the 1 GB GitHub Pages allows a published site, and it packs
+to about 46 MB in git because the pages differ from each other in so few bytes.
+The remaining headroom is what the ask layer is measured against: rendering ask
+pages for all 10,534 schools rather than two would be roughly 1.1 GB, which does
+not fit. So that scope is bounded twice over, by the spend envelope first and by
+this limit second, and `make publish` prints both counts when it finishes.
 
 ## AI at the edges (ADR 0003)
 
