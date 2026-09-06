@@ -224,6 +224,10 @@ def published_paths() -> list[str]:
     return relatives
 
 
+#: Directories holding a page per county or per district (`homeroom/browse.py`).
+BROWSE_DIRECTORIES = ("county/", "district/")
+
+
 def is_school_page(relative: str) -> bool:
     """A per-school page: `<cds>.<locale>.html` at the root, so not index or ask."""
     return (
@@ -231,17 +235,29 @@ def is_school_page(relative: str) -> bool:
     )
 
 
+def rotates(relative: str) -> bool:
+    """A page there are too many of to fetch every morning.
+
+    The school pages, and since 2026-09-05 the county and district pages that
+    reach them -- 2,234 of those, which would otherwise have sat in the spine
+    and been fetched in full on every run, undoing the bound this file exists to
+    keep. What stays in the spine is the handful of site-level files plus the
+    ask pages, which are published for the schools in `ASK_SCHOOLS` and are two.
+    """
+    return is_school_page(relative) or relative.startswith(BROWSE_DIRECTORIES)
+
+
 def comparison_set(relatives: list[str], sample: int, offset: int) -> list[str]:
     """The spine every run compares, plus this run's window of school pages.
 
     The spine is everything a stale deploy shows up in immediately and there is
-    little of it. The school pages are the bulk, they change together or not at
-    all, and comparing all of them daily is 836MB from the origin for a fact the
-    index and the sitemap already carry. So they rotate, and `sample <= 0`
-    turns that off and compares every one.
+    little of it. The school and browse pages are the bulk, they change together
+    or not at all, and comparing all of them daily is most of a gigabyte from
+    the origin for a fact the index and the sitemap already carry. So they
+    rotate, and `sample <= 0` turns that off and compares every one.
     """
-    spine = [r for r in relatives if not is_school_page(r)]
-    schools = [r for r in relatives if is_school_page(r)]
+    spine = [r for r in relatives if not rotates(r)]
+    schools = [r for r in relatives if rotates(r)]
     if sample <= 0 or sample >= len(schools):
         return sorted(spine + schools)
     start = (offset * sample) % len(schools)

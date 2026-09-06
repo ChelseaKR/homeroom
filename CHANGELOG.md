@@ -8,6 +8,42 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A front door you can find your school through** (2026-09-05). Publishing all
+  10,534 schools left the landing page listing every one of them, twice, once
+  per locale: 21,069 links in 2.45MB. That is not a front door, it is a wall of
+  names, and a family looking for their own school had no way in but scrolling
+  or their browser's find. The site is walked now the way a family already knows
+  where it lives -- county, then district, then school -- and each step is its
+  own page: `index.html` names the 58 counties, 116 county pages name the 1,059
+  districts, and 2,118 district pages name the schools. The landing page is
+  **15,936 bytes**, down from 2,451,038, and the longest list on the site is
+  LAUSD's 995 schools, which is one real district rather than an arbitrary dump.
+  A filter box would have been the obvious answer and is the one thing this site
+  cannot ship: these pages carry no script and are gated on carrying none
+  (ADR 0001), so the hierarchy is pages rather than a control.
+
+  The addresses are the CDS code's own digits -- two of county, seven of
+  district, which is already how `context.district_key` finds a school's
+  district -- so no name becomes a slug and two districts sharing a name stay
+  two districts. `site/` grew 836MB to 855MB, still inside the 1GB GitHub Pages
+  allows.
+
+  Three gates covered the new pages with nothing, each found by building them:
+  `tools/a11y.mjs` reads one directory and does not recurse, so `county/` and
+  `district/` needed their own runs in `make a11y` (the ledger's page count goes
+  13 to 17); `published_url` in `tests/test_published_site.py` built an address
+  from a file's name alone, which for a county page is `/01.en.html` and is not
+  an address anything serves; and the live sentinel's spine/rotate split keys on
+  a name with no directory in it, so all 2,234 browse pages would have sat in
+  the spine and been fetched every morning -- passing, slowly, at the origin's
+  expense. `test_no_school_page_carries_a_script_or_reaches_off_the_page` now
+  reads every indexable page rather than a list of page types somebody has to
+  remember to extend.
+
+  The landing test that asserted every school was linked is a walk now:
+  index to county to district to school, in both languages, because a school
+  that is published and unreachable is not published for a family.
+
 - **Every active school is published; the ask layer stays where it was**
   (2026-09-05).
   The site served one school from 2026-08-22 to now: Birch Lane Elementary, the
@@ -597,7 +633,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed -- the refusals legitimately ship inside the JSON the script reads,
   and the question is only ever whether one is *displayed* unearned -- and
   asserts no refusal appears in what a reader sees. Found by looking at a
-  screenshot of the live page. One more bilingual string (193 keys per locale).
+  screenshot of the live page. One more bilingual string (198 keys per locale).
 - **The deployed ask page could not reach its service from a browser, and said
   so in the one string that hides why.** Both the Lambda Function URL's `Cors`
   configuration and the handler set `access-control-allow-origin`, so the
@@ -649,7 +685,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for, so a build without `--landing` is byte-identical to one from before it
   existed, which `tests/test_landing.py` asserts by diffing the two builds.
   html-validate and axe-core cover it in `make pages` (zero violations). Two
-  more bilingual strings (193 keys per locale).
+  more bilingual strings (198 keys per locale).
 - `homeroom.ask.http`: the HTTP edge of the ask service, a stdlib
   `ThreadingHTTPServer` for local use (`make ask-serve`) and an AWS Lambda
   Function URL handler, both thin over `AskService`: JSON in, the public JSON
@@ -679,7 +715,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requests on load and exactly one POST on submit, rendered as text; it runs
   in `make pages` beside html-validate and axe-core, which now cover the ask
   pages too (zero violations, both languages). Seventeen more fixed
-  bilingual strings (193 keys per locale).
+  bilingual strings (198 keys per locale).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
@@ -886,7 +922,7 @@ The ask service was deployed later, on 2026-08-22 (ADR 0003, `deploy/ask/`).
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 193 keys per locale, 386
+- English and Spanish as peers (`src/homeroom/i18n.py`): 198 keys per locale, 396
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
   and 10 interface strings at M3, and before the ask layer added 33 fixed
   interface strings under ADR 0003), covering every reporting category, grade span,
