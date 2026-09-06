@@ -162,6 +162,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `verify-ci`; `make lint` on its own did not have it.
 
 ### Fixed
+- **The withheld-count check on the ask page was passing on the citation year**
+  (2026-09-05). ADR 0003 promises that "the count of withheld claims is shown
+  beside the answer" and the README's standards table repeats it. No test renders
+  an answer, so `tools/ask-optin.mjs` was the only thing holding that promise, and
+  what it held was `text.includes("2")` over the whole answer's text. The canned
+  response's first citation carries `year: "2025-26"`, which the script renders
+  into every answer, so the assertion was satisfied by the citation year on every
+  render. Deleting the withheld paragraph from `askpage.py` outright left all six
+  ask pages reporting `ok`.
+
+  The count is now matched as the whole paragraph the script appends, against the
+  page's own `ask_withheld_count` string with the response's count substituted --
+  the same string the script builds, read out of the page's JSON block, so the
+  assertion reads in Spanish as well as English with no English hardcoded in the
+  checker. A digit elsewhere in the answer cannot satisfy it.
+
+  Each page now renders three answers instead of one. The second carries a
+  different count, so a number fixed in the script or baked into the locale string
+  fails rather than passing on a coincidence; the third withheld nothing, and must
+  render no count at all, which is the one case the paragraph is deliberately
+  absent. All three sabotages were run: deleting the block, hardcoding the count,
+  and dropping the `> 0` guard each fail all six pages, in both languages, with a
+  message naming the count. Nothing else in the file was relaxed.
 - **`docs/RESPONSIBLE-TECH-AUDITS.md` said it was regenerated, and it has no
   generator** (2026-08-29). The header read "Last regenerated: 2026-08-21" on a
   hand-authored file: a repository-wide search finds only readers, never a
