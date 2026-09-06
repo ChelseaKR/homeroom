@@ -15,6 +15,8 @@ Three guards:
   :func:`strip_label_references` takes out the digits that are part of a
   measure's *name* ("Grade 4") first, so those are licensed where they are
   written and not as bare tokens anywhere in the claim (issue #34).
+  :func:`number_positions` is the same reading with each number's offset kept,
+  for the one check that cares where in the sentence a figure is written.
 * :func:`says_not_published` and :func:`renders_absence_as_value` decide whether
   a sentence about a withheld or unpublished cell says so honestly or turns the
   absence into a zero, a "none", or a "no students".
@@ -94,19 +96,39 @@ the pages write them (:func:`homeroom.i18n.format_number`).
 """
 
 
+def number_positions(text: str) -> list[tuple[int, str]]:
+    """Every number ``text`` states, as (offset into ``text``, normalised token).
+
+    Academic-year ranges are taken out of the reading first, so ``2024-25`` is
+    not read as the two numbers 2024 and 25; the verifier allows years
+    separately. They are blanked character for character rather than removed,
+    so every offset is an offset into ``text`` itself and nothing after a year
+    shifts.
+
+    The offsets exist for one caller: deciding whether a comparison names the
+    district's figure *before* the word it compares with
+    (:func:`homeroom.ask.verifier._spoken_from_the_other_side`) is a question
+    about where a number is written, and answering it with a substring search
+    read the ``20`` inside "In 2025-26" as the district's 20 (issue #63).
+    """
+    masked = YEAR_RANGE.sub(lambda m: " " * len(m.group(0)), text)
+    out: list[tuple[int, str]] = []
+    for match in NUMBER.finditer(masked):
+        whole, fraction = match.group(1), match.group(2)
+        token = whole.replace(",", "")
+        if fraction:
+            token = f"{token}.{fraction}"
+        out.append((match.start(), token))
+    return out
+
+
 def numbers_in(text: str) -> list[str]:
     """Every number ``text`` states, normalised (commas stripped).
 
     Academic-year ranges are removed first, so ``2024-25`` is not read as the
     two numbers 2024 and 25; the verifier allows years separately.
     """
-    out: list[str] = []
-    for whole, fraction in NUMBER.findall(YEAR_RANGE.sub(" ", text)):
-        token = whole.replace(",", "")
-        if fraction:
-            token = f"{token}.{fraction}"
-        out.append(token)
-    return out
+    return [token for _, token in number_positions(text)]
 
 
 def number_forms(value: float) -> set[str]:
