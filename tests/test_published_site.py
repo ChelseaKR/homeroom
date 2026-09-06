@@ -21,8 +21,11 @@ whole point.
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys
 from collections.abc import Mapping
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -171,9 +174,49 @@ def read_facts(path: Path) -> PageFacts:
     )
 
 
+#: Below this many pages a pool costs more to start than it saves. The fixture
+#: builds and a one-school publish are far under it and stay single-process.
+PARALLEL_FLOOR = 500
+
+#: More workers than this stops helping and starts competing with whatever else
+#: the suite is running beside this file.
+MAX_WORKERS = 8
+
+
 @cache
 def pages() -> tuple[PageFacts, ...]:
-    return tuple(read_facts(path) for path in published())
+    """Every published page's facts, gathered once and in parallel.
+
+    Reading each page once got this gate from 14m18s to 114s, and then all
+    10,534 schools gained a county and a district page and the corpus reached
+    23,310 files. What is left is the parse itself, which is `html.parser`
+    tokenising in pure Python -- measured at 5.9ms a page, and a leaner parser
+    collecting only the fields below is no faster, because the cost is the
+    tokeniser rather than the bookkeeping.
+
+    So it is spread across processes instead. Measured over the published tree:
+
+        serial      140s
+        4 workers    33s
+        10 workers   17s
+
+    The work is pure per file and `PageFacts` holds nothing but strings, so the
+    only thing crossing between processes is the result. `make test` runs xdist
+    with `--dist loadfile`, which keeps this module on one worker: exactly one
+    pool is built, while the workers holding the short files are already done.
+    """
+    paths = published()
+    workers = min(os.cpu_count() or 1, MAX_WORKERS)
+    if len(paths) < PARALLEL_FLOOR or workers < 2:
+        return tuple(read_facts(path) for path in paths)
+    # A spawned worker imports this module by name to unpickle `read_facts`, and
+    # it builds its path from the parent's `sys.path`, which under pytest holds
+    # `src/` but not the repo root -- so `tests` is importable here and was not
+    # there. Putting the root on this process's path puts it on theirs.
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        return tuple(pool.map(read_facts, paths, chunksize=64))
 
 
 def school_facts() -> list[PageFacts]:
