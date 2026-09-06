@@ -162,6 +162,71 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   Nothing under `site/` is republished here; that is a step the owner runs.
 
+- **The one open accessibility gate now has a procedure and an empty record**
+  (2026-09-05). **The walkthrough itself is still not done.** Nobody has used a
+  keyboard or a screen reader on any page of this site, in either language, and
+  nothing here changes that. What changes is that the gap stops living only in
+  prose.
+
+  Three documents said the same true thing and nothing else tracked it: README
+  ("that walkthrough has not happened yet"), `docs/ROADMAP.md` §Scoping, and
+  `docs/RESPONSIBLE-TECH-AUDITS.md` §E, which records it as REVIEW (not yet
+  done) with an accountable owner and registers it as RR-05. A declaration with
+  an owner, a risk-register row, and no procedure to follow is a commitment
+  nobody can act on and nobody would notice going missing.
+
+  `docs/accessibility-walkthrough.md` is what a person sits down with: which
+  screen readers on which browsers (VoiceOver/Safari, NVDA/Firefox, VoiceOver
+  on a real iPhone, JAWS and TalkBack if available), how to make the screen
+  reader switch languages before starting -- without a Spanish voice and
+  automatic language switching, the Spanish half of every row is a finding
+  about the walker's configuration rather than about the page -- how to build
+  the 320 CSS pixel and 400% zoom rig, and then, for each of the five page
+  types this site publishes, the steps with what a pass looks like and what a
+  failure looks like beside each one. All five: the landing page, the county
+  and district pages added on 2026-09-05, the school page, and the ask page,
+  which is the only page carrying a script. Both languages throughout, because
+  Spanish is a launch requirement here and a screen reader announcing Spanish
+  content with English phonemes is precisely the failure no headless gate can
+  see.
+
+  Reading the committed markup while writing it turned up three things. Two of
+  them were faults and are already fixed, in the entry above this one: the
+  `lang="en"` marking on the Spanish browse pages wrapped the Spanish words
+  around a CDE-published proper name, and the browse pages carried no language
+  link. Finding them by reading the markup is the argument for writing the
+  procedure down, and the walkthrough now checks how the corrected markup
+  *sounds*, which no reading of it settles. The third stands: each data table's
+  scroll region carries an `aria-label` byte-identical to the table's own
+  `<caption>`, a plausible double-announcement that is not a finding yet, and
+  the landing page is now the only page type with no language link, which is a
+  judgment the walk is there to make rather than a defect. They are markup
+  facts with unknown audible consequences, which is what a walkthrough is for.
+
+  The record is a results table, one row per page type per language: 5 x 2 = 10
+  rows, every keyboard, screen-reader and reflow cell reading **UNMET**, no
+  date and no name anywhere in it. It is meant to be obvious at a glance that
+  nothing has been walked.
+
+  `tests/test_accessibility_review.py` is what keeps it honest, in this repo's
+  usual shape -- a claim in a document is checked by code. It derives the page
+  types from the published tree rather than a list somebody has to remember to
+  extend, so a sixth page type published without a walkthrough section fails
+  the suite the way `county/` and `district/` were covered by no accessibility
+  run at all until the day they were caught. It holds the record to a closed
+  vocabulary, refuses a recorded result that carries no date and no name (a
+  walkthrough is somebody's or it is not one), refuses a date beside an unwalked
+  row, and, while any cell reads UNMET, requires README.md, `docs/ROADMAP.md`,
+  `docs/RESPONSIBLE-TECH-AUDITS.md` §E and RR-05 each to keep saying so in
+  their own words and each to point at the procedure. Deleting the procedure to
+  make the repository look complete fails fourteen of its eighteen tests and
+  leaves four documents citing a file that is not there.
+
+  What it cannot check is whether somebody sat down and did it. No published
+  byte proves a person used a screen reader, and a test that pretended
+  otherwise would be worse than none. What is left possible is an outright lie
+  across five files, which is a deliberate act rather than a quiet edit.
+
 - **A front door you can find your school through** (2026-09-05). Publishing all
   10,534 schools left the landing page listing every one of them, twice, once
   per locale: 21,069 links in 2.45MB. That is not a front door, it is a wall of

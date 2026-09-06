@@ -204,7 +204,17 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     reflow on a narrow screen. No headless gate settles those, README.md says
     so, and this line stays open until the walkthrough happens. Accountable
     owner: Chelsea Kelly-Reif. Registered as RR-05 in
-    `docs/audits/residual-risk-register.md`. The measure tables grew from five
+    `docs/audits/residual-risk-register.md`. As of 2026-09-05 the procedure is
+    written down in `docs/accessibility-walkthrough.md` -- which assistive
+    technologies on which browsers, what to do on each of the five page types
+    the site publishes, what a pass and a failure look like at each step, and a
+    results row per page type per language. Every cell in that record reads
+    UNMET, carries no date and carries no name, which is the true state of this
+    item; the document is the procedure and the empty record, and writing it
+    down performed none of it. `tests/test_accessibility_review.py` derives the
+    page types from the published site and holds this section, README.md,
+    `docs/ROADMAP.md` and RR-05 to that record, so this line cannot be softened
+    in one file alone. The measure tables grew from five
     columns to seven at M4 when district and statewide context landed, which
     makes the reflow half of this walkthrough more pressing, not less: the
     tables scroll inside a focusable region rather than reflowing, and whether
