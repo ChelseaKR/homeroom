@@ -61,8 +61,24 @@ format:
 typecheck:
 	uv run --locked mypy --strict src
 
+# `--dist loadfile`, so every test in a file lands on one worker.
+#
+# `tests/test_published_site.py` parses all 21,069 published pages once and
+# shares the result across its checks. Under xdist's default distribution its
+# checks scatter, and each worker that receives one parses the whole corpus
+# again -- the sharing is per process, and there is one process per worker.
+#
+# Measured here on 2026-09-05, same suite, same machine:
+#
+#     -n auto                  5:18 wall, 2076s CPU
+#     -n auto --dist loadfile  6:10 wall,  267s CPU
+#
+# Wall got worse and CPU got 7.8x better, which is what having more cores than
+# work looks like: this machine had spare workers to waste the duplicate parses
+# on. A 2-core runner does not, and there CPU is the wall -- 2076s of it across
+# two cores is the ~13 minutes the first full-publish run took in CI.
 test:
-	uv run --locked pytest -n auto --cov=src --cov-branch --cov-report=xml --cov-fail-under=95
+	uv run --locked pytest -n auto --dist loadfile --cov=src --cov-branch --cov-report=xml --cov-fail-under=95
 
 audit:
 	uv run --locked pip-audit
