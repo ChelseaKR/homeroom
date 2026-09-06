@@ -25,7 +25,7 @@ no script, no external asset, deterministic output, both locales as peers.
 
 from __future__ import annotations
 
-from homeroom.i18n import Locale, text
+from homeroom.i18n import LOCALE_NAMES, OTHER_LOCALE, Locale, text
 from homeroom.profiles import SchoolProfile
 from homeroom.render import (
     STYLESHEET,
@@ -100,6 +100,33 @@ def schools_in(profiles: list[SchoolProfile], code: str) -> list[SchoolProfile]:
     )
 
 
+def _sibling(path: str, locale: Locale) -> str:
+    """One browse page's file name in a given locale, as its neighbours see it.
+
+    The browse pages sit in their own directory, so a language link between two
+    of them is a bare file name rather than the `county/…` the sitemap needs.
+    """
+    return f"{path.rsplit('/', 1)[-1].rsplit('.', 2)[0]}.{locale}.html"
+
+
+def _named(locale: Locale, key: str, **names: str) -> str:
+    """A translated phrase with CDE's own names marked as English inside it.
+
+    The phrase belongs to this locale; the names inside it are CDE's, published
+    in English only. Marking the whole phrase instead of the name is one span
+    written too wide, and it says the opposite of what `_cde` exists to say: it
+    told a Spanish screen reader to read "Condado de Alameda" -- article,
+    preposition and all -- with English phonemes, which is the WCAG 2.2 SC 3.1.2
+    failure the marking is there to prevent. Published that way from the browse
+    pages' first deploy on 2026-09-05 until this.
+
+    The template is escaped first and the marked-up names go in after, so a name
+    carrying an ampersand is escaped exactly once.
+    """
+    template = _esc(text(locale, key))
+    return template.format(**{key: _cde(value, locale) for key, value in names.items()})
+
+
 def _fixture_note(locale: Locale, is_fixture: bool) -> str:
     if not is_fixture:
         return ""
@@ -120,10 +147,18 @@ def _shell(
     crumb: str,
     listing: str,
     path: str,
+    alternate: str,
     is_fixture: bool,
     site_url: str | None,
 ) -> str:
-    """One browse page. ``depth`` is the relative prefix back to the site root."""
+    """One browse page. ``depth`` is the relative prefix back to the site root.
+
+    ``alternate`` is this page in the other language, as a sibling file name.
+    Every school page carries that link and these did not, so a reader who
+    reached a county in the wrong language had no way across but the URL bar --
+    on a site where Spanish is a launch requirement rather than a later phase.
+    """
+    other = OTHER_LOCALE[locale]
     if site_url is None:
         addressed = ""
     else:
@@ -147,6 +182,8 @@ def _shell(
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{_esc(title)}</title>\n"
         f'<meta name="description" content="{_esc(description)}">\n'
+        f'<link rel="alternate" hreflang="{locale}" href="{_esc(_sibling(path, locale))}">\n'
+        f'<link rel="alternate" hreflang="{other}" href="{_esc(alternate)}">\n'
         f"{addressed}"
         f"<style>\n{STYLESHEET}{BROWSE_STYLE}</style>\n"
         "</head>\n"
@@ -156,7 +193,13 @@ def _shell(
         '<p class="brand">'
         f'<span class="brand-name">{_esc(text(locale, "site_name"))}</span>'
         f'<span class="brand-tag">{_esc(text(locale, "site_tagline"))}</span>'
-        "</p>\n</div>\n</header>\n"
+        "</p>\n"
+        f'<nav aria-label="{_esc(text(locale, "language_nav"))}">\n'
+        f'<a lang="{other}" hreflang="{other}" rel="alternate" href="{_esc(alternate)}">'
+        f"{_esc(LOCALE_NAMES[other])}"
+        f'<span class="vh"> {_esc(text(locale, "switch_language_hint"))}</span></a>\n'
+        "</nav>\n"
+        "</div>\n</header>\n"
         '<main id="main" class="wrap">\n'
         f"{_fixture_note(locale, is_fixture)}"
         f'<p class="crumb">{crumb}</p>\n'
@@ -186,7 +229,7 @@ def render_county(
         f"{_cde(dname, locale)}</a></li>"
         for dcode, dname in found.items()
     )
-    heading = _cde(text(locale, "browse_county_heading").format(county=name), locale)
+    heading = _named(locale, "browse_county_heading", county=name)
     plain = text(locale, "browse_county_heading").format(county=name)
     return _shell(
         locale=locale,
@@ -200,6 +243,7 @@ def render_county(
             f'<ul class="browse-list">\n{items}\n</ul>\n'
         ),
         path=county_page_name(code, locale),
+        alternate=_sibling(county_page_name(code, locale), OTHER_LOCALE[locale]),
         is_fixture=is_fixture,
         site_url=site_url,
     )
@@ -221,7 +265,7 @@ def render_district(
         f"{_cde(p.school.name, locale)}</a></li>"
         for p in schools_in(profiles, code)
     )
-    back = text(locale, "browse_in_county").format(county=county_name)
+    back = _named(locale, "browse_in_county", county=county_name)
     return _shell(
         locale=locale,
         title=f"{name} · {text(locale, 'site_name')}",
@@ -230,13 +274,14 @@ def render_district(
         depth="../",
         crumb=(
             f'<a href="../{_esc(county_page_name(county_code(code), locale))}">'
-            f"{_cde(back, locale)}</a>"
+            f"{back}</a>"
         ),
         listing=(
             f"<h2>{_esc(text(locale, 'browse_schools_label'))}</h2>\n"
             f'<ul class="browse-list">\n{items}\n</ul>\n'
         ),
         path=district_page_name(code, locale),
+        alternate=_sibling(district_page_name(code, locale), OTHER_LOCALE[locale]),
         is_fixture=is_fixture,
         site_url=site_url,
     )

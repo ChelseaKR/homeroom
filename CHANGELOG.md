@@ -6,6 +6,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The browse pages told a Spanish screen reader to read Spanish as English,
+  and offered no way to the other language** (2026-09-05). Both shipped with the
+  county and district pages earlier the same day and both land on Spanish-reading
+  families first. The heading marked the whole phrase as CDE's English --
+  `<span lang="en">Condado de Alameda</span>` -- when only `Alameda` is CDE's, so
+  a screen reader was told to pronounce the article and the preposition with
+  English phonemes. That is worse than not marking at all: the reader hears their
+  own language read badly rather than a foreign name read plainly, and it is the
+  exact WCAG 2.2 SC 3.1.2 failure the marking exists to prevent. `_named` now
+  escapes the translated template and puts the marked name inside it, so the
+  span covers the name and nothing else. Separately, every school page carries a
+  link to itself in the other language and the browse pages carried none, so a
+  reader who arrived at a county in the wrong language had no way across but the
+  URL bar; they carry the same `hreflang` links and the same visible switcher
+  now.
+
+  Neither was visible to any automated gate. axe-core and html-validate both
+  pass on the old markup: it is valid, the contrast is fine, and `lang` on the
+  wrong span is a true statement about the wrong words. They were found by
+  reading the committed markup while writing `docs/accessibility-walkthrough.md`,
+  which is the argument for that document. `tests/test_browse.py` holds the
+  marked spans to the names the directory file actually publishes, so a span one
+  word too wide fails rather than shipping: reverting the fix reports
+  `'Condado de Yolo' in {..., 'Yolo'}`.
+
 ### Added
 
 - **A front door you can find your school through** (2026-09-05). Publishing all
