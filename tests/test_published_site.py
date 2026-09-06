@@ -22,6 +22,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 
 from homeroom.i18n import LOCALES, text
@@ -52,8 +55,9 @@ def test_the_published_directory_is_here_at_all() -> None:
     assert (SITE / "index.html").is_file(), "site/ exists but holds no index"
 
 
-def published() -> list[Path]:
-    return sorted(SITE.rglob("*.html"))
+@cache
+def published() -> tuple[Path, ...]:
+    return tuple(sorted(SITE.rglob("*.html")))
 
 
 def school_pages() -> list[Path]:
@@ -62,6 +66,127 @@ def school_pages() -> list[Path]:
 
 def ask_pages() -> list[Path]:
     return [p for p in published() if p.parent.name == "ask"]
+
+
+# ----------------------------------------------------------------------------------
+# One pass over the published bytes
+#
+# Each check below used to re-read and re-parse the whole site, which cost about
+# eight full parses of the corpus. That was free while one school was published
+# and became the slowest thing in `make verify` the moment all 10,534 were:
+# 14m18s over 21,074 files, against 103s for a single parse pass.
+#
+# So the facts the checks need are gathered here once per page. What is kept is
+# small and fixed -- no page's source is retained, because holding 836MB of
+# markup to save re-reading it trades one cost for a worse one. Substring checks
+# are answered by `present`, which records which of a fixed set of needles the
+# source contained.
+# ----------------------------------------------------------------------------------
+
+ASK_STRINGS = re.compile(
+    r'<script type="application/json" id="ask-strings">(.*?)</script>', re.S
+)
+
+
+@cache
+def needles() -> tuple[str, ...]:
+    """Every fixed string a check below looks for in a page's source.
+
+    The Function URL is one of them, so `DEPLOY_RECORD` is read here rather than
+    in the check that needs it. That check still fails on its own terms if the
+    record stops naming a host; this only decides what to look for while the
+    pages are open.
+    """
+    found = ["github.io", f"http://{DOMAIN}"]
+    for locale in LOCALES:
+        found.append(text(locale, "fixture_banner_title"))
+        found.append(text(locale, "footer_unaffiliated"))
+        found.append(text(locale, "footer_no_ranking"))
+    host = re.search(
+        r"https://([a-z0-9]+\.lambda-url\.[a-z0-9-]+\.on\.aws)",
+        DEPLOY_RECORD.read_text(encoding="utf-8"),
+    )
+    if host:
+        found.append(host.group(1))
+    return tuple(found)
+
+
+@dataclass(frozen=True)
+class PageFacts:
+    """What the checks below need from one published page."""
+
+    path: Path
+    hrefs: tuple[str, ...]
+    canonical: str | None
+    metas: Mapping[str, str]
+    properties: Mapping[str, str]
+    present: frozenset[str]
+    carries_script_text: bool
+    subresource_tags: frozenset[str]
+    fetching_attrs: frozenset[tuple[str, str]]
+    event_attrs: frozenset[tuple[str, str]]
+    scripts: int
+    script_srcs: frozenset[str]
+    ask_blob: str | None
+
+    @property
+    def name(self) -> str:
+        return self.path.name
+
+
+def read_facts(path: Path) -> PageFacts:
+    source = path.read_text(encoding="utf-8")
+    document = parse_markup(source)
+    blob = ASK_STRINGS.search(source)
+    return PageFacts(
+        path=path,
+        hrefs=tuple(document.hrefs),
+        canonical=document.canonical,
+        metas=dict(document.metas),
+        properties=dict(document.properties),
+        present=frozenset(needle for needle in needles() if needle in source),
+        carries_script_text="<script" in source.lower(),
+        subresource_tags=frozenset(
+            tag for tag, _ in document.elements if tag in SUBRESOURCE_TAGS
+        ),
+        fetching_attrs=frozenset(
+            (tag, name)
+            for tag, attr in document.elements
+            for name in attr
+            if name in FETCHING_ATTRIBUTES
+        ),
+        event_attrs=frozenset(
+            (tag, name)
+            for tag, attr in document.elements
+            for name in attr
+            if name.startswith("on")
+        ),
+        scripts=sum(1 for tag, _ in document.elements if tag == "script"),
+        script_srcs=frozenset(
+            attr["src"]
+            for tag, attr in document.elements
+            if tag == "script" and "src" in attr
+        ),
+        ask_blob=blob.group(1) if blob else None,
+    )
+
+
+@cache
+def pages() -> tuple[PageFacts, ...]:
+    return tuple(read_facts(path) for path in published())
+
+
+def school_facts() -> list[PageFacts]:
+    return [f for f in pages() if f.path.parent == SITE and f.name != "index.html"]
+
+
+def ask_facts() -> list[PageFacts]:
+    return [f for f in pages() if f.path.parent.name == "ask"]
+
+
+def indexable_facts() -> list[PageFacts]:
+    """Every published page that is not one of the noindex ask pages."""
+    return [f for f in pages() if f.path.parent.name != "ask"]
 
 
 # ----------------------------------------------------------------------------------
@@ -95,33 +220,30 @@ def test_no_published_page_was_built_from_fixtures() -> None:
     The renderer marks a fixture build with a banner in both languages. Its
     presence here means somebody published `make site-offline`'s output.
     """
-    for path in published():
-        markup = path.read_text(encoding="utf-8")
+    for facts in pages():
         for locale in LOCALES:
             banner = text(locale, "fixture_banner_title")
-            assert banner not in markup, (path.name, locale)
+            assert banner not in facts.present, (facts.name, locale)
 
 
 def test_every_published_page_carries_the_notices_this_project_promises() -> None:
-    for path in published():
-        markup = path.read_text(encoding="utf-8")
-        assert text("en", "footer_unaffiliated") in markup or any(
-            text(locale, "footer_unaffiliated") in markup for locale in LOCALES
-        ), path.name
-        assert any(text(locale, "footer_no_ranking") in markup for locale in LOCALES), (
-            path.name
-        )
+    for facts in pages():
+        assert any(
+            text(locale, "footer_unaffiliated") in facts.present for locale in LOCALES
+        ), facts.name
+        assert any(
+            text(locale, "footer_no_ranking") in facts.present for locale in LOCALES
+        ), facts.name
 
 
 def test_no_published_link_points_at_a_page_that_was_not_published() -> None:
     """A dead internal link on a school site is a claim that something is there."""
-    for path in published():
-        document = parse_markup(path.read_text(encoding="utf-8"))
-        for href in document.hrefs:
+    for facts in pages():
+        for href in facts.hrefs:
             if href.startswith(("http://", "https://", "mailto:", "#")):
                 continue
-            target = (path.parent / href.split("#", 1)[0]).resolve()
-            assert target.is_file(), (path.name, href)
+            target = (facts.path.parent / href.split("#", 1)[0]).resolve()
+            assert target.is_file(), (facts.name, href)
 
 
 # ----------------------------------------------------------------------------------
@@ -131,15 +253,12 @@ def test_no_published_link_points_at_a_page_that_was_not_published() -> None:
 
 def test_no_school_page_carries_a_script_or_reaches_off_the_page() -> None:
     """The promise is per-page, and the published pages are where it is kept."""
-    for path in [*school_pages(), SITE / "index.html"]:
-        source = path.read_text(encoding="utf-8")
-        document = parse_markup(source)
-        for tag, attr in document.elements:
-            assert tag not in SUBRESOURCE_TAGS, (path.name, tag)
-            for name in attr:
-                assert name not in FETCHING_ATTRIBUTES, (path.name, tag, name)
-                assert not name.startswith("on"), (path.name, tag, name)
-        assert "<script" not in source.lower(), path.name
+    index = [f for f in pages() if f.path == SITE / "index.html"]
+    for facts in [*school_facts(), *index]:
+        assert not facts.subresource_tags, (facts.name, sorted(facts.subresource_tags))
+        assert not facts.fetching_attrs, (facts.name, sorted(facts.fetching_attrs))
+        assert not facts.event_attrs, (facts.name, sorted(facts.event_attrs))
+        assert not facts.carries_script_text, facts.name
 
 
 def test_each_ask_page_names_exactly_one_endpoint_and_it_is_https() -> None:
@@ -149,20 +268,14 @@ def test_each_ask_page_names_exactly_one_endpoint_and_it_is_https() -> None:
     on a family's screen that can only ever fail, so the endpoint is checked for
     being a real https origin rather than merely present.
     """
-    assert ask_pages(), "no ask page published"
+    assert ask_facts(), "no ask page published"
     endpoints = set()
-    for path in ask_pages():
-        source = path.read_text(encoding="utf-8")
-        blob = re.search(
-            r'<script type="application/json" id="ask-strings">(.*?)</script>',
-            source,
-            re.S,
-        )
-        assert blob, path.name
-        endpoint = json.loads(blob.group(1))["endpoint"]
-        assert endpoint.startswith("https://"), (path.name, endpoint)
-        assert endpoint.endswith("/ask"), (path.name, endpoint)
-        assert ".invalid" not in endpoint, (path.name, endpoint)
+    for facts in ask_facts():
+        assert facts.ask_blob, facts.name
+        endpoint = json.loads(facts.ask_blob)["endpoint"]
+        assert endpoint.startswith("https://"), (facts.name, endpoint)
+        assert endpoint.endswith("/ask"), (facts.name, endpoint)
+        assert ".invalid" not in endpoint, (facts.name, endpoint)
         endpoints.add(endpoint)
     assert len(endpoints) == 1, endpoints
 
@@ -174,19 +287,13 @@ def test_every_ask_page_script_is_inline_and_nothing_else_is_fetched() -> None:
     else to read about their own child's school, which is the thing every other
     page on this site is checked for not doing.
     """
-    for path in ask_pages():
-        source = path.read_text(encoding="utf-8")
-        document = parse_markup(source)
-        scripts = [attr for tag, attr in document.elements if tag == "script"]
-        assert scripts, path.name
-        for attr in scripts:
-            assert "src" not in attr, (path.name, attr)
-        for tag, attr in document.elements:
-            if tag != "script":
-                assert tag not in SUBRESOURCE_TAGS, (path.name, tag)
-            for name in attr:
-                assert name not in FETCHING_ATTRIBUTES, (path.name, tag, name)
-                assert not name.startswith("on"), (path.name, tag, name)
+    for facts in ask_facts():
+        assert facts.scripts, facts.name
+        assert not facts.script_srcs, (facts.name, sorted(facts.script_srcs))
+        fetched = facts.subresource_tags - {"script"}
+        assert not fetched, (facts.name, sorted(fetched))
+        assert not facts.fetching_attrs, (facts.name, sorted(facts.fetching_attrs))
+        assert not facts.event_attrs, (facts.name, sorted(facts.event_attrs))
 
 
 def test_every_school_page_is_published_in_both_languages() -> None:
@@ -222,12 +329,11 @@ def published_url(path: Path) -> str:
 
 def test_every_published_page_carries_a_canonical_pointing_at_itself() -> None:
     """A canonical naming another page hands a crawler the wrong address."""
-    assert indexable(), "nothing indexable is published"
-    for path in indexable():
-        document = parse_markup(path.read_text(encoding="utf-8"))
-        assert document.canonical == published_url(path), (
-            path.name,
-            document.canonical,
+    assert indexable_facts(), "nothing indexable is published"
+    for facts in indexable_facts():
+        assert facts.canonical == published_url(facts.path), (
+            facts.name,
+            facts.canonical,
         )
 
 
@@ -240,16 +346,15 @@ def test_every_published_page_carries_the_social_tags_a_shared_link_needs() -> N
     renderer emits these tags; this checks that the bytes actually served carry
     them, because those are two different facts about two different trees.
     """
-    assert indexable(), "nothing indexable is published"
-    for path in indexable():
-        document = parse_markup(path.read_text(encoding="utf-8"))
+    assert indexable_facts(), "nothing indexable is published"
+    for facts in indexable_facts():
         for tag in ("og:title", "og:description", "og:image"):
-            assert document.properties.get(tag), (path.name, tag)
-        assert document.properties["og:url"] == published_url(path), path.name
-        assert document.properties["og:type"] == "website", path.name
-        assert document.metas.get("twitter:card") == "summary_large_image", path.name
-        assert document.metas.get("twitter:image") == document.properties["og:image"], (
-            path.name
+            assert facts.properties.get(tag), (facts.name, tag)
+        assert facts.properties["og:url"] == published_url(facts.path), facts.name
+        assert facts.properties["og:type"] == "website", facts.name
+        assert facts.metas.get("twitter:card") == "summary_large_image", facts.name
+        assert facts.metas.get("twitter:image") == facts.properties["og:image"], (
+            facts.name
         )
 
 
@@ -262,13 +367,16 @@ def test_every_published_card_is_a_file_that_was_actually_published() -> None:
     a card type of `summary_large_image` over a missing image is worse than the
     `summary` card these pages carried before there was an image to promise.
     """
-    for path in indexable():
-        document = parse_markup(path.read_text(encoding="utf-8"))
-        image = document.properties["og:image"]
-        assert image.startswith(f"{ORIGIN}/"), (path.name, image)
+    checked: set[Path] = set()
+    for facts in indexable_facts():
+        image = facts.properties["og:image"]
+        assert image.startswith(f"{ORIGIN}/"), (facts.name, image)
         card = SITE / image.removeprefix(f"{ORIGIN}/")
-        assert card.is_file(), (path.name, image)
-        assert card.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n", card.name
+        assert card.is_file(), (facts.name, image)
+        # Every page names one of a handful of cards. Read each one once.
+        if card not in checked:
+            assert card.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n", card.name
+            checked.add(card)
 
 
 def test_each_published_language_carries_its_own_card() -> None:
@@ -279,32 +387,29 @@ def test_each_published_language_carries_its_own_card() -> None:
     Spanish-reading parent is shown and the first thing telling them this site
     is not quite for them.
     """
-    for path in indexable():
-        if path.name == "index.html":
+    for facts in indexable_facts():
+        if facts.name == "index.html":
             continue
-        locale = path.name.rsplit(".", 2)[1]
-        document = parse_markup(path.read_text(encoding="utf-8"))
-        assert document.properties["og:image"].endswith(f"social-card.{locale}.png"), (
-            path.name,
-            document.properties["og:image"],
+        locale = facts.name.rsplit(".", 2)[1]
+        assert facts.properties["og:image"].endswith(f"social-card.{locale}.png"), (
+            facts.name,
+            facts.properties["og:image"],
         )
-        alt = document.properties.get("og:image:alt", "")
-        assert text(locale, "site_tagline") in alt, path.name
+        alt = facts.properties.get("og:image:alt", "")
+        assert text(locale, "site_tagline") in alt, facts.name
 
 
 def test_no_published_address_points_at_the_old_project_path_or_plain_http() -> None:
     """The site used to answer on a github.io project path. It answers on TLS now."""
-    for path in published():
-        source = path.read_text(encoding="utf-8")
-        assert "github.io" not in source, path.name
-        assert f"http://{DOMAIN}" not in source, path.name
+    for facts in pages():
+        assert "github.io" not in facts.present, facts.name
+        assert f"http://{DOMAIN}" not in facts.present, facts.name
 
 
 def test_the_published_ask_pages_are_still_noindex() -> None:
-    assert ask_pages(), "no ask page published"
-    for path in ask_pages():
-        document = parse_markup(path.read_text(encoding="utf-8"))
-        assert document.metas.get("robots") == "noindex", path.name
+    assert ask_facts(), "no ask page published"
+    for facts in ask_facts():
+        assert facts.metas.get("robots") == "noindex", facts.name
 
 
 def test_robots_txt_is_published_and_advertises_the_sitemap() -> None:
@@ -410,12 +515,12 @@ def test_the_published_bytes_show_a_deployed_service() -> None:
     stack. If this project is ever rolled back the way that file describes, the
     ask pages stop existing and this test says so first.
     """
-    assert ask_pages(), "no ask page is published, so there is nothing to be deployed"
+    assert ask_facts(), "no ask page is published, so there is nothing to be deployed"
     record = DEPLOY_RECORD.read_text(encoding="utf-8")
     host = re.search(r"https://([a-z0-9]+\.lambda-url\.[a-z0-9-]+\.on\.aws)", record)
     assert host, "deploy/ask/README.md no longer records a Function URL"
-    for path in ask_pages():
-        assert host.group(1) in path.read_text(encoding="utf-8"), path.name
+    for facts in ask_facts():
+        assert host.group(1) in facts.present, facts.name
 
 
 def test_no_document_describing_the_surface_denies_the_deployment() -> None:
