@@ -100,7 +100,7 @@ coverage in the next three columns. Birch Lane Elementary in Davis Joint Unified
 renders from the acquired files in English and Spanish, publishing 36 of its 40
 figures (30 counts and 6 genuine zeros) and stating in words, for the other four,
 that the state published nothing.
-Every user-visible string exists in both languages: 198 keys per locale, zero
+Every user-visible string exists in both languages: 217 keys per locale, zero
 present in one and missing from the other, enforced by test. The pages carry no
 script, no external asset, no account, and no tracking.
 
@@ -145,8 +145,9 @@ its new tables at the same seven columns as the existing ones rather than adding
 more while that gate is open; see `docs/RESPONSIBLE-TECH-AUDITS.md` §E and RR-05
 in `docs/audits/residual-risk-register.md`.
 
-Teacher assignment monitoring (D5) has been acquired and its schema verified
-against a real file, and is still not published anywhere. CDE publishes these
+Teacher assignment monitoring (D5) is published on the school pages as of
+2026-09-05, by the owner's decision recorded in
+`docs/adr/0005-publish-teacher-assignment-monitoring.md`. CDE publishes these
 files from the Commission on Teacher Credentialing's CalSAAS system: by school,
 how much teaching FTE sat on a clear credential appropriately matched to the
 assignment, and how much sat in one of the other authorization states the state
@@ -155,14 +156,21 @@ tracks. The 2023-24 file (234,206,408 bytes, 1,528,796 rows, acquired
 every particular -- real column names, seven outcomes rather than five, FTE
 fractions rather than integer counts, and up to 150 rows per school rather than
 one -- and `src/homeroom/assignments.py` was rewritten to match what the file
-actually contains (PROVENANCE.md D5 has the full list). The parser, its coverage
-output, and its join to the spine are tested against a fixture shaped like that
-real file. No D5 number about a real school is published anywhere: `make data`
-and `make site` are not given the file by default, `homeroom.site` accepts no
-argument for it at all, and PROVENANCE.md says publishing it is a separate,
-not-yet-made decision. No school page shows a teacher figure; each page says so
-in words, and a test renders a profile that does carry parsed assignment
-outcomes to prove none of them reaches the markup. The remaining datasets (D4,
+actually contains (PROVENANCE.md D5 has the full list). Each page now carries
+CDE's own whole-school row: the total teaching FTE, the seven outcome FTE
+counts, and the seven outcome shares, every one a copied cell, beside the
+district and statewide figures read from the file's own aggregate rows and with
+coverage stated in the next three columns. Nothing is summed and no share is
+divided out of a count, because a share Homeroom worked out would be a number
+about a real school that nobody published -- and on a masked row it would print
+a figure where the state withheld one. There is no headline "percent properly
+credentialed": one number standing for seven is the compression ADR 0002
+refuses, and it is the most sortable thing the file contains. From 2026-08-21 to
+2026-09-05 this paragraph said the opposite, because it was true then: `make
+site` was not given the file, `homeroom.site` accepted no argument for it, and
+whether to publish it was an open question tracked as issue #59. A build still
+given no D5 file publishes nothing and says so in words, which is tested. The
+remaining datasets (D4,
 the state dashboard indicators, and D6, per-pupil spending) were surveyed on
 2026-09-05: both exist and are readable, D6 at a different address than this
 project had recorded, and neither is acquired or publishes anything. D4 turned

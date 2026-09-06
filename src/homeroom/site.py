@@ -1,11 +1,15 @@
 """Build the static bilingual pages: one file per school per language.
 
-The page build is deliberately narrower than the artifact build. It takes the
-directory and the enrollment file and nothing else, so there is no argument by
-which a teacher assignment figure could reach a page: D5 has not been acquired,
-and the strongest form of "no D5 number is published about a real school" is a
-build that cannot be handed the file (PROVENANCE.md D5, docs/ROADMAP.md D5a). The
-pages say so in words, in both languages, rather than leaving a silent gap.
+The build takes the directory and the enrollment file, and optionally the D3
+chronic absenteeism and D5 teacher assignment files. Every optional source works
+the same way: given, it renders its own section; left out, the page says in
+words, in both languages, that the data is not here, rather than leaving a
+silent gap or an empty table.
+
+D5 was the exception until 2026-09-05. This module accepted no argument for it
+at all, because the strongest form of "no D5 number is published about a real
+school" was a build that could not be handed the file. ADR 0005 is the owner's
+decision to publish it, so the argument exists now and `make site` passes it.
 
 Two modes, mirroring ``make data`` and ``make data-offline``:
 
@@ -31,6 +35,7 @@ from urllib.parse import urlsplit
 
 from homeroom.artifacts import (
     ABSENTEEISM_ACCESS_DATE,
+    ASSIGNMENTS_ACCESS_DATE,
     DIRECTORY_ACCESS_DATE,
     ENROLLMENT_ACCESS_DATE,
 )
@@ -45,9 +50,14 @@ from homeroom.browse import (
     render_district,
 )
 from homeroom.context import (
+    AbsenteeismContext,
     AbsenteeismContextDriftError,
+    AssignmentContext,
+    AssignmentContextDriftError,
     ContextDriftError,
+    EnrollmentContext,
     load_absenteeism_context,
+    load_assignment_context,
     load_context,
 )
 from homeroom.i18n import LOCALES
@@ -55,6 +65,7 @@ from homeroom.landing import render_landing
 from homeroom.profiles import ProfileAssembly, SchoolProfile, assemble_profiles
 from homeroom.render import (
     ABSENTEEISM_URL,
+    ASSIGNMENTS_URL,
     DIRECTORY_URL,
     ENROLLMENT_URL,
     SiteCoverage,
@@ -130,13 +141,17 @@ def sources(
     is_fixture: bool,
     absenteeism: Path | None = None,
     absenteeism_academic_year: str | None = None,
+    assignments: Path | None = None,
+    assignments_academic_year: str | None = None,
 ) -> tuple[SourceRef, ...]:
     """The files this build read, with the dates PROVENANCE.md records.
 
     A fixture build stamps no date, because nobody downloaded a fixture. The same
-    rule governs ``coverage.json``; the two are tested to agree. ``absenteeism`` is
-    optional, the same way the D3 source is everywhere else in this module: a
-    build with no D3 file names only D1 and D2.
+    rule governs ``coverage.json``; the two are tested to agree. ``absenteeism``
+    and ``assignments`` are optional, the same way the D3 and D5 sources are
+    everywhere else in this module: a build with neither names only D1 and D2,
+    and a source that published nothing on these pages is never listed as one
+    they came from.
     """
     refs = [
         SourceRef(
@@ -161,6 +176,16 @@ def sources(
                 url=ABSENTEEISM_URL,
                 access_date=None if is_fixture else ABSENTEEISM_ACCESS_DATE,
                 academic_year=absenteeism_academic_year,
+            )
+        )
+    if assignments is not None:
+        refs.append(
+            SourceRef(
+                key="d5",
+                file_name=assignments.name,
+                url=ASSIGNMENTS_URL,
+                access_date=None if is_fixture else ASSIGNMENTS_ACCESS_DATE,
+                academic_year=assignments_academic_year,
             )
         )
     return tuple(refs)
@@ -301,6 +326,59 @@ def _write_page(out_dir: Path, name: str, markup: str) -> Path:
     return path
 
 
+def _aggregate_contexts(
+    assembly: ProfileAssembly,
+    *,
+    enrollment: Path,
+    absenteeism: Path | None,
+    assignments: Path | None,
+) -> tuple[EnrollmentContext, AbsenteeismContext | None, AssignmentContext | None]:
+    """CDE's own district and statewide rows for each source this build read.
+
+    Every one is checked against the year the profiles carry for that source
+    before a page is rendered. The check is per source and not once for the
+    build because the three report on three different cycles -- 2025-26,
+    2024-25 and 2023-24 in the acquired files -- so "the year" is not a property
+    a build has. What must never happen is a page reading one year's school
+    figures against another year's district and statewide figures, and that is
+    what each of these refusals prevents for its own measure.
+    """
+    context = load_context(enrollment)
+    if context.academic_year != assembly.academic_year:
+        raise ContextDriftError(
+            f"context covers {context.academic_year} but the profiles cover "
+            f"{assembly.academic_year}; a page must not read one year's school "
+            f"figures against another year's district and statewide figures"
+        )
+    absenteeism_context = (
+        load_absenteeism_context(absenteeism) if absenteeism is not None else None
+    )
+    if (
+        absenteeism_context is not None
+        and absenteeism_context.academic_year != assembly.absenteeism_academic_year
+    ):
+        raise AbsenteeismContextDriftError(
+            f"absenteeism context covers {absenteeism_context.academic_year} but "
+            f"the profiles cover {assembly.absenteeism_academic_year}; a page must "
+            "not read one year's school figures against another year's district "
+            "and statewide figures"
+        )
+    assignment_context = (
+        load_assignment_context(assignments) if assignments is not None else None
+    )
+    if (
+        assignment_context is not None
+        and assignment_context.academic_year != assembly.assignments_academic_year
+    ):
+        raise AssignmentContextDriftError(
+            f"assignment context covers {assignment_context.academic_year} but "
+            f"the profiles cover {assembly.assignments_academic_year}; a page must "
+            "not read one year's school figures against another year's district "
+            "and statewide figures"
+        )
+    return context, absenteeism_context, assignment_context
+
+
 def build_site(
     *,
     directory: Path,
@@ -309,15 +387,17 @@ def build_site(
     is_fixture: bool,
     cds_codes: tuple[str, ...] = (),
     absenteeism: Path | None = None,
+    assignments: Path | None = None,
     ask_endpoint: str | None = None,
     landing: bool = False,
     site_url: str | None = None,
 ) -> SiteBuild:
     """Render every selected school in every locale. Returns what was written.
 
-    ``absenteeism`` (D3) is optional, mirroring how every other optional source in
-    this project works: left out, every page's chronic-absenteeism section is
-    replaced by the "not yet published" copy, rather than an empty table.
+    ``absenteeism`` (D3) and ``assignments`` (D5) are optional, mirroring how
+    every other optional source in this project works: left out, that section is
+    replaced by the "not yet published" copy rather than an empty table, and no
+    page implies the measure is zero or that Homeroom looked and found nothing.
 
     ``ask_endpoint`` (ADR 0003) is the URL of a running ask service. Given, each
     school page gains one link to an ask page written under ``ask/``; left out,
@@ -343,28 +423,16 @@ def build_site(
     """
     if site_url is not None:
         site_url = normalise_site_url(site_url)
-    assembly = assemble_profiles(directory, enrollment, absenteeism_path=absenteeism)
-    cover = site_coverage(assembly)
-    context = load_context(enrollment)
-    if context.academic_year != assembly.academic_year:
-        raise ContextDriftError(
-            f"context covers {context.academic_year} but the profiles cover "
-            f"{assembly.academic_year}; a page must not read one year's school "
-            f"figures against another year's district and statewide figures"
-        )
-    absenteeism_context = (
-        load_absenteeism_context(absenteeism) if absenteeism is not None else None
+    assembly = assemble_profiles(
+        directory, enrollment, assignments, absenteeism_path=absenteeism
     )
-    if (
-        absenteeism_context is not None
-        and absenteeism_context.academic_year != assembly.absenteeism_academic_year
-    ):
-        raise AbsenteeismContextDriftError(
-            f"absenteeism context covers {absenteeism_context.academic_year} but "
-            f"the profiles cover {assembly.absenteeism_academic_year}; a page must "
-            "not read one year's school figures against another year's district "
-            "and statewide figures"
-        )
+    cover = site_coverage(assembly)
+    context, absenteeism_context, assignment_context = _aggregate_contexts(
+        assembly,
+        enrollment=enrollment,
+        absenteeism=absenteeism,
+        assignments=assignments,
+    )
     refs = sources(
         directory=directory,
         enrollment=enrollment,
@@ -372,6 +440,8 @@ def build_site(
         is_fixture=is_fixture,
         absenteeism=absenteeism,
         absenteeism_academic_year=assembly.absenteeism_academic_year,
+        assignments=assignments,
+        assignments_academic_year=assembly.assignments_academic_year,
     )
     schools = _selected(assembly, cds_codes)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -392,6 +462,7 @@ def build_site(
                     is_fixture=is_fixture,
                     context=context,
                     absenteeism_context=absenteeism_context,
+                    assignment_context=assignment_context,
                     ask_href=ask_page_name(cds, locale) if ask_endpoint else None,
                     site_url=site_url,
                 ),
@@ -463,6 +534,15 @@ def main(argv: list[str] | None = None) -> int:
         help="path to the D3 chronic absenteeism file (optional)",
     )
     parser.add_argument(
+        "--assignments",
+        type=Path,
+        default=None,
+        help=(
+            "path to the D5 teacher assignment monitoring file (optional; "
+            "ADR 0005). Omit and every page says so in words instead"
+        ),
+    )
+    parser.add_argument(
         "--fixture",
         action="store_true",
         help="mark output as built from committed fixtures, not acquired files",
@@ -502,6 +582,7 @@ def main(argv: list[str] | None = None) -> int:
         is_fixture=args.fixture,
         cds_codes=tuple(args.cds),
         absenteeism=args.absenteeism,
+        assignments=args.assignments,
         ask_endpoint=args.ask_endpoint,
         landing=args.landing,
         site_url=args.site_url,
@@ -519,7 +600,15 @@ def main(argv: list[str] | None = None) -> int:
         f"{build.coverage.schools} active schools: "
         + ", ".join(f"{status}={count}" for status, count in counts.items())
     )
-    print("teacher assignments: no D5 file is read here, so no page carries one")
+    if build.coverage.assignments_supplied:
+        tamo_counts = build.coverage.assignments_total
+        print(
+            "teaching assignment coverage across "
+            f"{build.coverage.schools} active schools: "
+            + ", ".join(f"{status}={count}" for status, count in tamo_counts.items())
+        )
+    else:
+        print("teaching assignments: no D5 file given, no page carries one")
     if build.coverage.absenteeism_supplied:
         abd_counts = build.coverage.absenteeism_total
         print(

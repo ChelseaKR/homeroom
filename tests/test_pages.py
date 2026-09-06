@@ -39,23 +39,27 @@ import pytest
 from homeroom import site as site_module
 from homeroom.artifacts import (
     ABSENTEEISM_ACCESS_DATE,
+    ASSIGNMENTS_ACCESS_DATE,
     DIRECTORY_ACCESS_DATE,
     ENROLLMENT_ACCESS_DATE,
 )
-from homeroom.assignments import OUTCOME_NAMES
+from homeroom.assignments import OUTCOME_NAMES, OUTCOMES
 from homeroom.browse import county_page_name, district_page_name
 from homeroom.context import (
     AbsenteeismAggregate,
     AggregateFigures,
+    AssignmentAggregate,
     load_absenteeism_context,
+    load_assignment_context,
     load_context,
 )
 from homeroom.directory import active_schools
-from homeroom.i18n import LOCALES, Locale, format_number, text
-from homeroom.measures import MeasureStatus
+from homeroom.i18n import LOCALES, Locale, format_number, outcome_name, text
+from homeroom.measures import Measure, MeasureStatus
 from homeroom.profiles import SchoolProfile, assemble_profiles
 from homeroom.render import (
     ABSENTEEISM_URL,
+    ASSIGNMENTS_URL,
     DARK,
     DIRECTORY_URL,
     ENROLLMENT_URL,
@@ -621,52 +625,505 @@ def test_every_page_states_that_it_refuses_to_rank(built: Path) -> None:
 
 
 # ----------------------------------------------------------------------------------
-# D5: a parser with no file behind it publishes nothing
+# D5: teacher assignment monitoring, published (ADR 0005)
+#
+# This section used to assert the opposite, and the change is the point. Until
+# 2026-09-05 `homeroom.site` accepted no argument for the D5 file, and one test
+# proved that a profile carrying parsed assignment outcomes rendered none of
+# them. The owner decided to publish it (`docs/adr/0005-*.md`), so what has to
+# hold now is the harder thing: that a measure which is league-table bait, which
+# a family could read as a verdict on their child's teacher, and whose obvious
+# summary would be a value this project computed, went onto the page without
+# costing the four cell states, the three kinds of absence, or the rule that no
+# number on a page is one the renderer worked out for itself.
 # ----------------------------------------------------------------------------------
 
 
-def test_pages_say_the_teacher_data_is_not_yet_acquired(built: Path) -> None:
+@pytest.fixture(scope="module")
+def built_with_assignments(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The same build as ``built``, plus D5: every page carries the section."""
+    out = tmp_path_factory.mktemp("pages-assignments")
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=True,
+        assignments=ASSIGNMENTS,
+    )
+    return out
+
+
+def named_section(source: str, anchor: str) -> str:
+    """One top-level page section, as raw markup, up to the next one.
+
+    The sections a page is built from are siblings under ``main`` and are the
+    only elements carrying ``aria-labelledby``; the scrollable table wrappers
+    inside them are labelled by ``aria-label`` instead. So the next
+    ``aria-labelledby`` after this one is where this one ends, and a nested
+    ``</section>`` cannot be mistaken for the closing tag.
+    """
+    start = source.index(f'<section aria-labelledby="{anchor}">')
+    following = source.find('<section aria-labelledby="', start + 1)
+    return source[start:] if following == -1 else source[start:following]
+
+
+def assignment_section(path: Path) -> Document:
+    """Just the teaching-assignment section of one page, parsed on its own.
+
+    Scoping matters more here than anywhere else on the page. The enrollment
+    tables above carry published numbers, published zeros and this school's own
+    district figures, so a question like "does this school publish any
+    assignment figure at all" has to be asked of this section alone -- otherwise
+    an enrollment count answers for it and the test passes while the page says
+    something else.
+    """
+    section = named_section(path.read_text(encoding="utf-8"), "assignments")
+    return parse_markup(section)
+
+
+def assignment_measure(
+    profile: SchoolProfile, outcome: str, *, percent: bool
+) -> Measure:
+    """This school's own cell for one outcome, read from the profile.
+
+    Deliberately re-derived from the profile here rather than imported from the
+    renderer: a test that asks the renderer what the renderer should have shown
+    checks nothing.
+    """
+    row = profile.teacher_assignments
+    if row is None:
+        return Measure.not_reported()
+    return row.percents[outcome] if percent else row.counts[outcome]
+
+
+def expected_assignment_cells(profile: SchoolProfile) -> list[tuple[str, str]]:
+    """Every school-column cell the section must show, from the profile alone.
+
+    ``(state class, the digits printed)`` in the order the renderer emits them:
+    the total, then the seven outcome counts, then the seven outcome shares. A
+    cell the state withheld or never published prints no digits at all, which is
+    the empty string here and is asserted rather than assumed.
+    """
+    row = profile.teacher_assignments
+    measures = [row.total if row is not None else Measure.not_reported()]
+    measures += [assignment_measure(profile, o, percent=False) for o in OUTCOMES]
+    measures += [assignment_measure(profile, o, percent=True) for o in OUTCOMES]
+    cells: list[tuple[str, str]] = []
+    for measure in measures:
+        if measure.status is not MeasureStatus.REPORTED:
+            state = (
+                "m-withheld"
+                if measure.status is MeasureStatus.SUPPRESSED
+                else "m-nothing"
+            )
+            cells.append((state, ""))
+            continue
+        state = "m-zero" if measure.is_zero else "m-number"
+        cells.append((state, format_number(measure.number())))
+    return cells
+
+
+def rendered_cells(
+    document: Document, scope: str = "c-school"
+) -> list[tuple[str, str]]:
+    """``(state class, the digits printed)`` for one column of a parsed section."""
+    found: list[tuple[str, str]] = []
+    for classes, body in document.cells:
+        if scope not in classes:
+            continue
+        state = next(name for name in classes if name.startswith("m-"))
+        digits = NUMBER.search(body)
+        found.append((state, digits.group(0) if digits else ""))
+    return found
+
+
+def test_without_the_d5_file_pages_say_so_and_publish_nothing(built: Path) -> None:
+    """A build given no D5 file still renders, and implies nothing by rendering.
+
+    Three ways this could go wrong and each is checked: crashing, which the
+    build not raising rules out; a section of empty or zeroed rows, which the
+    absent heading rules out; and a silent gap, which is what the "not yet" copy
+    exists to prevent. The coverage rows are checked too, because three counts of
+    zero beside "schools publishing a teaching assignment total" would be a
+    statement about California that this build has no file to support.
+    """
     for _, locale, path in every_page(built):
-        assert text(locale, "not_yet_assignments") in parse(path).body_text
+        body = parse(path).body_text
+        assert text(locale, "not_yet_assignments") in body
+        assert text(locale, "assignments_heading") not in body
+        assert text(locale, "assignments_intro") not in body
+        assert text(locale, "coverage_assignments_published") not in body
+        assert ASSIGNMENTS.name not in body
+        for outcome in OUTCOMES:
+            assert outcome_name(locale, outcome) not in body, (locale, outcome)
 
 
-def test_no_page_shows_a_teacher_assignment_figure_even_when_one_is_loaded() -> None:
-    """The page build cannot be handed the D5 file, so this reaches past it.
+def test_with_the_d5_file_pages_carry_the_section_not_the_not_yet_copy(
+    built_with_assignments: Path,
+) -> None:
+    for _, locale, path in every_page(built_with_assignments):
+        body = parse(path).body_text
+        assert text(locale, "assignments_heading") in body
+        assert text(locale, "assignments_intro") in body
+        assert text(locale, "not_yet_assignments") not in body
+        # The other "not yet" facts (D3, D4/D6) still apply and still appear.
+        assert text(locale, "not_yet_absenteeism") in body
+        assert text(locale, "not_yet_measures") in body
 
-    The profile here carries real (fixture) assignment outcomes, joined and
-    parsed: 40 teaching assignments, 34 of them on a clear credential, an 85.0
-    percent share, a withheld outcome, and the 2024-25 year they report on. The
-    renderer publishes none of it. Every number that reaches a data cell is an
-    enrollment figure or a coverage tally, no outcome label appears anywhere, and
-    the assignment year does not either. No D5 number about any school reaches a
-    page until the file is acquired (PROVENANCE.md D5).
+
+def test_every_assignment_cell_is_exactly_what_the_pipeline_holds(
+    built_with_assignments: Path,
+) -> None:
+    """The renderer copies; it does not compute. Cell by cell, in order.
+
+    This is the strongest form of the no-derived-values rule for D5, and the one
+    that would catch the tempting mistake: dividing a count by the total to fill
+    in a share. CDE publishes both, the pipeline reads both, and the fifteen
+    cells in this school's column have to be those fifteen measures in that
+    order -- same state, same digits, no digits where the measure has none. A
+    share worked out here would differ from the published one on some school and
+    fail here, and on the school where the arithmetic happens to agree it would
+    still show a number where the state published a mask.
+    """
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, ASSIGNMENTS)
+    for profile in assembly.profiles:
+        expected = expected_assignment_cells(profile)
+        assert len(expected) == 1 + 2 * len(OUTCOMES)
+        for locale in LOCALES:
+            path = page(built_with_assignments, profile.school.cds_code, locale)
+            assert rendered_cells(assignment_section(path)) == expected, (
+                profile.school.cds_code,
+                locale,
+            )
+
+
+def test_a_withheld_or_unpublished_assignment_cell_never_renders_a_digit(
+    built_with_assignments: Path,
+) -> None:
+    """The founding rule, on the measure most likely to be scraped for a table."""
+    for _, _, path in every_page(built_with_assignments):
+        for scope in ("c-school", "c-district", "c-state"):
+            document = assignment_section(path)
+            for classes, body in document.cells:
+                if scope not in classes:
+                    continue
+                if "m-withheld" in classes or "m-nothing" in classes:
+                    assert not NUMBER.search(body), (path.name, scope, body)
+
+
+def test_a_school_with_every_assignment_cell_withheld_shows_no_number(
+    built_with_assignments: Path,
+) -> None:
+    """A masked D5 row is masked on the page, and the context stays visible.
+
+    The second half keeps the first half honest, the same way the enrollment
+    version of this test does: this school's district and California both
+    publish assignment figures, so the section is not simply empty and a
+    regression that let a district's number render in the school's column would
+    fail here rather than pass quietly.
+    """
+    for locale in LOCALES:
+        document = assignment_section(page(built_with_assignments, CHARTER, locale))
+        assert not cells_with(document, "m-number")
+        assert not cells_with(document, "m-zero")
+        assert not cells_with(document, "m-nothing")
+        assert len(cells_with(document, "m-withheld")) == 1 + 2 * len(OUTCOMES)
+        assert cells_with(document, "m-number", "c-district")
+        assert cells_with(document, "m-number", "c-state")
+
+
+def test_a_school_the_d5_file_never_mentions_says_nothing_rather_than_zero(
+    built_with_assignments: Path,
+) -> None:
+    """Sin Datos Middle is active and absent from the D5 fixture.
+
+    Its profile carries ``teacher_assignments is None``, which is also what a
+    build with no D5 source at all carries, and the two must not read the same
+    on a page: this build has the file, so the honest sentence is "the state
+    published nothing about this school", not "Homeroom has no source" and never
+    a zero. A zero would say the school has no teaching assignments.
+    """
+    for locale in LOCALES:
+        document = assignment_section(page(built_with_assignments, ABSENT, locale))
+        assert not cells_with(document, "m-number")
+        assert not cells_with(document, "m-zero")
+        assert not cells_with(document, "m-withheld")
+        assert len(cells_with(document, "m-nothing")) == 1 + 2 * len(OUTCOMES)
+        assert text(locale, "state_nothing_label") in document.body_text
+        # And the page still says the file was read, so "nothing published" is
+        # about the school rather than about the build.
+        assert (
+            text(locale, "assignments_heading")
+            in parse(page(built_with_assignments, ABSENT, locale)).body_text
+        )
+
+
+def assignment_reported_values(profile: SchoolProfile) -> set[str]:
+    row = profile.teacher_assignments
+    if row is None:
+        return set()
+    measures = [row.total, *row.counts.values(), *row.percents.values()]
+    return {
+        format_number(measure.number())
+        for measure in measures
+        if measure.status is MeasureStatus.REPORTED
+    }
+
+
+def assignment_context_values(figures: AssignmentAggregate) -> set[str]:
+    measures = [figures.total, *figures.counts.values(), *figures.percents.values()]
+    return {
+        format_number(measure.number())
+        for measure in measures
+        if measure.status is MeasureStatus.REPORTED
+    }
+
+
+def assignment_coverage_numbers(cover: SiteCoverage) -> set[str]:
+    groups = [
+        cover.assignments_total,
+        *cover.assignment_counts.values(),
+        *cover.assignment_percents.values(),
+    ]
+    return {format_number(value) for group in groups for value in group.values()}
+
+
+def test_every_assignment_number_was_counted(built_with_assignments: Path) -> None:
+    """The D5 analogue of ``test_every_number_in_a_data_cell_was_counted``.
+
+    Every digit on a page carrying assignment outcomes is a cell the pipeline
+    read out of a source file or a coverage status it tallied. A figure Homeroom
+    worked out for itself would be in none of those sets, which is the point.
+    """
+    assembly = assemble_profiles(DIRECTORY, ENROLLMENT, ASSIGNMENTS)
+    cover = site_coverage(assembly)
+    counts = coverage_numbers(cover) | assignment_coverage_numbers(cover)
+    context = load_context(ENROLLMENT)
+    assignment_context = load_assignment_context(ASSIGNMENTS)
+    for profile in assembly.profiles:
+        allowed = (
+            counts
+            | reported_values(profile)
+            | assignment_reported_values(profile)
+            | context_values(context.state)
+            | context_values(context.for_district(profile.school.cds_code))
+            | assignment_context_values(assignment_context.state)
+            | assignment_context_values(
+                assignment_context.for_district(profile.school.cds_code)
+            )
+        )
+        for locale in LOCALES:
+            document = parse(
+                page(built_with_assignments, profile.school.cds_code, locale)
+            )
+            for _, body in document.cells:
+                for found in NUMBER.findall(body):
+                    assert found in allowed, (profile.school.cds_code, locale, found)
+
+
+def test_assignment_shares_carry_a_percent_sign_and_counts_do_not(
+    built_with_assignments: Path,
+) -> None:
+    """Both tables are copied cells, and a reader has to be able to tell which.
+
+    An FTE count and a percent of that count are different quantities in the
+    same section, and the sign rides in the cell rather than only in the caption
+    so a screen reader announcing one row out of context still says which.
+    """
+    document = assignment_section(page(built_with_assignments, EXAMPLE, "en"))
+    numbers = [body for classes, body in document.cells if "m-number" in classes]
+    assert [body for body in numbers if body.rstrip().endswith("%")]
+    assert [body for body in numbers if not body.rstrip().endswith("%")]
+
+
+def test_assignment_coverage_is_published_on_every_page(
+    built_with_assignments: Path,
+) -> None:
+    """Coverage beside the data, for D5 as for everything else."""
+    cover = site_coverage(assemble_profiles(DIRECTORY, ENROLLMENT, ASSIGNMENTS))
+    for _, locale, path in every_page(built_with_assignments):
+        body = parse(path).body_text
+        assert text(locale, "coverage_assignments_published") in body
+        assert text(locale, "coverage_assignments_withheld") in body
+        assert text(locale, "coverage_assignments_nothing") in body
+    # One school of the three publishes, one withholds, one publishes nothing:
+    # all three coverage states are live on this build rather than theoretical.
+    assert cover.assignments_total == {
+        "reported": 1,
+        "suppressed": 1,
+        "not_reported": 1,
+    }
+
+
+def test_assignments_name_their_source_file_and_the_states_page(
+    built_with_assignments: Path,
+) -> None:
+    for _, locale, path in every_page(built_with_assignments):
+        document = parse(path)
+        assert ASSIGNMENTS.name in document.body_text
+        assert text(locale, "source_d5_name") in document.body_text
+        assert ASSIGNMENTS_URL in document.hrefs
+
+
+def test_assignment_captions_name_d5s_own_year_not_enrollments(
+    built_with_assignments: Path,
+) -> None:
+    """Three sources, three calendars: D2 is 2025-26, D3 2024-25, D5 2023-24.
+
+    A caption that borrowed another source's year would mislabel the data under
+    it, which is the failure `homeroom.profiles` keeps two academic years apart
+    to prevent in the first place.
+    """
+    section = assignment_section(page(built_with_assignments, EXAMPLE, "en")).body_text
+    assert "2023-24" in section
+    assert "2025-26" not in section
+    assert "2024-25" not in section
+
+
+def test_the_assignment_section_names_no_other_school(
+    built_with_assignments: Path,
+) -> None:
+    """ADR 0002 at the place it is most tempting to break.
+
+    Teacher-assignment outcomes are the most sortable thing this project
+    publishes, and the way a page starts ranking is by putting a second school's
+    figure next to the first one's. The only names allowed in this section are
+    this school's own and the district and California columns, which are CDE's
+    own aggregates and not schools.
+    """
+    active = {school.cds_code: school.name for school in active_schools(DIRECTORY)}
+    for cds, locale, path in every_page(built_with_assignments):
+        section = assignment_section(path).body_text
+        for other_cds, name in active.items():
+            if other_cds == cds:
+                continue
+            assert name not in section, (path.name, name)
+            assert other_cds not in section, (path.name, other_cds)
+        assert active[cds] in section, (path.name, locale)
+
+
+def test_both_locales_carry_every_assignment_string(
+    built_with_assignments: Path,
+) -> None:
+    """Spanish is a peer here, so the new section exists in it or it does not ship."""
+    keys = (
+        "assignments_heading",
+        "assignments_intro",
+        "assignments_total_label",
+        "col_outcome",
+        "coverage_assignments_published",
+        "coverage_assignments_withheld",
+        "coverage_assignments_nothing",
+        "source_d5_name",
+        "source_d5_title",
+    )
+    for _, locale, path in every_page(built_with_assignments):
+        body = parse(path).body_text
+        for key in keys:
+            assert text(locale, key) in body, (path.name, key)
+        for outcome in OUTCOMES:
+            assert outcome_name(locale, outcome) in body, (path.name, outcome)
+        other = OTHER_LOCALE[locale]
+        assert text(other, "assignments_heading") not in body, path.name
+
+
+def test_assignment_reruns_are_byte_identical(tmp_path: Path) -> None:
+    """`site/` is rendered here and committed, so a build that wobbles run to
+    run makes the diff that reviews it unreadable."""
+    out = tmp_path / "site"
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=True,
+        assignments=ASSIGNMENTS,
+    )
+    first = {p.name: p.read_bytes() for p in sorted(out.glob("*.html"))}
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=True,
+        assignments=ASSIGNMENTS,
+    )
+    again = {p.name: p.read_bytes() for p in sorted(out.glob("*.html"))}
+    assert first == again
+
+
+def test_a_real_build_stamps_the_assignment_date_provenance_records(
+    tmp_path: Path,
+) -> None:
+    out = tmp_path / "site"
+    build_site(
+        directory=DIRECTORY,
+        enrollment=ENROLLMENT,
+        out_dir=out,
+        is_fixture=False,
+        cds_codes=(EXAMPLE,),
+        assignments=ASSIGNMENTS,
+    )
+    for locale in LOCALES:
+        body = parse(out / page_name(EXAMPLE, locale)).body_text
+        assert ASSIGNMENTS_ACCESS_DATE is not None
+        assert ASSIGNMENTS_ACCESS_DATE in body
+
+
+def test_assignment_source_url_matches_the_provenance_record() -> None:
+    provenance = (ROOT / "PROVENANCE.md").read_text(encoding="utf-8")
+    d5_row = next(line for line in provenance.splitlines() if line.startswith("| D5 |"))
+    assert ASSIGNMENTS_URL in d5_row
+
+
+def test_a_renderer_given_no_assignment_context_shows_nothing_not_zero() -> None:
+    """The context columns are optional, and absent context is not a zero.
+
+    `render_school` takes each aggregate context separately from the coverage
+    that decides whether a section appears, so a caller can hand it the D5
+    figures and no D5 context. Every district and statewide cell then has to say
+    nothing was published -- which is true, because this build did not read the
+    aggregate rows -- while the school's own column is unaffected. A zero there
+    would claim California employs no teachers.
     """
     assembly = assemble_profiles(DIRECTORY, ENROLLMENT, ASSIGNMENTS)
     profile = next(p for p in assembly.profiles if p.school.cds_code == EXAMPLE)
-    assert profile.teacher_assignments is not None
     cover = site_coverage(assembly)
-    allowed = coverage_numbers(cover) | reported_values(profile)
+    assert cover.assignments_supplied
     for locale in LOCALES:
-        document = parse_markup(
-            render_school(
-                profile,
-                locale=locale,
-                cover=cover,
-                sources=sources(
-                    directory=DIRECTORY,
-                    enrollment=ENROLLMENT,
-                    academic_year=assembly.academic_year,
-                    is_fixture=True,
-                ),
+        markup = render_school(
+            profile,
+            locale=locale,
+            cover=cover,
+            sources=sources(
+                directory=DIRECTORY,
+                enrollment=ENROLLMENT,
+                academic_year=assembly.academic_year,
                 is_fixture=True,
-            )
+                assignments=ASSIGNMENTS,
+                assignments_academic_year=assembly.assignments_academic_year,
+            ),
+            is_fixture=True,
         )
-        for _, body in document.cells:
-            for found in NUMBER.findall(body):
-                assert found in allowed, (locale, found)
-        for label in OUTCOME_NAMES.values():
-            assert label not in document.body_text, (locale, label)
-        assert profile.teacher_assignments.academic_year not in document.body_text
+        document = parse_markup(named_section(markup, "assignments"))
+        for scope in ("c-district", "c-state"):
+            cells = [body for classes, body in document.cells if scope in classes]
+            assert len(cells) == 1 + 2 * len(OUTCOMES), (locale, scope)
+            assert cells_with(document, "m-nothing", scope) == cells, (locale, scope)
+            for body in cells:
+                assert not NUMBER.search(body), (locale, scope, body)
+        assert rendered_cells(document) == expected_assignment_cells(profile), locale
+
+
+def test_the_english_outcome_names_are_the_parsers_own(
+    built_with_assignments: Path,
+) -> None:
+    """The row labels are the catalog `assignments.py` reads the file with.
+
+    Not a second list written for the page: a display name that drifted from the
+    outcome it names would put a label on a column of somebody else's numbers.
+    """
+    body = parse(page(built_with_assignments, EXAMPLE, "en")).body_text
+    for outcome, label in OUTCOME_NAMES.items():
+        assert label in body, outcome
 
 
 # ----------------------------------------------------------------------------------
@@ -1293,8 +1750,37 @@ def test_cli_builds_pages_and_reports(
     printed = capsys.readouterr().out
     assert "pages: 6 (3 schools x 2 locales)" in printed
     assert "reported=1, suppressed=1, not_reported=1" in printed
-    assert "no D5 file is read here" in printed
+    assert "no D5 file given, no page carries one" in printed
     assert "...and 2 more" in printed
+
+
+def test_cli_reports_the_assignment_coverage_when_given_the_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """What the CLI says has to change with what the build did.
+
+    It said "no D5 file is read here, so no page carries one" unconditionally
+    until ADR 0005, because no invocation could read one. Now the line reports
+    coverage when the file is given and says so plainly when it is not, and both
+    branches are checked so neither can go stale the way the first one did.
+    """
+    code = main(
+        [
+            "--directory",
+            str(DIRECTORY),
+            "--enrollment",
+            str(ENROLLMENT),
+            "--assignments",
+            str(ASSIGNMENTS),
+            "--out",
+            str(tmp_path / "site"),
+            "--fixture",
+        ]
+    )
+    assert code == 0
+    printed = capsys.readouterr().out
+    assert "teaching assignment coverage across 3 active schools" in printed
+    assert "no D5 file given" not in printed
 
 
 def test_cli_can_name_one_school(

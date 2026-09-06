@@ -105,6 +105,63 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   coverage, both re-measured rather than edited to fit; the module itself is at
   100%.
 
+- **Teacher assignment monitoring is on the pages** (2026-09-05, ADR 0005). The
+  owner decided issue #59: D5 is published. It had been acquired, schema-verified
+  against the real 234MB 2023-24 file, joined to the spine and covered by tests
+  since 2026-08-21, and deliberately shown to nobody, because publishing a figure
+  about staffing at a named school is a different act from parsing one and the
+  roadmap said so in as many words. `docs/adr/0005-publish-teacher-assignment-monitoring.md`
+  records the decision, what is published, and the three hazards it was held open
+  for: that "percent on a clear credential" is exactly the number a rater would
+  sort 10,534 schools by, that a family could read a credential outcome as a
+  verdict on the person teaching their child, and that the obvious one-line
+  summary would be a value this project computed rather than copied.
+
+  Each school page now carries CDE's own whole-school row in three tables: the
+  total teaching FTE, the seven outcome FTE counts, and the seven outcome shares
+  -- 15 measures, each beside its district and statewide figure read from the
+  file's own aggregate rows, each with the coverage tally in the next three
+  columns. All seven outcomes or none: there is no headline figure, because one
+  number standing for seven is the compression ADR 0002 refuses. Counts and
+  shares are both copied and neither is derived from the other, so a school whose
+  share cell is withheld shows a withheld share even where its count is visible.
+  `tests/test_pages.py` compares all fifteen cells, in order, against the
+  measures the pipeline holds, which is what would fail if a share were ever
+  divided out of a count.
+
+  Three kinds of absence stay three different sentences. A build given no D5 file
+  renders no section at all and says in words that the data is not here; a school
+  the supplied file never mentions renders "no figure published" in every cell; a
+  cell the state withheld renders "withheld to protect privacy". The first two
+  are both `teacher_assignments is None` on the profile, and the assembly-level
+  academic year is what tells them apart -- the same shape D3 already used, now
+  written down in `SchoolProfile`'s docstring.
+
+  District and statewide context needed a new loader, and this file crosses more
+  dimensions than either of the two before it: charter status, DASS, grade span,
+  experience level, credential level and subject area all have to read their
+  aggregated value for a row to be the district's own. Five of the six are decoy
+  slices that a reader filtering on aggregate level alone would publish as the
+  district, which is the same defect D2's three charter rows once caused, and
+  `load_assignment_context` fails closed on all of them -- no statewide row, or
+  two rows for one entity, stops the build rather than publishing a slice.
+
+  `make site-offline` is given the committed fixture, so the a11y and EN/ES gates
+  read the new markup rather than stepping around it: 0 axe-core violations
+  across 6 rule sets and 17 pages, 0 html-validate errors, byte-identical across
+  two builds. `make data`, `make site` and `make publish` are given the acquired
+  file, because an artifact that omitted a figure the pages carry would be two
+  answers to one question. 19 new bilingual strings (217 keys per locale).
+
+  What did not change: the ask layer. `homeroom.ask` answers from an evidence
+  bundle that carries enrollment and chronic absenteeism, and widening it means
+  new catalog entries, new verifier cases and a live evaluation run before any
+  sentence about D5 reaches a reader. Its one refusal that described what it can
+  answer as "the files behind this page" is reworded, because the page now covers
+  more than the answer does and the sentence would otherwise have been false.
+
+  Nothing under `site/` is republished here; that is a step the owner runs.
+
 - **A front door you can find your school through** (2026-09-05). Publishing all
   10,534 schools left the landing page listing every one of them, twice, once
   per locale: 21,069 links in 2.45MB. That is not a front door, it is a wall of
@@ -753,7 +810,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed -- the refusals legitimately ship inside the JSON the script reads,
   and the question is only ever whether one is *displayed* unearned -- and
   asserts no refusal appears in what a reader sees. Found by looking at a
-  screenshot of the live page. One more bilingual string (198 keys per locale).
+  screenshot of the live page. One more bilingual string (217 keys per locale).
 - **The deployed ask page could not reach its service from a browser, and said
   so in the one string that hides why.** Both the Lambda Function URL's `Cors`
   configuration and the handler set `access-control-allow-origin`, so the
@@ -805,7 +862,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for, so a build without `--landing` is byte-identical to one from before it
   existed, which `tests/test_landing.py` asserts by diffing the two builds.
   html-validate and axe-core cover it in `make pages` (zero violations). Two
-  more bilingual strings (198 keys per locale).
+  more bilingual strings (217 keys per locale).
 - `homeroom.ask.http`: the HTTP edge of the ask service, a stdlib
   `ThreadingHTTPServer` for local use (`make ask-serve`) and an AWS Lambda
   Function URL handler, both thin over `AskService`: JSON in, the public JSON
@@ -835,7 +892,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requests on load and exactly one POST on submit, rendered as text; it runs
   in `make pages` beside html-validate and axe-core, which now cover the ask
   pages too (zero violations, both languages). Seventeen more fixed
-  bilingual strings (198 keys per locale).
+  bilingual strings (217 keys per locale).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
@@ -1042,7 +1099,7 @@ The ask service was deployed later, on 2026-08-22 (ADR 0003, `deploy/ask/`).
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 198 keys per locale, 396
+- English and Spanish as peers (`src/homeroom/i18n.py`): 217 keys per locale, 434
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
   and 10 interface strings at M3, and before the ask layer added 33 fixed
   interface strings under ADR 0003), covering every reporting category, grade span,
