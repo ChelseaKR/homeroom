@@ -94,6 +94,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   agreeing one.
 
 ### Changed
+
+- **The live sentinel compares a spine every run and rotates through the school
+  pages** (2026-09-05). `tools/verify_live_site.py` fetched every published file,
+  which was eight of them. Publishing all 10,534 schools made it 21,076, so the
+  daily scheduled run would have pulled 836MB from the origin every morning,
+  three times over on its retry loop, and taken hours to do it. Bounding a
+  sentinel is the change most likely to turn it into nothing, so the split is by
+  what the two halves can go wrong. Everything that is not a school page --
+  index, sitemap, robots, CNAME, both cards, every ask page -- is compared on
+  every run, and that is where a stale or failed deploy shows up first, because
+  the index and the sitemap change whenever the site does. The school pages
+  rotate: each run takes a window of 200 chosen by the UTC date, so consecutive
+  days walk the corpus and every page is reached in about fifteen weeks. A run is
+  210 requests instead of 21,078. `--sample 0` still compares all of them, which
+  is the right thing to do by hand after a publish. `tests/test_live_sentinel.py`
+  holds the part that could silently under-check: that the spine is always in,
+  that consecutive windows do not overlap, that rotation reaches every page, that
+  a same-day re-run repeats its window rather than wandering, and that a sample
+  wider than the corpus is a full sweep rather than a wrapped and doubled one.
+
 - **Every gate stage runs `uv run --locked`, never a bare `uv run`** (2026-08-29).
   A bare `uv run` performs an implicit sync: when `uv.lock` no longer agrees with
   `pyproject.toml` it rewrites the tracked lockfile in place and carries on.

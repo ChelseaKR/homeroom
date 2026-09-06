@@ -11,10 +11,25 @@ an older commit would leave every gate green while the served page said
 something else, and nothing in this repository could tell.
 
 This is the check for the deployment. It reads the committed `site/` tree,
-which is exactly what pages.yml uploads, fetches each file over HTTPS, and
-fails naming every byte-level difference.
+which is exactly what pages.yml uploads, fetches from it over HTTPS, and fails
+naming every byte-level difference.
 
     python3 tools/verify_live_site.py
+
+It fetched every published file until 2026-09-05, when the site went from one
+school to all 10,534 and that became 21,076 requests and 836MB pulled from the
+origin, daily. So the comparison is split by what the two halves can go wrong.
+
+Everything that is not a school page -- index, sitemap, robots, CNAME, the
+cards, every ask page -- is compared on every run. That is the half a stale or
+failed deploy shows up in first: the index and the sitemap change whenever the
+site does, so a deployment behind the checkout cannot hide there.
+
+The school pages rotate. Each run compares a bounded window of them, chosen by
+the UTC date, so a run is cheap, consecutive runs walk the corpus, and every
+page is reached in time. `--sample 0` compares all of them, which is the right
+thing to do by hand after a publish and the wrong thing to do to the origin
+every morning.
 
 There is no rebuild step here, and that is deliberate rather than an omission.
 `make site` reads the acquired CDE extracts under `data/raw/`, which are not
@@ -47,6 +62,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -73,6 +89,12 @@ MINIMUM_FILES = 4
 # against the deployment are bytes the code still produces. None where the
 # published tree cannot be regenerated offline; see the note above.
 REBUILD_COMMAND: tuple[str, ...] | None = None
+
+# How many school pages one run compares, and the knob that turns rotation off.
+# At 21,069 published school pages a full sweep is 836MB from the origin, so the
+# daily run takes a window and the windows advance. 200 is ~8MB a run and walks
+# the corpus in about fifteen weeks.
+SAMPLE_SCHOOL_PAGES = 200
 
 MAXIMUM_FILE_BYTES = 16 * 1024 * 1024
 EXIT_DIFFERS = 1
@@ -185,11 +207,11 @@ def regenerate_from_the_checkout() -> None:
         )
 
 
-def published_inventory() -> dict[str, bytes]:
-    """Every file the deploy publishes, keyed by the path it is served at."""
+def published_paths() -> list[str]:
+    """Every path the deploy publishes, served-relative, in a stable order."""
     if not PUBLISHED_DIR.is_dir():
         raise LiveSiteError(f"{PUBLISHED_DIR} is not a directory")
-    inventory: dict[str, bytes] = {}
+    relatives: list[str] = []
     for path in sorted(PUBLISHED_DIR.rglob("*")):
         if path.is_symlink():
             raise LiveSiteError(f"{path} is a symlink; refusing to publish-compare it")
@@ -198,6 +220,40 @@ def published_inventory() -> dict[str, bytes]:
         relative = path.relative_to(PUBLISHED_DIR).as_posix()
         if relative in NOT_PUBLISHED:
             continue
+        relatives.append(relative)
+    return relatives
+
+
+def is_school_page(relative: str) -> bool:
+    """A per-school page: `<cds>.<locale>.html` at the root, so not index or ask."""
+    return (
+        "/" not in relative and relative.endswith(".html") and relative != "index.html"
+    )
+
+
+def comparison_set(relatives: list[str], sample: int, offset: int) -> list[str]:
+    """The spine every run compares, plus this run's window of school pages.
+
+    The spine is everything a stale deploy shows up in immediately and there is
+    little of it. The school pages are the bulk, they change together or not at
+    all, and comparing all of them daily is 836MB from the origin for a fact the
+    index and the sitemap already carry. So they rotate, and `sample <= 0`
+    turns that off and compares every one.
+    """
+    spine = [r for r in relatives if not is_school_page(r)]
+    schools = [r for r in relatives if is_school_page(r)]
+    if sample <= 0 or sample >= len(schools):
+        return sorted(spine + schools)
+    start = (offset * sample) % len(schools)
+    window = [schools[(start + i) % len(schools)] for i in range(sample)]
+    return sorted(spine + window)
+
+
+def read_inventory(relatives: list[str]) -> dict[str, bytes]:
+    """The bytes for exactly the paths being compared, keyed by served path."""
+    inventory: dict[str, bytes] = {}
+    for relative in relatives:
+        path = PUBLISHED_DIR / relative
         payload = path.read_bytes()
         if not payload:
             raise LiveSiteError(
@@ -266,6 +322,8 @@ def refuse_unbounded_options(
         parser.error("--attempts must be between 1 and 10")
     if not 0 <= args.retry_seconds <= 120:
         parser.error("--retry-seconds must be between 0 and 120")
+    if not 0 <= args.sample <= 25000:
+        parser.error("--sample must be between 0 and 25000")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -297,6 +355,24 @@ def main(argv: list[str] | None = None) -> int:
         default=20.0,
         help="seconds to wait between attempts, for a deploy to settle (default 20)",
     )
+    parser.add_argument(
+        "--sample",
+        type=int,
+        default=SAMPLE_SCHOOL_PAGES,
+        help=(
+            f"school pages to compare this run (default {SAMPLE_SCHOOL_PAGES}); "
+            "0 compares every one of them"
+        ),
+    )
+    parser.add_argument(
+        "--sample-offset",
+        type=int,
+        default=None,
+        help=(
+            "which window of school pages to take; defaults to the UTC date, so "
+            "consecutive days walk the corpus and a same-day re-run repeats"
+        ),
+    )
     args = parser.parse_args(argv)
     refuse_unbounded_options(parser, args)
 
@@ -307,10 +383,20 @@ def main(argv: list[str] | None = None) -> int:
         try:
             if not args.skip_rebuild:
                 regenerate_from_the_checkout()
-            inventory = published_inventory()
+            relatives = published_paths()
             refuse_an_empty_comparison(
-                len(inventory), args.minimum, "the comparison set"
+                len(relatives), args.minimum, "the published tree"
             )
+            offset = (
+                args.sample_offset
+                if args.sample_offset is not None
+                else datetime.now(UTC).date().toordinal()
+            )
+            selected = comparison_set(relatives, args.sample, offset)
+            refuse_an_empty_comparison(
+                len(selected), args.minimum, "the comparison set"
+            )
+            inventory = read_inventory(selected)
             origin = Origin(args.url, timeout_seconds=args.timeout_seconds)
             nonce = secrets.token_hex(16)
             prove_the_origin_discriminates(origin, nonce)
@@ -346,9 +432,12 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_DIFFERS
 
     total = sum(len(payload) for payload in inventory.values())
+    schools = sum(1 for relative in inventory if is_school_page(relative))
+    published = len(published_paths())
     print(
         f"{origin.url} serves exactly what this checkout publishes: "
-        f"{len(inventory)} file(s), {total} bytes."
+        f"{len(inventory)} of {published} file(s) compared, {total} bytes, "
+        f"{schools} of them school pages."
     )
     return 0
 
