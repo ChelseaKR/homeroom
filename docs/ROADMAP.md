@@ -356,7 +356,15 @@ Mirrors the README Standards Conformance table; never a silent skip.
   focus visibility in practice, and a screen-reader walkthrough in both
   languages still need a person, and that walkthrough is not yet done. M3
   deliberately kept its new tables at the same seven columns as the existing
-  ones, rather than widening them, while this gate is open.
+  ones, rather than widening them, while this gate is open. Since 2026-09-05
+  the open half has a procedure and an empty record rather than only a
+  sentence: `docs/accessibility-walkthrough.md` covers all five published page
+  types -- landing, county, district, school and ask -- in both languages, and
+  its results table reads UNMET in every cell with no date and no name against
+  any of them. `tests/test_accessibility_review.py` derives the page types from
+  the published site, so a sixth one added without a walkthrough section fails
+  the suite, and holds this bullet, README.md, RR-05 and
+  `docs/RESPONSIBLE-TECH-AUDITS.md` §E to what that record says.
 - Internationalization: applies, and the parity gate is wired as of M4. Every
   user-visible string exists in English and Spanish, a missing key raises instead
   of falling back, and CDE's English-only school and district names are marked
