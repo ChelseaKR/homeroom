@@ -12,14 +12,16 @@ What is checked, per claim:
   language in either language (:func:`homeroom.ask.guards.judgment_hits`);
 * every citation resolves to one of this school's cells or to a corpus passage;
 * every number in the text is a number one of its cited cells publishes, or a
-  year, or (for a verified quote) a number in the quote. A number from nowhere
-  is withheld. Coverage tallies, the build size, and the grade span are context
-  about the data rather than the school's measured value, so they are licensed
-  only for the `note` kind, whose subject is that context (see
+  year, or a number the claim's own verified quote is quoting. A number from
+  nowhere is withheld. Coverage tallies, the build size, and the grade span are
+  context about the data rather than the school's measured value, so they are
+  licensed only for the `note` kind, whose subject is that context (see
   :data:`CONTEXT_CLAIM_KINDS`). A digit that belongs to a cited measure's *name*
   ("Grade 4") is licensed where it is written against that name and nowhere
   else, by :func:`homeroom.ask.guards.strip_label_references`, so it cannot be
-  restated as the school's figure;
+  restated as the school's figure. A digit inside a quoted CDE passage is
+  licensed the same way, where the sentence writes the quote and only for the
+  kind the quote field belongs to (see :data:`QUOTE_CLAIM_KINDS`);
 * if any cited cell is withheld or unpublished, the text says so and does not
   turn the absence into a zero, a "none", or a "no students";
 * a comparison cites exactly a school cell and its own district or state cell,
@@ -252,6 +254,36 @@ students in Grade 4" verified clean against a cell whose value is 9.
 """
 
 
+QUOTE_CLAIM_KINDS: frozenset[str] = frozenset({"definition"})
+"""Kinds whose subject is the quoted passage, so a quote licenses numbers for them.
+
+:data:`homeroom.ask.narration.NARRATE_TOOL` documents the ``quote`` field as
+"For definition claims only": it is the verbatim CDE text a definition rests on,
+and the page renders it as a blockquote under the sentence. Nothing enforced
+that. :func:`_check_quote` requires a quote *for* a definition but never
+restricts one *to* one, so any kind could carry a corpus quote, and until
+2026-09-05 every number anywhere in that quote was added to ``allowed`` as a
+bare token and accepted anywhere in the claim's text (issue #64).
+
+CDE's definition of a chronic absentee contains the number 10, and
+:func:`homeroom.ask.narration.narration_prompt` puts those passages and the
+school's absenteeism cells in the same model turn whenever the lookup names
+both -- the committed eval case ``cit-006`` is that lookup. So a ``figure``
+citing the school's absenteeism cell and the passage together, quoting "a pupil
+who is absent on 10 percent or more of the schooldays", verified clean saying
+"At Example Elementary, 10 percent of students were chronically absent in
+2024-25", for a school whose published rate is 12.5. A figure wrong by 2.5
+points, shown beside a real cell citation, which is the one outcome this project
+treats as worse than withholding a true sentence.
+
+A quote on another kind is still legal and still has to be verbatim; what it no
+longer does is license a number. Withholding the whole claim instead would trade
+the specific reason a reader's operator can act on (``unverifiable_number``,
+naming the digit) for a new one, and would withhold a sentence whose only fault
+is a field in the wrong slot. The licence is where the harm was.
+"""
+
+
 def _cited_labels(resolved: _Resolved) -> list[str]:
     """Every cited measure's label, in both languages.
 
@@ -271,7 +303,6 @@ def _cited_labels(resolved: _Resolved) -> list[str]:
 def _allowed_numbers(
     resolved: _Resolved,
     evidence: SchoolEvidence,
-    verified_quote: str | None,
     kind: str,
 ) -> set[str]:
     context = kind in CONTEXT_CLAIM_KINDS
@@ -289,9 +320,37 @@ def _allowed_numbers(
     for source in evidence.sources.values():
         if source.academic_year:
             allowed |= year_tokens(source.academic_year)
-    if verified_quote:
-        allowed.update(numbers_in(verified_quote))
     return allowed
+
+
+def _outside_the_quotation(claim: Claim, verified_quote: str | None) -> str:
+    """``claim.text`` with the passage it quotes blanked out of it.
+
+    A quote's numbers are CDE's, and they are licensed the way a measure
+    label's digits are licensed (:func:`strip_label_references`): by position,
+    where the sentence writes them, and nowhere else. Inside the quotation the
+    number is CDE saying it; outside, the same digits are the model asserting
+    something about this school, and they are checked against the cited cells
+    like any other number.
+
+    That is the narrowing every other pool in :func:`_allowed_numbers` already
+    has and the quote pool did not (issue #64). Adding the quote's numbers to
+    ``allowed`` licensed them as bare tokens anywhere in the sentence, which is
+    a number licensed by proximity to a cited source rather than by the source
+    saying it -- the same defect :data:`CONTEXT_CLAIM_KINDS` and
+    :func:`strip_label_references` were written for, in the one pool neither
+    reaches.
+
+    The cost is that a definition may no longer paraphrase CDE's threshold in
+    its own prose: "chronic absenteeism means missing 10 percent of the school
+    year" now needs those words to be CDE's own, which is what the ``quote``
+    field is for and what the page renders beneath the sentence. That is the
+    safe direction to fail, and it is the direction :func:`label_reference`
+    already fails in.
+    """
+    if verified_quote is None or claim.kind not in QUOTE_CLAIM_KINDS:
+        return claim.text
+    return claim.text.replace(verified_quote, " ")
 
 
 _HIGHER = re.compile(
@@ -482,7 +541,16 @@ def _passage_citation(cite: str, corpus: Corpus) -> Citation:
 def _check_quote(
     claim: Claim, resolved: _Resolved, corpus: Corpus
 ) -> str | WithheldClaim | None:
-    """The verified quote, a withheld claim, or ``None`` when there is no quote."""
+    """The verified quote, a withheld claim, or ``None`` when there is no quote.
+
+    A quote is required for a ``definition`` and permitted on any kind, which is
+    looser than the schema documents ("For definition claims only"). It stays
+    permitted: a verbatim passage under a note is CDE's own words and honest to
+    show, and withholding a claim over the slot a field arrived in would cost a
+    true sentence. What the kind decides is the *licence*
+    (:data:`QUOTE_CLAIM_KINDS`) -- on any other kind the quote is displayed and
+    licenses no number at all, so carrying one buys the model nothing.
+    """
     if claim.quote is None:
         if claim.kind == "definition":
             return WithheldClaim("definition_without_quote", claim.text)
@@ -518,8 +586,10 @@ def _verify_one(
     quote = _check_quote(claim, resolved, corpus)
     if isinstance(quote, WithheldClaim):
         return quote
-    allowed = _allowed_numbers(resolved, evidence, quote, claim.kind)
-    stated = strip_label_references(claim.text, _cited_labels(resolved))
+    allowed = _allowed_numbers(resolved, evidence, claim.kind)
+    stated = strip_label_references(
+        _outside_the_quotation(claim, quote), _cited_labels(resolved)
+    )
     stray = [n for n in numbers_in(stated) if n not in allowed]
     if stray:
         return WithheldClaim("unverifiable_number", claim.text, ", ".join(stray))

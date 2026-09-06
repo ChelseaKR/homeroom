@@ -68,6 +68,24 @@ check, in either language and in the shapes narration writes ("Grade 4", "4th
 grade", "Grades 7 and 8", "Grados 7 y 8"), and every other digit is matched
 against the cited cell as before. Both the verifier and the eval scorer.
 
+The fourth sort of number in that pool was the last one licensed as a bare
+token: the digits inside a verified CDE quote (issue #64). `_allowed_numbers`
+ended by adding every number anywhere in the quote, for any claim kind, and
+`_check_quote` required a quote for a `definition` without ever restricting one
+to a `definition` -- so a `figure` could carry a corpus quote and spend its
+digits on the school. CDE's definition of a chronic absentee contains the
+number 10; the fixture school's published rate is 12.5; `narration_prompt` puts
+that passage and that cell in the same model turn whenever the question names
+both, which the committed eval case `cit-006` does. "At Example Elementary, 10
+percent of students were chronically absent in 2024-25" verified clean beside a
+real citation of the cell it contradicts. Narrowed by position and by kind
+together (2026-09-05): the quotation comes out of the claim before the check,
+so CDE's digits are licensed where the sentence quotes them, and only for the
+kind the `quote` field is documented for. A quote on another kind stays legal
+and stays displayed; it licenses nothing. Both the verifier and the eval
+scorer, and the scorer's rule this time names no kind at all, so a widened
+`QUOTE_CLAIM_KINDS` would still be caught by its double-check.
+
 ### Phase 2 -- the ADR citation trail (issue #35) -- DONE
 
 Eight sites retargeted from the process meta-ADR to ADR 0002, the Accepted
