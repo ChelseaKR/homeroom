@@ -77,7 +77,7 @@ branch = true
 source = ["src"]
 [tool.coverage.report]
 # CODE-QUALITY-STANDARD §2 sets the apps/services/CLIs minimum at >=85%. That is a
-# minimum, not this repo's floor. The suite measures 98.69% branch coverage over 621
+# minimum, not this repo's floor. The suite measures 98.70% branch coverage over 627
 # tests (2026-09-05), so 85 was never a floor under this suite: it was 13.7 points of
 # room in which a regression could land and still leave the build green. The gate now
 # sits a few points under what is actually measured, which is the slack
