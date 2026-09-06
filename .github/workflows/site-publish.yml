@@ -1,0 +1,244 @@
+# Publish `site/` to the S3 origin behind CloudFront (deploy/site/).
+#
+# INERT AS COMMITTED. Every job below is gated on four repository variables,
+# and none of them is set: with any one empty the job is skipped, so merging
+# this file creates nothing, publishes nothing, and cannot fail. Setting the
+# four is step 4 of the cutover in deploy/site/README.md, and it is the moment
+# this file starts doing anything at all. Nothing here touches DNS in any case.
+#
+# This sits ALONGSIDE .github/workflows/pages.yml, which is unchanged and still
+# the deploy families receive. While both are armed, every commit ci passes on
+# main is published to both origins, so the two serve identical bytes and going
+# back is a DNS record and nothing else. That overlap is the point of running
+# them together rather than swapping one for the other.
+#
+# Like pages.yml, this builds nothing. It cannot: the pages are rendered from
+# CDE files acquired by hand into `data/raw/`, which is never in git, and CI
+# never touches the network (AGENTS.md, PROVENANCE.md). `make publish` writes
+# them on a machine that holds those files and they are committed, so what runs
+# here is a copy -- and the property that copy has to preserve is the one the
+# whole project rests on: the bytes committed are the bytes served.
+#
+# That property needs three things a plain `aws s3 cp --recursive` does not do.
+#
+#   1. Deletions must propagate. A school that closes, a page that stops being
+#      rendered, an ask page a rollback removes -- each has to stop being
+#      served, not linger because nothing told the bucket. Hence `--delete` on
+#      every pass, and an inventory comparison afterwards that fails if the
+#      bucket holds one key the checkout does not.
+#   2. Content-Type must be right, per kind. The site publishes .html, .png,
+#      .xml, .txt and the extensionless CNAME. The CLI guesses from the
+#      extension, which is correct for four of those and gives the fifth
+#      `binary/octet-stream` -- a file a browser offers to download. Each kind
+#      is synced in its own pass with its type stated, and the types are read
+#      back from the bucket afterwards.
+#   3. A republish must reach readers. CloudFront is invalidated on `/*`, which
+#      is one invalidation path and therefore free; naming the 23,310 paths
+#      individually would be $111 a publish.
+#
+# Why a workflow and not a `make` target: pages.yml publishes only after ci
+# succeeds on main, which is what makes "a commit that fails the accessibility,
+# parity or published-site gates is never the one that reaches families" true.
+# A target run by hand from a laptop cannot carry that, and it would need
+# long-lived AWS keys somewhere. This keeps the trigger and drops the keys:
+# GitHub mints a short-lived OIDC token per run and STS exchanges it for the
+# role deploy/site/template.yaml creates, pinned to this repository and this
+# branch. `workflow_dispatch` covers the one thing a target was wanted for --
+# seeding the bucket by hand before DNS moves -- and it runs the same code.
+#
+# Every action is pinned to the full 40-char commit SHA of its tag, each
+# verified against the tag with `gh api repos/OWNER/REPO/commits/TAG` on
+# 2026-09-05, per SECURITY-AND-SUPPLY-CHAIN-STANDARD §6.
+name: site-publish
+
+# zizmor: ignore[dangerous-triggers]
+# workflow_run is flagged because it usually runs with write permissions in the
+# base repo's context and is usually paired with a checkout of untrusted PR
+# code. Neither applies here, for the same reasons pages.yml carries the same
+# ignore: it fires only for `branches: [main]`, the job runs only when the ci
+# run it follows concluded `success`, the root grant is `permissions: {}`, the
+# job takes `contents: read` plus the `id-token: write` OIDC needs and nothing
+# else, and the checkout pins `github.event.workflow_run.head_sha` -- the commit
+# ci actually verified -- rather than the default branch tip. The AWS role this
+# assumes is itself pinned to `refs/heads/main`, so a run from anywhere else
+# gets no credentials at all.
+on: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+# Never let two publishes race, and never cancel one in flight: a cancelled
+# sync leaves the bucket holding half of one commit and half of another, which
+# is the one state `tools/verify_live_site.py` would report and nobody could
+# explain.
+concurrency:
+  group: site-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: sync the committed site to S3 and invalidate CloudFront
+    # Two conditions, and both have to hold.
+    #
+    # A failed ci run must not publish; workflow_dispatch has no ci run
+    # attached and is a deliberate act by a person, so it is allowed through.
+    # And every one of the four repository variables must be set, which is what
+    # keeps this file inert until the owner arms it. A missing variable skips
+    # the job rather than failing it: an unarmed deploy is not a broken build.
+    if: >-
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.workflow_run.conclusion == 'success') &&
+      vars.SITE_S3_BUCKET != '' &&
+      vars.SITE_CLOUDFRONT_DISTRIBUTION_ID != '' &&
+      vars.SITE_PUBLISH_ROLE_ARN != '' &&
+      vars.SITE_AWS_REGION != ''
+    runs-on: ubuntu-latest
+    # 855 MB over 23,310 objects. A first publish into an empty bucket uploads
+    # all of it; later ones upload what changed, which after a re-render is
+    # usually all of it too, because a fresh checkout's mtimes are all newer
+    # than the objects.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # workflow_run checks out the default branch's tip by default, which
+          # is not necessarily the commit ci just passed. Publish the commit
+          # that was actually verified.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          persist-credentials: false
+
+      - name: The published directory must exist and name its domain
+        # The same two cheap checks pages.yml makes, for the same two silent
+        # failures: a commit that dropped `site/`, and a `site/` with no CNAME.
+        # CNAME is inert on this origin -- CloudFront reads its alias from the
+        # stack, not from a file -- but it is still a published byte, and a
+        # tree missing it is a tree `make publish` did not write.
+        run: |
+          set -euo pipefail
+          test -f site/index.html || { echo "site/index.html is missing; run make publish" >&2; exit 1; }
+          test -f site/CNAME || { echo "site/CNAME is missing; the tree is not one make publish wrote" >&2; exit 1; }
+          echo "publishing $(find site -type f | wc -l | tr -d ' ') files ($(du -sm site | cut -f1) MB) for $(cat site/CNAME)"
+
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.SITE_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ vars.SITE_AWS_REGION }}
+          role-session-name: homeroom-site-publish
+          role-duration-seconds: 3600
+
+      - name: Sync each kind of published file with its own Content-Type
+        env:
+          BUCKET: ${{ vars.SITE_S3_BUCKET }}
+          # Five minutes in a browser, a day at the edge. An invalidation
+          # clears CloudFront and reaches no browser, so the browser number is
+          # the one that decides how long a family can still be reading a page
+          # this project has already corrected.
+          CACHING: public, max-age=300, s-maxage=86400
+        # Six passes, written out rather than looped. A shell `for` loop exits
+        # with only its last iteration's status and would swallow a failed
+        # upload in any earlier one -- the same reason `make secret-scan` runs
+        # its two scans as two commands.
+        #
+        # `--delete` is scoped by each pass's own filters, which apply to the
+        # bucket listing as well as the local tree, so each pass removes the
+        # objects of its own kind that the checkout no longer publishes. The
+        # sixth pass excludes all five kinds, which leaves it with nothing to
+        # upload and everything else to delete: that is what removes an object
+        # of a kind this site does not publish, put there by hand or left by an
+        # older layout.
+        run: |
+          set -euo pipefail
+          aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
+            --exclude '*' --include '*.html' \
+            --content-type 'text/html; charset=utf-8' --cache-control "${CACHING}"
+          aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
+            --exclude '*' --include '*.png' \
+            --content-type 'image/png' --cache-control "${CACHING}"
+          aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
+            --exclude '*' --include '*.xml' \
+            --content-type 'application/xml; charset=utf-8' --cache-control "${CACHING}"
+          aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
+            --exclude '*' --include '*.txt' \
+            --content-type 'text/plain; charset=utf-8' --cache-control "${CACHING}"
+          aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
+            --exclude '*' --include 'CNAME' \
+            --content-type 'text/plain; charset=utf-8' --cache-control "${CACHING}"
+          aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
+            --exclude '*.html' --exclude '*.png' --exclude '*.xml' \
+            --exclude '*.txt' --exclude 'CNAME'
+
+      - name: The bucket holds exactly what the checkout publishes
+        env:
+          BUCKET: ${{ vars.SITE_S3_BUCKET }}
+        # The proof that deletions propagated, rather than trust in the filter
+        # semantics above. A key in the bucket that is not in `site/` is a page
+        # still being served that this repository no longer publishes, which on
+        # this site means a number about a named school that nothing here
+        # stands behind any more.
+        run: |
+          set -euo pipefail
+          aws s3api list-objects-v2 --bucket "${BUCKET}" \
+            --query 'Contents[].Key' --output text --page-size 1000 \
+            | tr '\t' '\n' | sed '/^$/d' | sort > /tmp/in-the-bucket.txt
+          (cd site && find . -type f | sed 's|^\./||') | sort > /tmp/in-the-checkout.txt
+          if ! diff -u /tmp/in-the-checkout.txt /tmp/in-the-bucket.txt > /tmp/inventory.diff; then
+            echo "::error::the bucket and the checkout do not hold the same set of files" >&2
+            echo "  -  a line only in the checkout was not uploaded" >&2
+            echo "  +  a line only in the bucket is being served and should not be" >&2
+            head -n 200 /tmp/inventory.diff >&2
+            exit 1
+          fi
+          echo "$(wc -l < /tmp/in-the-checkout.txt | tr -d ' ') files, and the bucket holds exactly those"
+
+      - name: Every kind of file is served as its own type
+        env:
+          BUCKET: ${{ vars.SITE_S3_BUCKET }}
+        # One representative object per published kind, read back from the
+        # bucket. CNAME is the one this can actually catch -- it has no
+        # extension, so a pass that forgot to name its type would leave it
+        # `binary/octet-stream` and a browser would offer to download it -- but
+        # asserting only the interesting one would stop being true the moment
+        # the site publishes something new.
+        run: |
+          set -euo pipefail
+          expect() {
+            actual="$(aws s3api head-object --bucket "${BUCKET}" --key "$1" \
+              --query ContentType --output text)"
+            test "${actual}" = "$2" || {
+              echo "::error::${1} is served as ${actual}, not ${2}" >&2
+              exit 1
+            }
+            echo "  ${1}: ${actual}"
+          }
+          expect index.html 'text/html; charset=utf-8'
+          expect sitemap.xml 'application/xml; charset=utf-8'
+          expect robots.txt 'text/plain; charset=utf-8'
+          expect CNAME 'text/plain; charset=utf-8'
+          expect social-card.en.png 'image/png'
+
+      - name: Invalidate the distribution and wait for it
+        env:
+          DISTRIBUTION: ${{ vars.SITE_CLOUDFRONT_DISTRIBUTION_ID }}
+        # `/*` is ONE invalidation path. AWS gives 1,000 paths a month free and
+        # charges $0.005 for each one after that, so a wildcard is free at any
+        # plausible publishing rate while listing the 23,310 changed pages
+        # would be about $111 per publish. Waiting matters because the next
+        # thing that reads this origin is tools/verify_live_site.py, and a
+        # comparison against a cache that has not turned over yet reports a
+        # difference that is not there.
+        run: |
+          set -euo pipefail
+          invalidation="$(aws cloudfront create-invalidation \
+            --distribution-id "${DISTRIBUTION}" --paths '/*' \
+            --query 'Invalidation.Id' --output text)"
+          echo "invalidation ${invalidation} created; waiting"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${DISTRIBUTION}" --id "${invalidation}"
+          echo "invalidation ${invalidation} complete"

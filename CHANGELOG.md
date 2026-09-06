@@ -315,6 +315,171 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pages cannot be reached from index.html by county and district", and blanking
   one county page's reports "county/01.en.html reaches no district page".
 
+- **A hosting path that is not bounded by a 1 GB cap, prepared and not applied**
+  (2026-09-05). `site/` is **857 MB** across **23,310 files** against the 1 GB
+  GitHub Pages documents for a published site -- 84% of the cap, reached in one
+  day from 212 KB that morning. The cap stopped being a background number and
+  started deciding what this project may publish, which is the wrong thing to
+  be deciding it.
+
+  What it was deciding, measured rather than estimated. **D5 alone no longer
+  fits.** ADR 0005 decided to publish teacher-assignment monitoring on the
+  school pages; rendering 240 real pages with and without `--assignments` puts
+  that section at 8,723 bytes each, so it is **+184 MB** over 21,068 school
+  pages and takes the tree past 1 GB on its own, before anything else is added
+  (issue #82). The ask layer for every school is 21,068 pages and the two
+  published ask pages average 14,392 bytes, so it is a further **+303 MB**;
+  857 MB plus 303 MB is 1.09 GiB and does not fit either. D4 and
+  D6, when their two decisions are made, add measures to all 23,310 pages. And
+  the one large saving on offer is not available: the ask page's inline CSS and
+  script are **10,993 of its 14,206 bytes**, about 216 MB across the projected
+  layer, and lifting them into shared files is two requests on load, which is
+  precisely the thing `tools/ask-optin.mjs` loads each ask page in a DOM to
+  prove does not happen. A saving that costs the guarantee is not a saving. So
+  the host moves rather than the pages shrinking.
+
+  `deploy/site/template.yaml` is the shape, in the form `deploy/ask/` already
+  uses: a CloudFormation stack, parameterised, with the domain nowhere in it,
+  and a README beside it recording what was applied, how to verify, and how to
+  go back. A private S3 bucket -- all four public-access blocks,
+  `BucketOwnerEnforced` so there are no ACLs to get wrong, encrypted, versioned
+  with a 30-day expiry on superseded versions, `DeletionPolicy: Retain` so a
+  `delete-stack` in the wrong terminal cannot take the bytes families are
+  reading -- behind CloudFront with **Origin Access Control**, not the legacy
+  OAI, whose grant cannot be narrowed to a single distribution ARN. HTTPS only,
+  HTTP redirected, TLS 1.2 (2021) floor, compression on, `DefaultRootObject:
+  index.html`, and a cache key of the path alone.
+
+  It is two-phase for the same reason the ask stack is, and the phases are
+  chosen so the origin can be built and proved before anything a family uses
+  moves: `AttachDomain=false` builds it on CloudFront's own `*.cloudfront.net`
+  name, which `tools/verify_live_site.py --url ... --sample 0` can then compare
+  against all 23,310 published files while DNS still points at GitHub Pages;
+  `AttachDomain=true` attaches the alias and the certificate. **The certificate
+  must be in `us-east-1`** whatever region the rest of the stack is in --
+  CloudFront reads ACM from nowhere else, and a certificate issued beside the
+  bucket is a valid certificate CloudFront cannot see, failing at deploy time
+  with a message about the ARN and nothing about regions. `CertificateArn`'s
+  `AllowedPattern` refuses every other region, so that is checked rather than
+  remembered, and the template and the README both say it in words for whoever
+  the pattern refuses.
+
+  Two details are load-bearing and would not survive being tidied away.
+
+  A missing page stays missing: both `CustomErrorResponses` entries set only
+  `ErrorCachingMinTTL: 10` and neither carries `ResponseCode` or
+  `ResponsePagePath`, so a request for a school that is not published gets the
+  origin's own 404 rather than a 200 carrying some other page's bytes. And the
+  bucket policy grants `s3:ListBucket` alongside `s3:GetObject`, which looks
+  redundant and is not: without it S3 answers a GET for a key that does not
+  exist with **403 AccessDenied** rather than 404 -- it will not confirm
+  absence to a caller who may not list -- CloudFront passes the 403 through,
+  every real page is correct, and `tools/verify_live_site.py` exits 4 because
+  `prove_the_origin_discriminates` refuses any origin that answers a
+  guaranteed-missing path with anything but 404. CloudFront never issues a
+  ListBucket request; the grant changes which of two error codes S3 returns.
+  Both are pinned by tests that name the symptom.
+
+  The publish path is `.github/workflows/site-publish.yml`, and it is a
+  workflow rather than a `make` target for two reasons. `pages.yml` publishes
+  only after ci concludes `success` on main, which is what makes "a commit that
+  fails the accessibility, parity or published-site gates is never the one that
+  reaches families" true; a command run by hand from a laptop cannot carry
+  that. And a local target needs AWS credentials on a developer's machine,
+  where a workflow needs a short-lived OIDC token minted per run -- the same
+  keyless exchange `release.yml` already signs with. `workflow_dispatch` covers
+  the one thing a target was wanted for, seeding the bucket before DNS moves,
+  by running the same code rather than a second copy of it.
+
+  What that path has to preserve is the property the whole project rests on:
+  the bytes committed are the bytes served. Deletions propagate -- every sync
+  pass carries `--delete`, whose filters apply to the bucket listing as well as
+  the local tree, and a sixth pass excludes all five published kinds so it has
+  nothing to upload and everything else to delete. Content-Type is stated
+  rather than guessed, per kind, because the CLI's guess is right for `.html`,
+  `.png`, `.xml` and `.txt` and gives the extensionless `CNAME`
+  `binary/octet-stream`, which a browser offers to download. Neither is trusted
+  afterwards: the workflow diffs the bucket's key listing against
+  `find site -type f` and fails on a difference in either direction, and reads
+  one object of each kind back with `head-object` to check its type. The six
+  passes are written out rather than looped, because a shell `for` loop exits
+  with only its last iteration's status -- the same reason `make secret-scan`
+  runs its two scans as two commands.
+
+  A republish invalidates `/*` and waits. `/*` is **one** invalidation path,
+  and AWS gives 1,000 a month free; naming the 23,310 changed pages
+  individually would be about **$111 per publish**. The wait is there because
+  the next thing to read the origin is the live sentinel, and a comparison
+  against an edge that has not turned over reports a difference that is not
+  there.
+
+  **Nothing is applied, and the workflow is inert as committed.** Its job is
+  gated on four repository variables, none of which is set, so merging it
+  creates nothing, publishes nothing, and cannot fail. `homeroom.chelseakr.com`
+  is still a CNAME to `chelseakr.github.io` (`dig`, 2026-09-05) and
+  `.github/workflows/pages.yml` is byte-for-byte unchanged and still the deploy
+  families receive. Setting the four variables is step 3 of the cutover and
+  moving DNS is step 7, and between them both origins receive every commit ci
+  passes -- which is what makes the rollback a single DNS record rather than a
+  redeployment.
+
+  The rollback is written at the same length as the cutover, because the part
+  that can go wrong is in it. GitHub renews the Pages certificate for the
+  custom domain by checking that the domain points at GitHub; while it points
+  at CloudFront that check fails and the certificate eventually lapses, and
+  rolling back after that means HTTPS is down until re-provisioning finishes
+  while `Strict-Transport-Security` denies any HTTP fallback. That is why
+  `HstsMaxAgeSeconds` is a parameter, why the README says to deploy it at 300
+  for the first weeks, and why `site/CNAME` -- inert on the new origin, since
+  CloudFront reads its alias from the stack -- is kept rather than removed: it
+  is what holds the custom domain configured in the Pages settings.
+
+  `tools/verify_live_site.py` needs no change, and that was checked rather than
+  assumed. It grades a domain and the domain does not move; the three things it
+  requires of an origin are each provided deliberately (the 404 above,
+  `DefaultRootObject` for the root comparison, and an identity-encoded response
+  because CloudFront compresses only when the viewer asks for it, over objects
+  stored uncompressed). One behaviour genuinely changes and is harmless: the
+  `?live-integrity=<nonce>` it appends stops busting the cache, because the
+  cache key is the path alone, and freshness after a publish comes from the
+  invalidation the publish waits for.
+
+  Cost, at this size and these rates: **about two cents a month** (0.808 GiB at
+  $0.023/GB-month) plus about twelve cents per full republish (23,310 PUTs at
+  $0.005/1,000), with serving inside CloudFront's always-free 1 TB and
+  10,000,000 requests a month -- the daily sentinel is 9.37 MB and 210 requests.
+  Reader traffic is not stated because it cannot be: GitHub Pages gives the
+  owner no access log and this stack turns CloudFront logging off on purpose,
+  since a viewer IP beside a school page's path is a record of which family
+  looked at which named school. What is stated instead is headroom: a school
+  page averages 40,163 bytes and carries no external asset, so the request cap
+  binds first, at roughly 10 million page views a month.
+
+  And the new ceiling, which is the thing the next person needs: there isn't
+  one of the old kind. An S3 bucket has no limit on total size or object count.
+  What is left is 5 TiB per object and 30 GB per CloudFront GET, against a
+  largest published file of 1,821,378 bytes. **Cloudflare Pages was not an
+  option** and not marginally: it caps a deployment at 20,000 files and the
+  site is 23,310, exceeded by 3,310 before the question was asked, and no
+  amount of shrinking pages changes a file count.
+
+  34 tests in `tests/test_deploy_site_template.py`, in the shape
+  `tests/test_deploy_template.py` holds the ask stack: each names the symptom
+  it would catch. Three of them hold documents to reality rather than to
+  intent, which is the habit the comment above `DOCS_DESCRIBING_THE_SURFACE`
+  records the cost of learning -- the record may not carry a distribution id, a
+  stack ARN, a certificate ARN, a role ARN, a `*.cloudfront.net` host or a
+  named bucket while it says nothing is applied; it may only call GitHub Pages
+  the live deploy while `pages.yml` still uploads `site/`; and its three
+  headline measurements are re-derived from the published tree, so a republish
+  that changes the tree and not the document fails rather than leaving three
+  stale numbers that still read as measurements. The content-type check derives
+  the kinds it demands from `site/` itself, so a page type arriving with a new
+  extension fails here rather than being served as `binary/octet-stream`. All
+  three of the sabotages tried -- dropping the `ListBucket` grant, dropping
+  `CNAME`'s `--content-type`, and adding a distribution id to the record --
+  fail the suite.
+
 - **A front door you can find your school through** (2026-09-05). Publishing all
   10,534 schools left the landing page listing every one of them, twice, once
   per locale: 21,069 links in 2.45MB. That is not a front door, it is a wall of

@@ -1,0 +1,481 @@
+# Deployment shape for the published site: an S3 origin behind CloudFront.
+#
+# NOT APPLIED. No stack of this template exists, no bucket, distribution, role
+# or certificate has been created, and https://homeroom.chelseakr.com is still
+# a CNAME to chelseakr.github.io (measured 2026-09-05). GitHub Pages is what
+# serves families today and .github/workflows/pages.yml is untouched. README.md
+# in this directory records what is not applied, the cutover in order, how to
+# verify after each step, and how to go back.
+#
+# Why this exists: `site/` is 855 MB against the 1 GB GitHub Pages allows a
+# published site -- 83% of the cap, from 212 KB the same morning -- and the ask
+# layer for every school is another ~303 MB that does not fit. The cap became
+# the thing deciding what this project may publish, which is the wrong thing to
+# be deciding it. S3 has no total-size limit; what replaces the cap is money,
+# and deploy/site/README.md measures how little.
+#
+# Two phases, so the origin can be built and proved before anything a family
+# uses moves:
+#
+#   phase 1  AttachDomain=false   bucket + distribution on its own
+#                                 *.cloudfront.net name, no alias, no
+#                                 certificate. Publish into it and verify it
+#                                 with tools/verify_live_site.py --url ...
+#                                 while DNS still points at GitHub Pages.
+#   phase 2  AttachDomain=true    adds the alias and the ACM certificate. Only
+#            CertificateArn=...   after this does moving DNS make sense.
+#
+#     aws cloudformation deploy --template-file deploy/site/template.yaml \
+#       --stack-name homeroom-site --region us-west-2 \
+#       --capabilities CAPABILITY_NAMED_IAM \
+#       --parameter-overrides file://deploy/site/params.json
+#
+# Pass parameters from a file, not the Key=Value shorthand. That is the trap
+# deploy/ask/README.md paid for once already: shorthand escaping puts
+# backslashes inside ARN values and the stack still deploys green.
+#
+# THE CERTIFICATE MUST BE IN us-east-1. CloudFront reads ACM certificates only
+# from us-east-1, whatever region the bucket, the distribution's own console
+# page, or the rest of this stack live in. A certificate issued in us-west-2 is
+# a valid certificate that CloudFront cannot see, and the failure is at deploy
+# time with a message about the ARN rather than anything about regions.
+# `CertificateArn`'s AllowedPattern below refuses any other region, so this is
+# checked rather than remembered.
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Homeroom published site origin, S3 behind CloudFront. Unofficial; not affiliated with CDE.
+
+Parameters:
+  SiteDomain:
+    Type: String
+    Description: >-
+      The name families type. Not hardcoded anywhere in this template: the
+      repository it is deployed from is public, and a template that names one
+      domain is a template that quietly only works for one site.
+    AllowedPattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+
+  AttachDomain:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: >-
+      Phase one ("false") builds the origin behind CloudFront's own
+      *.cloudfront.net name so it can be published to and verified while the
+      live domain still points somewhere else. Phase two ("true") attaches
+      SiteDomain and CertificateArn. The default is the phase that changes
+      nothing a reader can reach.
+
+  CertificateArn:
+    Type: String
+    Default: ""
+    Description: >-
+      ACM certificate for SiteDomain, IN us-east-1, required when
+      AttachDomain=true. CloudFront reads certificates from us-east-1 only,
+      regardless of where this stack is deployed; the pattern refuses any other
+      region rather than letting the mistake reach a deploy.
+    AllowedPattern: "^$|^arn:aws:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]{36}$"
+
+  GitHubRepository:
+    Type: String
+    Description: owner/name of the repository allowed to publish, e.g. ChelseaKR/homeroom.
+    AllowedPattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+
+  GitHubBranch:
+    Type: String
+    Default: main
+    Description: >-
+      The only branch whose workflow runs may assume the publish role. A
+      workflow_run job checks out the commit ci verified but runs with
+      ref=refs/heads/<default branch>, so this is that branch and a pull
+      request branch can never assume the role.
+    AllowedPattern: "^[A-Za-z0-9._/-]+$"
+
+  CreateOidcProvider:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: >-
+      Whether to create the account's GitHub OIDC provider. It is account-level
+      and shared: creating a second one is an error, and deleting this stack
+      would delete a provider other stacks trust. The default is "false"
+      because an account that already uses GitHub OIDC anywhere has one. Check
+      first, read-only:
+        aws iam list-open-id-connect-providers
+
+  HstsMaxAgeSeconds:
+    Type: Number
+    Default: 31536000
+    MinValue: 0
+    MaxValue: 63072000
+    Description: >-
+      Strict-Transport-Security max-age. A browser that has seen this header
+      will refuse plain HTTP to the domain for this long, which is a promise
+      the rollback has to be able to keep -- GitHub Pages serves the same
+      domain over HTTPS, so it can, provided "Enforce HTTPS" is still on there.
+      Deploy a small value (300) for the first days if a cheaper way back
+      matters more than the protection.
+
+  PriceClass:
+    Type: String
+    AllowedValues: [PriceClass_100, PriceClass_200, PriceClass_All]
+    Default: PriceClass_100
+    Description: >-
+      Which edge locations serve. PriceClass_100 (North America and Europe) is
+      the cheapest and covers the readers these pages are for: families of
+      children in California public schools.
+
+  NoncurrentVersionDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+    Description: >-
+      How long a superseded object stays recoverable. The published tree is in
+      git, so this is not the record of what was served; it is an undo for a
+      sync that went wrong, and 855 MB of it costs about two cents a month.
+
+Conditions:
+  DomainAttached: !Equals [!Ref AttachDomain, "true"]
+  MakeOidcProvider: !Equals [!Ref CreateOidcProvider, "true"]
+
+Resources:
+  # The origin. Private, with no path to it but CloudFront's signed requests:
+  # the bucket has no website endpoint, no public access, and no ACLs at all.
+  #
+  # Retained on stack delete, deliberately. These are the bytes families are
+  # reading; a `delete-stack` typed in the wrong terminal should not be able to
+  # take them, and CloudFormation would fail on a non-empty bucket anyway
+  # rather than doing something ambiguous. Emptying it is a separate, explicit
+  # act, the way deploy/ask/README.md treats the ask stack's code bucket.
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-superseded-publishes
+            Status: Enabled
+            Prefix: ""
+            NoncurrentVersionExpiration:
+              NoncurrentDays: !Ref NoncurrentVersionDays
+            ExpiredObjectDeleteMarker: true
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+  # Origin Access Control, not the legacy Origin Access Identity. OAI is a
+  # CloudFront-owned IAM user that S3 recognises; OAC is SigV4 on every origin
+  # request, which is the only one of the two that works with SSE-KMS, is the
+  # only one AWS still adds features to, and is the one whose grant can be
+  # narrowed to a single distribution ARN (see the bucket policy below).
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${AWS::StackName}-oac"
+        Description: !Sub "${AWS::StackName}: CloudFront signs every read of the site bucket"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # Caching for a tree that is republished wholesale and then invalidated.
+  #
+  # The cache key is the path and nothing else: no cookies, no headers, no
+  # query strings. Query strings matter here because tools/verify_live_site.py
+  # appends `?live-integrity=<nonce>` to every fetch. Including query strings
+  # in the key would turn each of those into an origin fetch and each crawler's
+  # `?utm_source=` into a separate cached copy of the same page; excluding them
+  # means the nonce buys nothing, which is fine, because freshness after a
+  # publish comes from the invalidation the publish itself issues, not from a
+  # reader's ability to bust the cache.
+  #
+  # MinTTL 0 / MaxTTL a year leaves the decision to the object's own
+  # Cache-Control, which the publish sets to
+  # `public, max-age=300, s-maxage=86400`: five minutes in a browser, a day at
+  # the edge. The two differ on purpose. An invalidation clears CloudFront and
+  # reaches no browser, so the browser number is the one that decides how long
+  # a family can be looking at a page this project has already corrected.
+  # DefaultTTL only applies if an object arrives with no Cache-Control at all.
+  CachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub "${AWS::StackName}-published-pages"
+        Comment: Path-only cache key; the object's Cache-Control decides the TTLs.
+        MinTTL: 0
+        DefaultTTL: 3600
+        MaxTTL: 31536000
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+          CookiesConfig:
+            CookieBehavior: none
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  # Response headers.
+  #
+  # ReferrerPolicy is same-origin, not no-referrer, and the difference is not
+  # cosmetic. same-origin already stops the URL of a named child's school page
+  # leaving with any outbound click, which is the thing worth stopping. Under
+  # no-referrer a fetch's `Origin` header can be sent as `null` in some paths,
+  # and the ask service refuses by origin (deploy/ask/template.yaml): the
+  # symptom would be the ask page falling back to its fixed "not available"
+  # string, correct behaviour hiding a cause completely, exactly as the CORS
+  # trap in that template did.
+  #
+  # No Content-Security-Policy, deliberately, and it is open work rather than a
+  # decision that it is unnecessary. A useful CSP here would have to name the
+  # ask service's Function URL in `connect-src`; that host lives in a different
+  # stack, nothing in this repository could check the two still agree, and
+  # getting it wrong breaks the one page that carries a script, silently, in
+  # front of a family. tools/ask-optin.mjs proves that page in a DOM and cannot
+  # see a header added out here. Adding one means giving it something that can
+  # fail loudly first.
+  ResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub "${AWS::StackName}-security-headers"
+        Comment: HSTS, nosniff, deny framing, and no referrer off-origin.
+        SecurityHeadersConfig:
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: !Ref HstsMaxAgeSeconds
+            IncludeSubdomains: false
+            Preload: false
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: same-origin
+            Override: true
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "${AWS::StackName}: the committed site/ tree, served as published"
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        PriceClass: !Ref PriceClass
+        Aliases: !If [DomainAttached, [!Ref SiteDomain], !Ref "AWS::NoValue"]
+        ViewerCertificate: !If
+          - DomainAttached
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        Origins:
+          # RegionalDomainName, not DomainName. The global form redirects to
+          # the regional one for a bucket outside us-east-1, and a redirect is
+          # not something a SigV4-signed origin request survives.
+          - Id: site-bucket
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: site-bucket
+          # HTTP is redirected, never served. The pages are public, but a
+          # family reading which school their child attends over plain HTTP is
+          # telling every hop on the way which school that is.
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: !Ref CachePolicy
+          ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
+        # A missing page stays missing.
+        #
+        # Neither entry carries ResponseCode or ResponsePagePath, so the
+        # origin's own status is what a reader and a crawler receive: a request
+        # for a school that is not published is a 404, never a 200 carrying
+        # something else's bytes. Turning 404 into a 200 is the single most
+        # common thing done to a static site behind a CDN and it would make
+        # tools/verify_live_site.py vacuous -- that file refuses to pass
+        # against an origin that answers a guaranteed-missing path with
+        # anything but 404, because "a host that answers everything with 200
+        # makes every comparison meaningless".
+        #
+        # Which is also why the bucket policy grants s3:ListBucket. Without it
+        # S3 answers a GET for a key that does not exist with 403 AccessDenied
+        # rather than 404 NoSuchKey -- it will not confirm absence to a caller
+        # who may not list -- and CloudFront passes the 403 through. The
+        # distribution would work, every real page would be correct, and the
+        # sentinel would exit 4 saying the origin cannot discriminate.
+        # CloudFront never issues a ListBucket request; the grant changes only
+        # which of two error codes S3 returns.
+        #
+        # ErrorCachingMinTTL is 10 seconds rather than the 300 default so a 404
+        # cached in the seconds between a delete and an upload does not outlive
+        # the publish that caused it.
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ErrorCachingMinTTL: 10
+          - ErrorCode: 404
+            ErrorCachingMinTTL: 10
+        # No Logging block, and its absence is a decision.
+        #
+        # CloudFront standard access logs record the viewer's IP address and
+        # the exact path requested. On this site that pair is "this address
+        # looked at this named school", which is a record about a family and
+        # their child's school that nothing in this project has ever kept.
+        # GitHub Pages gives the owner no access log either, so leaving it off
+        # is also what keeps the move invisible in the one way that matters.
+        # docs/RESPONSIBLE-TECH-AUDITS.md is where turning it on would have to
+        # be argued first.
+        #
+        # No WebACLId either: AWS WAF is about $5/month plus per-request before
+        # it inspects anything, against an origin that serves static files and
+        # cannot be injected into. deploy/site/README.md carries the numbers.
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Read the objects: one distribution, by ARN. The service principal
+          # alone would let any CloudFront distribution in any account read
+          # this bucket; the SourceArn condition is what makes it this one.
+          - Sid: ReadObjectsFromThisDistributionOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${SiteBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+          # And list the bucket, for the one reason given at CustomErrorResponses
+          # above: it is what makes S3 answer a missing key with 404 instead of
+          # 403. It exposes no key that a GET would not already serve.
+          - Sid: ListSoMissingKeysAre404NotForbidden
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:ListBucket
+            Resource: !GetAtt SiteBucket.Arn
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+          - Sid: DenyAnythingNotOverTls
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt SiteBucket.Arn
+              - !Sub "${SiteBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  # Account-level and shared with every other GitHub OIDC role in the account,
+  # which is why it is off by default. See CreateOidcProvider.
+  #
+  # ThumbprintList is required by the resource and is no longer what AWS
+  # validates for token.actions.githubusercontent.com -- STS trusts that issuer
+  # through its own certificate store. The historical value is kept so the
+  # field is not empty, and a rotation of GitHub's certificate does not break
+  # this role.
+  OidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: MakeOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList: [6938fd4d98bab03faadb97b34396831e3780aea1]
+
+  # The role .github/workflows/site-publish.yml assumes. No access key exists
+  # anywhere for this: GitHub mints a short-lived OIDC token per run and STS
+  # exchanges it, the way .github/workflows/release.yml already signs without a
+  # key.
+  #
+  # The `sub` condition is the whole security of this. Without it -- or with a
+  # wildcard in it -- any repository on GitHub could mint a token for this
+  # account's role. It is pinned to one repository and one branch, which is
+  # also the branch ci gates, so a pull request from a fork cannot publish.
+  PublishRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-publish"
+      Description: !Sub "Publishes the committed site/ tree of ${GitHubRepository} and invalidates the distribution."
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepository}:ref:refs/heads/${GitHubBranch}"
+      Policies:
+        - PolicyName: publish-the-committed-site
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: CompareWhatIsThereWithWhatIsCommitted
+                Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                  - s3:GetBucketLocation
+                Resource: !GetAtt SiteBucket.Arn
+              - Sid: PublishAndUnpublishObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "${SiteBucket.Arn}/*"
+              # Scoped to this distribution. `cloudfront:CreateInvalidation` on
+              # "*" is the usual shape of this grant and it would let a
+              # compromised run invalidate every distribution in the account.
+              - Sid: InvalidateAfterAPublish
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
+                Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+
+Outputs:
+  BucketName:
+    Value: !Ref SiteBucket
+    Description: Set as the SITE_S3_BUCKET repository variable.
+  DistributionId:
+    Value: !Ref Distribution
+    Description: Set as the SITE_CLOUDFRONT_DISTRIBUTION_ID repository variable.
+  PublishRoleArn:
+    Value: !GetAtt PublishRole.Arn
+    Description: Set as the SITE_PUBLISH_ROLE_ARN repository variable.
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+    Description: >-
+      The *.cloudfront.net name. Verify against this in phase one
+      (tools/verify_live_site.py --url https://<this>/ --sample 0), and point
+      the site's CNAME record at it in the cutover.
