@@ -171,15 +171,56 @@ node-audit:
 PUBLISH_DIR ?= site
 SITE_DOMAIN ?= homeroom.chelseakr.com
 
+# Which schools the site publishes.
+#
+# Empty means every active school in the directory file, which is what this
+# publishes as of 2026-09-05. A family whose school is missing is the failure
+# this project exists to avoid, and the pages are built from public files that
+# say nothing about any child. Set it to render fewer:
+#   make publish SCHOOLS="57726786056246 01611190130229" ASK_ENDPOINT=...
+SCHOOLS ?=
+
+# Which of those carry the ask layer.
+#
+# This is a narrower decision than the pages are, and it is kept narrow on
+# purpose. The ask service calls a paid model per question against an approved
+# spend envelope -- a CloudWatch alarm watches daily invocations against it --
+# and it is the one surface here that can be asked something nobody reviewed.
+# Publishing it per school keeps that envelope a number somebody chose, rather
+# than a consequence of how many schools California has.
+#
+# The two halves are held together by the gate: a school page carrying an ask
+# link with nothing behind it fails
+# `test_no_published_link_points_at_a_page_that_was_not_published`.
+ASK_SCHOOLS ?= 57726786056246
+
+# Where the second pass writes before its two useful outputs are taken.
+ASK_STAGE := build/publish-ask
+
+# Two passes, because the ask layer covers fewer schools than the site does.
+#
+# Pass 1 renders every school in SCHOOLS with no endpoint, so no page carries an
+# ask link. Pass 2 renders ASK_SCHOOLS again with the endpoint, which adds one
+# line to each of their school pages and writes their ask pages. Only those two
+# things are taken from it: its own index, sitemap, robots and cards describe a
+# site of ASK_SCHOOLS alone, and pass 1's describe the site being published.
+#
+# A school page from pass 2 is pass 1's page plus the ask link, and nothing
+# else, which is what makes taking one and leaving the other sound.
 publish:
 	@test -n "$(ASK_ENDPOINT)" || { echo "ASK_ENDPOINT is required: the deployed stack's FunctionUrl output" >&2; exit 1; }
-	rm -rf $(PUBLISH_DIR)
-	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out $(PUBLISH_DIR) --ask-endpoint $(ASK_ENDPOINT) --site-url https://$(SITE_DOMAIN) --landing
+	rm -rf $(PUBLISH_DIR) $(ASK_STAGE)
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt $(foreach cds,$(SCHOOLS),--cds $(cds)) --out $(PUBLISH_DIR) --site-url https://$(SITE_DOMAIN) --landing
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt $(foreach cds,$(ASK_SCHOOLS),--cds $(cds)) --out $(ASK_STAGE) --ask-endpoint $(ASK_ENDPOINT) --site-url https://$(SITE_DOMAIN) --landing
+	mkdir -p $(PUBLISH_DIR)/ask
+	cp $(ASK_STAGE)/ask/*.html $(PUBLISH_DIR)/ask/
+	for cds in $(ASK_SCHOOLS); do cp $(ASK_STAGE)/$$cds.*.html $(PUBLISH_DIR)/; done
+	rm -rf $(ASK_STAGE)
 	# GitHub Pages reads the custom domain from this file in the published
 	# output; without it a deploy silently unsets the domain and the site
 	# answers on github.io only.
 	echo $(SITE_DOMAIN) > $(PUBLISH_DIR)/CNAME
-	@echo "published into $(PUBLISH_DIR)/ for $(SITE_DOMAIN); commit it to deploy"
+	@echo "published into $(PUBLISH_DIR)/ for $(SITE_DOMAIN): $$(ls $(PUBLISH_DIR)/*.html | wc -l | tr -d ' ') pages, $$(ls $(PUBLISH_DIR)/ask/*.html | wc -l | tr -d ' ') of them with ask; commit it to deploy"
 
 # ----------------------------------------------------------------------------
 # The gates that used to live only in CI.
