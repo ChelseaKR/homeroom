@@ -8,6 +8,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`make publish` deleted the site being served before it knew whether the
+  replacement could be deployed** (2026-09-06). The recipe opened with
+  `rm -rf site` and then spent about a quarter of an hour rendering into the
+  hole it had just made, so the one irreversible step ran first and nothing
+  between it and the closing "commit it to deploy" weighed the result. A publish
+  over the 1 GB GitHub Pages ceiling therefore destroyed the working copy of a
+  live site, reported success, and left the size to be discovered by a later
+  `make verify` -- or, if nobody ran one, by GitHub refusing the artifact while
+  every check in this repository stayed green and families kept receiving the
+  tree that was last accepted.
+
+  That is not hypothetical here. Issue #82 measured the next publish at
+  ~1,051 MB: D5 on the school pages (ADR 0005) is 8,723 bytes across 21,068
+  pages, 184 MB, and there is no reading of the sample under which it fits.
+  Which of the three answers to that is taken -- move to the S3 origin prepared
+  in #80, republish without `--assignments`, or take an existing section off the
+  page -- is the owner's, and nothing here takes it.
+
+  `publish` now renders into `build/publish-site/`, weighs that tree with
+  `homeroom.publish_limits`, and moves it over `site/` only if it passes; a
+  refusal names the ceiling, the budget, the measurement and where the bytes
+  are, points at #82, and leaves `site/` untouched. The ceilings themselves
+  moved into `src/homeroom/publish_limits.py` and
+  `tests/test_published_limits.py` now imports them, so the number that refuses
+  a publish and the number that fails the suite cannot drift apart. Weighing
+  nothing is a refusal rather than a pass: an empty or missing staging tree
+  raises rather than clearing a budget it never measured, which is the same
+  floor `MINIMUM_FILES` and the `determinism` target's `-s` test already put
+  under two other checks here. `tests/test_publish_budget.py` holds the recipe
+  to the order -- the check before the `rm -rf`, and nothing writing into
+  `site/` before the check -- because prose in a Makefile comment is not what
+  stops this coming back.
+
 - **The browse pages told a Spanish screen reader to read Spanish as English,
   and offered no way to the other language** (2026-09-05). Both shipped with the
   county and district pages earlier the same day and both land on Spanish-reading
