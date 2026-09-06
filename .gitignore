@@ -11,3 +11,10 @@ __pycache__/
 .coverage
 coverage.xml
 .DS_Store
+
+# CloudFormation parameter files, written by hand beside a template and named by
+# both deploy READMEs (`--parameter-overrides file://params.json`). Every ARN in
+# one carries the AWS account id, and this repository is public: `deploy/ask/`
+# and `deploy/site/` both keep the account out of the committed template on
+# purpose, so the file that holds it is never committed either.
+params.json

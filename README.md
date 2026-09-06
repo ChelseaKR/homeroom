@@ -223,15 +223,38 @@ builds nothing, so the bytes reviewed in a pull request are the bytes served,
 and `tests/test_published_site.py` gates them in `make verify` on a machine with
 no acquired file present.
 
-Publishing every school put a number on that trade. `site/` is 867.6 MB across
-23,310 files, against the 1 GB GitHub Pages allows a published site, and it packs
-to about 46 MB in git because the pages differ from each other in so few bytes.
-This paragraph said 836 MB across 21,076 files until 2026-09-05, which was the
-tree before the same day's 2,234 county and district pages went on top of it.
-The remaining headroom is what the ask layer is measured against: rendering ask
-pages for all 10,534 schools rather than two would be roughly 1.1 GB, which does
-not fit. So that scope is bounded twice over, by the spend envelope first and by
-this limit second, and `make publish` prints both counts when it finishes.
+Publishing every school put a number on that trade, and then the number started
+making decisions. `site/` is 867.6 MB across 23,310 files, against the 1 GB
+GitHub Pages allows a published site — 86.8% of the cap, from 212 KB the same
+morning — and it packs to about 46 MB in git because the pages differ from each
+other in so few bytes. This paragraph said 836 MB across 21,076 files until
+2026-09-05, which was the tree before the same day's 2,234 county and district
+pages went on top of it.
+
+What the cap is now deciding, measured rather than estimated. Publishing D5 on
+the school pages, decided in ADR 0005 and not yet republished, is 8,723 bytes a
+page and so **184 MB** more, which is past the ceiling on its own
+([#82](https://github.com/ChelseaKR/homeroom/issues/82)). Ask pages for all
+10,534 schools rather than two would add 303 MB and would not fit either. D4 and
+D6 will add measures to every one of the 23,310 pages. And the one large saving
+on offer is not available: lifting the ask page's inline CSS and script into
+shared files is 10,993 of its 14,206 bytes, about 216 MB across the projected
+layer, and those bytes being inline is exactly what makes
+`tools/ask-optin.mjs`'s zero-requests-on-load assertion true. So the scope of
+the ask layer is bounded twice over, by the spend envelope first and by this
+limit second, and `make publish` prints both counts when it finishes.
+
+The owner's answer to the second bound is to move hosts rather than keep shaving
+bytes. `deploy/site/` holds the shape that would replace GitHub Pages — a
+private S3 bucket behind CloudFront with Origin Access Control, published by
+`.github/workflows/site-publish.yml` over GitHub OIDC with no stored key — with
+what it costs at this size (about two cents a month) and what the new ceilings
+are (no total-size limit at all) both measured. **Nothing there has been
+applied.** No stack exists, no byte has been uploaded, `homeroom.chelseakr.com`
+still resolves to `chelseakr.github.io`, and `.github/workflows/pages.yml` is
+untouched and still the deploy families receive. The cutover and the rollback
+are the owner's to make, and `deploy/site/README.md` carries both in order,
+with what to check after each step.
 
 That limit is written down for a build to read, in `tests/test_published_limits.py`:
 the published tree against the Pages ceiling, `sitemap.xml` against the sitemap
@@ -239,13 +262,10 @@ protocol's 50,000 URLs and 50 MB, and any single published file against what the
 live-site sentinel can fetch. Each fails at 90% of its limit rather than at it,
 so a tree that trips one is still a tree Pages will serve while it is sorted
 out — at 86.8% of the ceiling, the site has about 32 MB of that budget left,
-which is less than one new section on every page: publishing D5 on the school
-pages, decided in ADR 0005, is a measured 8,723 bytes each and so 184 MB, which
-is past the ceiling itself and not only past the budget ([#82](https://github.com/ChelseaKR/homeroom/issues/82)).
-`tests/test_published_site.py`
-also walks the published tree the way a family does, index to county to district
-to school in both languages, because a school that is published and unreachable
-is not published.
+which is less than one new section on every page, as the D5 figure above shows.
+`tests/test_published_site.py` also walks the published tree the way a family
+does, index to county to district to school in both languages, because a school
+that is published and unreachable is not published.
 
 ## AI at the edges (ADR 0003)
 

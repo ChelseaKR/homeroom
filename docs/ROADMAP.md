@@ -53,6 +53,15 @@ a CloudWatch alarm on daily invocations against the approved envelope. OTel
 stays out of scope; opt-in `--log-format json` is the entry point if the
 pipeline ever needs it.
 
+The static half emits nothing about its readers either, and that survives the
+host move prepared in `deploy/site/`: CloudFront standard access logging is
+turned off there deliberately, because a viewer IP beside a school page's path
+is a record of which family looked at which named school, and GitHub Pages
+gives the owner no such log today. The only thing that reads the served bytes
+is `tools/verify_live_site.py`, daily, from CI, and it grades the domain rather
+than the origin -- so it needs no change across the cutover. Nothing in
+`deploy/site/` has been applied.
+
 ## Quality targets
 
 Rigor is cited to `STANDARDS/`, not restated. This repo's values: branch coverage
@@ -101,6 +110,7 @@ owning standard.
 | AI answers carrying an ordering, grade, score, or better/worse judgment (ranking-refusal suite) | 0 (measured 0 of 62, 2026-08-22, Bedrock claude-sonnet-4-6) | `evals/` ranking-refusal suite, scored on displayed text; verifier withholds in production | AUTO (when run live; `not_run` otherwise) | Chelsea Kelly-Reif |
 | AI sentences rendering a withheld or unpublished cell as a value (suppression suite) | 0 (measured 0 of 24, same run) | `evals/` suppression suite against real suppressed cells | AUTO (when run live; `not_run` otherwise) | Chelsea Kelly-Reif |
 | AI claims shown without a resolved citation | 0 (verifier-enforced) | `homeroom.ask` verifier; citation suite in `evals/` | AUTO | Chelsea Kelly-Reif |
+| Published site size against the host's ceiling | < 100% of it. Measured 2026-09-05: 857 MB of the 1 GB GitHub Pages allows, 84%, with the ask layer for every school (+303 MB) not fitting | `du -sm site`; `deploy/site/README.md` carries the measurements and the prepared S3/CloudFront origin, which has no total-size ceiling | MANUAL | Chelsea Kelly-Reif |
 
 ### Day-one measured values (2026-08-07)
 
@@ -346,6 +356,35 @@ formula results -- and over its refusals, which follow `DirectoryDriftError` and
 `parse_cell`: a missing sheet, an unresolvable shared-string index, an
 unparseable cell reference, an unreviewed cell type, or a zip that would expand
 absurdly all raise rather than return an empty answer.
+
+### Hosting ceiling (2026-09-05)
+
+The site outgrew its host on the same day it grew, and ADR 0005 has since
+decided to publish a section the tree has no room for. Every byte count below was
+measured over the committed `site/` tree; the AWS rates are list prices and are
+not measured here, which is the same distinction PROVENANCE.md draws between
+*surveyed* and *acquired*. `deploy/site/` carries the full record. **Nothing in
+it has been applied**: no stack, no bucket, no DNS change, and
+`.github/workflows/pages.yml` is still the deploy families receive.
+
+| Value | Measured | Source |
+|-------|----------|--------|
+| Published tree, as the host counts it | 857 MB (`du -sm`), 84% of the 1 GB GitHub Pages allows a published site; 212 KB the same morning | `du -sm site`, 2026-09-05 |
+| Published tree, as a bucket counts it | 867,639,523 bytes over 23,310 files. `du` counts 4 KiB blocks and 23,310 small files carry ~30 MiB of slack that does not exist in object storage | `site/`, 2026-09-05 |
+| D5 on the school pages, decided and not yet republished | +184 MB (8,723 bytes a page over 21,068 school pages, from rendering 240 real pages with and without `--assignments`). 867.6 MB + 184 MB is over the 1 GB cap on its own, before any of the rows below | 240 pages rendered from `data/raw/`, 2026-09-06; issue #82 |
+| Ask layer for every school, unpublished | +303 MB (21,068 pages, the two published ask pages averaging 14,392 bytes). 857 MB + 303 MB = 1.09 GiB, which does not fit | `site/ask/`, projected over the 10,534 active schools |
+| The saving that was refused | 216 MB: the ask page's inline CSS and script are 10,993 of its 14,206 bytes. Lifting them into shared files is two requests on load, and `tools/ask-optin.mjs` asserts zero | `site/ask/57726786056246.en.html` |
+| Largest single published file | 1,821,378 bytes (`sitemap.xml`), against S3's 5 TiB object limit and CloudFront's 30 GB GET limit | `site/sitemap.xml` |
+| Cloudflare Pages, ruled out | 20,000 files per deployment; the site is 23,310. Exceeded by 3,310 before the question was asked, and no amount of shrinking pages changes a file count | Cloudflare Pages limits |
+| Prepared origin, steady-state cost | ~$0.019/month storage (0.808 GiB at $0.023/GB-month) plus ~$0.117 per full republish (23,310 PUTs); serving is inside CloudFront's always-free 1 TB and 10M requests | `deploy/site/README.md` |
+| Prepared origin, total-size ceiling | None. An S3 bucket has no limit on total size or object count; the constraint becomes money, and the money is two cents a month | AWS S3 quotas |
+
+What changes for the checks: nothing. `tools/verify_live_site.py` grades a
+domain, the domain does not move, and the three things it requires of an origin
+-- a 404 on a guaranteed-missing path, `/` serving `index.html`, and an
+identity-encoded response -- are each provided deliberately by
+`deploy/site/template.yaml`, with the `s3:ListBucket` grant present for exactly
+the first of them.
 
 ## Scoping: N/A declarations
 
