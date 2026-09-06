@@ -32,6 +32,7 @@ sample rows must never be mistakable for one about a real school.
 | `make site` | The pages for a real school. Needs the CDE extracts in `data/raw/`, which are not in git — PROVENANCE.md names each file and how to acquire it. |
 | `make publish` | Rebuilds the committed `site/` tree that is served at the live URL. Needs `data/raw/` and `ASK_ENDPOINT`. Renders into `build/publish-site/` and replaces `site/` only once that tree is inside the limits its deploy is subject to. |
 | `make publish-limits` | Weighs `site/` against those limits and prints what it weighs. `make publish` runs it over what it has just rendered. |
+| `make sources-check` | Reads CDE's HTML download pages and reports whether any of them now lists a file newer than the one `PROVENANCE.md` records as acquired. Fetches no data file. Not part of `make verify`. |
 
 ## The problem
 
@@ -59,7 +60,8 @@ that cannot be shown honestly is not shown at all.
   adding schools together. A sum over a column containing masked cells is wrong, and a
   sum that skips them is wrong and looks clean, because it drops exactly the students
   the mask protects.
-- Every figure traces to a named public file with an access date (see PROVENANCE.md).
+- Every figure traces to a named public file with an access date (see PROVENANCE.md),
+  and `make sources-check` says when CDE has published a newer one.
 - Coverage is a first-class output: how many schools publish each measure is itself
   published, so absence reads as absence rather than as a clean dataset.
 - English and Spanish from the first release. No account, no tracking.
@@ -70,7 +72,18 @@ Source files are downloaded from CDE's public data pages the way CDE intends: in
 browser, by a person. The pipeline treats them as **locally acquired inputs**, with each
 file's origin, date, and name documented in PROVENANCE.md; drop them in `data/raw/` and
 `make data` validates and builds from there. CI never fetches a source file, and a
-small committed fixture exercises every rendering case. That is narrower than the
+small committed fixture exercises every rendering case.
+
+An acquisition date is only honest while it is the newest thing CDE publishes, so
+`make sources-check` reads each source's **download page** — the HTML index, never a
+data file — and compares the filename and posting note CDE lists now against the ones
+recorded in `PROVENANCE.md`'s machine-readable source register when the file was
+acquired. It reports `unchanged`, `newer`, `unreadable`, or `not checkable` with the
+reason, and an unreadable page never reads as unchanged: a page that answers HTTP 200
+with no file listing at all, which is what `www3.cde.ca.gov` returns to a non-browser
+client, is unreadable. `.github/workflows/source-freshness.yml` runs it weekly and
+keeps exactly one issue up to date; it acquires nothing, because acquiring a source is
+a browser step a person takes. That is narrower than the
 "CI never touches the network" this line carried until 2026-08-29: `make verify-ci`
 reaches a package index or an advisory database at `uv sync`, `npm ci`, `pip-audit`,
 `npm audit`, and the pinned `uvx` runs of semgrep and zizmor. What never crosses the
