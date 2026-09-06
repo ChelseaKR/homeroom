@@ -41,6 +41,7 @@ from homeroom.ask.evidence import Cell, EvidenceRecord, SchoolEvidence
 from homeroom.ask.guards import (
     judgment_hits,
     number_forms,
+    number_positions,
     numbers_in,
     renders_absence_as_value,
     says_not_published,
@@ -331,15 +332,37 @@ def _directions(text: str) -> set[str]:
     return found
 
 
-def _spoken_from_the_other_side(text: str, other: float) -> bool:
+def _spoken_from_the_other_side(text: str, other: float, labels: list[str]) -> bool:
     """True if the sentence names the district or state figure before it compares.
 
     "The district's 609 is higher than the school's 58" speaks from the
     district's side; "the school's 58 is lower than the district's 609" and
     "that is lower than the district's 609" speak from the school's. The tell
     is whether the other figure is written before the first comparative word.
+
+    Written before it *as a number*. Until 2026-09-05 this searched for the
+    figure as a bare substring of the claim, and a run of digits inside a
+    larger one answered: ``number_forms(20.0)`` is ``{"20"}``, which is found
+    at index 3 of "In 2025-26, ...", and also inside the school's own 120. The
+    sentence was then read from the district's side, :func:`_check_comparison`
+    swapped the operands, and a comparison that stated the direction backwards
+    passed the check that exists to catch exactly that -- shown to a reader as
+    verified, which is the one outcome this project treats as worse than
+    withholding a true sentence (issue #63).
+
+    So the figure is read here the way :func:`homeroom.ask.guards.numbers_in`
+    reads one: academic years blanked out, and the number anchored to token
+    boundaries by :data:`homeroom.ask.guards.NUMBER`, which also matches
+    ``1,000`` as the thousand this used to reach by stripping every comma.
+    ``labels`` are the cited measures' names, blanked first for the reason the
+    number check blanks them (:func:`strip_label_references`): the digit in
+    "Grade 9" is part of the row's name, and it is no more the district's
+    figure to this check than it is to that one.
+
+    Markers and numbers are both located in the blanked text, so the two sets
+    of positions are positions in the same string.
     """
-    stripped = text.replace(",", "")
+    stripped = strip_label_references(text, labels)
     positions = [
         m.start()
         for pattern in (_COMPARATIVE, _HIGHER, _LOWER, _SAME)
@@ -348,7 +371,8 @@ def _spoken_from_the_other_side(text: str, other: float) -> bool:
     if not positions:
         return False
     first_marker = min(positions)
-    found = [stripped.find(form) for form in number_forms(other) if form in stripped]
+    forms = number_forms(other)
+    found = [at for at, token in number_positions(stripped) if token in forms]
     return bool(found) and min(found) < first_marker
 
 
@@ -395,7 +419,7 @@ def _check_comparison(claim: Claim, resolved: _Resolved) -> WithheldClaim | None
         )
     stated = directions.pop()
     subject, object_ = school.value, other.value
-    if _spoken_from_the_other_side(claim.text, other.value):
+    if _spoken_from_the_other_side(claim.text, other.value, _cited_labels(resolved)):
         # "The district's 609 is higher than the school's 58": the sentence is
         # from the district's side, and the direction is read that way.
         subject, object_ = other.value, school.value

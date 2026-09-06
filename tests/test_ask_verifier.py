@@ -34,6 +34,9 @@ GRADE_1 = f"{EXAMPLE}|enrollment.grade.GR_01|2025-26"
 GRADE_4 = f"{EXAMPLE}|enrollment.grade.GR_04|2025-26"
 GRADE_7 = f"{EXAMPLE}|enrollment.grade.GR_07|2025-26"
 GRADE_8 = f"{EXAMPLE}|enrollment.grade.GR_08|2025-26"
+# Grade 9: 0 students against the district's 20, a figure whose digits are also
+# a run of digits in every academic year the narration writes (issue #63).
+GRADE_9 = f"{EXAMPLE}|enrollment.grade.GR_09|2025-26"
 SUPPRESSION_PASSAGE = "fsabd#4"
 SUPPRESSION_QUOTE = (
     "data are suppressed (*) on the Chronic Absenteeism downloadable files if "
@@ -702,6 +705,120 @@ def test_a_comparison_written_from_the_district_side_is_read_from_that_side(
     assert (
         reason(
             Claim("comparison", "The school has more than the district.", cites),
+            example,
+            corpus,
+        )
+        == "comparison_direction_wrong"
+    )
+
+
+def test_an_academic_year_does_not_decide_which_side_a_comparison_speaks_from(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """A year opening the sentence used to flip the direction check (issue #63).
+
+    The verifier reads a comparison from the school's side unless the sentence
+    names the other figure first, and swaps subject and object when it does.
+    That question was answered by a substring search over the claim, so the
+    district's 20 was "found" at index 3 of "In 2025-26" -- inside the year --
+    the operands were swapped, and "the school enrolled 0 students in Grade 9,
+    more than the district's 20" passed the direction check against a school
+    that enrolls none of them. A false sentence was shown to a reader as a
+    verified one, by the check that exists to catch a model writing a
+    comparison backwards, while the true sentence carrying the same year was
+    withheld in its place.
+
+    Grade 9 is the fixture row that makes it reproducible: the school's 0
+    against the district's 20, both published, and "20" is a run of digits in
+    every academic year the pages write. All four sentences open with that year
+    because dropping it was enough to make all four behave, which is what
+    isolated the substring hit.
+    """
+    cites = (f"{GRADE_9}|school", f"{GRADE_9}|district")
+    assert (
+        reason(
+            Claim(
+                "comparison",
+                "In 2025-26, Example Elementary enrolled 0 students in Grade 9, "
+                "more than the district's 20.",
+                cites,
+            ),
+            example,
+            corpus,
+        )
+        == "comparison_direction_wrong"
+    )
+    shown = one(
+        Claim(
+            "comparison",
+            "In 2025-26, Example Elementary enrolled 0 students in Grade 9, "
+            "fewer than the district's 20.",
+            cites,
+        ),
+        example,
+        corpus,
+    )
+    assert isinstance(shown, ShownClaim)
+    # And the district's side is still read from the district's side: the fix
+    # must not answer "school" to everything that carries a year.
+    from_the_district = one(
+        Claim(
+            "comparison",
+            "In 2025-26, the district enrolled 20 students in Grade 9, more "
+            "than Example Elementary's 0.",
+            cites,
+        ),
+        example,
+        corpus,
+    )
+    assert isinstance(from_the_district, ShownClaim)
+    assert (
+        reason(
+            Claim(
+                "comparison",
+                "In 2025-26, the district enrolled 20 students in Grade 9, fewer "
+                "than Example Elementary's 0.",
+                cites,
+            ),
+            example,
+            corpus,
+        )
+        == "comparison_direction_wrong"
+    )
+
+
+def test_a_comma_grouped_thousand_still_names_the_side_a_comparison_speaks_from(
+    example: SchoolEvidence, corpus: Corpus
+) -> None:
+    """The state's 1,000 is the state's 1000, which the fix must not lose.
+
+    The side check used to strip every comma from the claim before looking for
+    the other figure, which is how it matched "1,000" against the cell's 1000.
+    It reads numbers through :data:`homeroom.ask.guards.NUMBER` now, and that
+    pattern takes the thousands comma itself -- so the state cell the fixture
+    publishes as 1000.0 is still recognised in the one spelling a page or the
+    narration would ever give it.
+    """
+    cites = (f"{TOTAL}|school", f"{TOTAL}|state")
+    shown = one(
+        Claim(
+            "comparison",
+            "Across the state 1,000 students were enrolled in 2025-26, more "
+            "than Example Elementary's 100.",
+            cites,
+        ),
+        example,
+        corpus,
+    )
+    assert isinstance(shown, ShownClaim)
+    assert (
+        reason(
+            Claim(
+                "comparison",
+                "Across the state 1,000 students were enrolled in 2025-26, fewer "
+                "than Example Elementary's 100.",
+                cites,
+            ),
             example,
             corpus,
         )
