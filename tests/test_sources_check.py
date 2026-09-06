@@ -24,6 +24,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -397,6 +398,27 @@ def test_the_report_never_ticks_a_source_it_could_not_read() -> None:
     text = sources_check.report(findings)
     assert "**unreadable**" in text
     assert "**unchanged**" not in text
+
+
+def test_only_an_https_cde_download_page_can_be_opened() -> None:
+    """A committed typo must not turn the checker into a file reader."""
+    for url in (
+        "file:///etc/passwd",
+        "http://www.cde.ca.gov/ds/ad/filesabd.asp",
+        "https://example.invalid/ds/ad/filesabd.asp",
+    ):
+        with pytest.raises(sources_check.PageUnreadable, match="not an https URL"):
+            sources_check.https_fetch(url, 1.0)
+
+
+def test_every_registered_page_is_one_the_fetcher_would_open() -> None:
+    for entry in sources_check.read_register():
+        parts = urlsplit(entry.index_url)
+        assert parts.scheme == "https"
+        assert parts.hostname == sources_check.ALLOWED_HOST, (
+            f"{entry.id} registers {entry.index_url}, which the fetcher refuses "
+            "to open, so it could never be checked"
+        )
 
 
 def test_the_tool_identifies_itself_rather_than_a_browser() -> None:

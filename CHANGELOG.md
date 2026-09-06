@@ -45,7 +45,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   file is not a reason to block a merge.
 
   The tool identifies itself as `homeroom-sources-check` rather than
-  impersonating a browser, and a test refuses any user agent that names one.
+  impersonating a browser, and a test refuses any user agent that names one. It
+  opens an `https` URL on `www.cde.ca.gov` and refuses anything else, so a
+  committed typo cannot turn a freshness check into a local-file reader; the
+  register is checked against that constraint, so a page the fetcher would
+  refuse can never be registered as checkable.
 
 ### Fixed
 

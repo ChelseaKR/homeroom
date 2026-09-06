@@ -55,12 +55,14 @@ from __future__ import annotations
 
 import argparse
 import html
+import http.client
 import json
 import re
+import ssl
 import sys
 import time
 import urllib.error
-import urllib.request
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -210,14 +212,42 @@ def listings(page: str) -> list[Listing]:
     return out
 
 
-def urllib_fetch(url: str, timeout: float) -> str:
-    # Only the register's own https URLs reach here, and the register is
-    # committed; there is no caller-supplied scheme to audit.
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})  # noqa: S310
-    with urllib.request.urlopen(request, timeout=timeout) as handle:  # noqa: S310
-        if handle.status != 200:
-            raise PageUnreadable(f"HTTP {handle.status}")
-        return handle.read(8_000_000).decode("utf-8", errors="replace")
+#: A download page is on `https://www.cde.ca.gov` and nowhere else. The register
+#: is committed, so no caller supplies a URL -- but a checker that will open
+#: whatever scheme it is handed is one committed typo away from reading a local
+#: file and reporting it as CDE's page, so the constraint is enforced rather
+#: than assumed. `tools/verify_live_site.py` makes the same trade, which is why
+#: neither of them uses `urllib.request.urlopen`.
+ALLOWED_HOST = "www.cde.ca.gov"
+
+
+def https_fetch(url: str, timeout: float) -> str:
+    """GET `url` over verified TLS, from the one host the register may name."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.hostname != ALLOWED_HOST:
+        raise PageUnreadable(
+            f"{url} is not an https URL on {ALLOWED_HOST}; the register names "
+            "CDE download pages and nothing else"
+        )
+    target = parts.path or "/"
+    if parts.query:
+        target = f"{target}?{parts.query}"
+    # The audit rule below is about HTTPSConnection used without certificate
+    # verification: Python before 3.4.3 did not verify by default. This call
+    # passes ssl.create_default_context(), which verifies both the chain and
+    # the hostname, and is the condition the rule exists to require.
+    # nosemgrep: httpsconnection-detected
+    connection = http.client.HTTPSConnection(
+        parts.hostname, timeout=timeout, context=ssl.create_default_context()
+    )
+    try:
+        connection.request("GET", target, headers={"User-Agent": USER_AGENT})
+        response = connection.getresponse()
+        if response.status != 200:
+            raise PageUnreadable(f"HTTP {response.status}")
+        return response.read(8_000_000).decode("utf-8", errors="replace")
+    finally:
+        connection.close()
 
 
 def fetch_with_retries(
@@ -397,7 +427,7 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_CANNOT_RUN
 
     findings = run(
-        sources, timeout=args.timeout, attempts=args.attempts, fetch=urllib_fetch
+        sources, timeout=args.timeout, attempts=args.attempts, fetch=https_fetch
     )
     text = report(findings)
     sys.stdout.write(text)
