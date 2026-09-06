@@ -192,7 +192,14 @@ class SchoolProfile:
     ``teacher_assignments`` is ``None`` when the D5 file was not supplied to this
     build. That is a different fact from a school the file covers with everything
     withheld, and the two never collapse: the first says Homeroom has no source,
-    the second says the state published a mask.
+    the second says the state published a mask. There is a third fact between
+    them -- the file was supplied and never mentions this school -- which is also
+    ``None`` here, because whether a D5 source was supplied at all is recorded
+    once, on ``ProfileAssembly.assignments_academic_year``, rather than repeated
+    on every profile. All three reach a page as different words (ADR 0005): no
+    source renders no section and says so, no row renders "no figure published",
+    and a mask renders "withheld to protect privacy". None of the three ever
+    renders a digit it does not have.
 
     ``chronic_absenteeism_rate`` and ``chronic_absenteeism_subgroups`` are always
     ``Measure`` values, never ``None``: unlike D5, whether a D3 source was
@@ -227,6 +234,35 @@ class ProfileAssembly:
     absenteeism_academic_year: str | None
     unjoined_absenteeism_rows: int | None
     schools_without_absenteeism: int | None
+
+
+def assignment_measure(
+    profile: SchoolProfile, outcome: str, *, percent: bool
+) -> Measure:
+    """One school's published D5 cell for one outcome, or nothing published.
+
+    ``teacher_assignments`` is ``None`` both for a school the supplied file never
+    mentions and for a build given no D5 file at all, and this returns
+    ``not_reported`` for either, because at the level of one school there is no
+    number and no mask in either case. What tells the two apart is
+    :attr:`ProfileAssembly.assignments_academic_year`, which is where that fact
+    is recorded once instead of on every profile.
+
+    Every consumer reads the cell through here -- the artifact, the coverage
+    tallies, the page -- so the rule is stated in one place rather than copied
+    into three, which is how two of them would eventually disagree about what a
+    missing row means.
+    """
+    row = profile.teacher_assignments
+    if row is None:
+        return Measure.not_reported()
+    return row.percents[outcome] if percent else row.counts[outcome]
+
+
+def assignment_total(profile: SchoolProfile) -> Measure:
+    """This school's total teaching FTE, or nothing published. Same rule."""
+    row = profile.teacher_assignments
+    return row.total if row is not None else Measure.not_reported()
 
 
 def _spine(directory_path: Path) -> dict[str, School]:

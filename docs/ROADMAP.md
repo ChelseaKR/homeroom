@@ -71,9 +71,10 @@ gate, byte-for-byte identical locally and in CI.
 | M3 (done 2026-08-21) | D3 chronic absenteeism | First masked-heavy measure end to end; every masked cell null, counted in coverage output |
 | M3 (done 2026-08-21) | Suppression showcase | A committed artifact demonstrating null-never-zero rendering: masked cells shown as "not published", coverage stats published beside the data (`docs/SUPPRESSION-SHOWCASE.md`) |
 | M4 (done 2026-08-08) | First bilingual school page, with district and statewide context | One real school rendered EN/ES from acquired data (Birch Lane Elementary, Davis Joint Unified, CDS 57726786056246); a11y and EN/ES parity gates wired and merge-blocking from this milestone; each measure sits beside its district and statewide figure, read from CDE's own `Charter=ALL` aggregate rows and never summed from schools |
-| D5a (rebuilt against the real file 2026-08-21) | D5 teacher assignment monitoring parser | Parser, spine join, artifact and coverage output built and verified against the real acquired 2023-24 file; every rendering case and the drift refusals covered; no D5 number published on any page or in `make data`'s default invocation, and PROVENANCE says why |
+| D5a (rebuilt against the real file 2026-08-21) | D5 teacher assignment monitoring parser | Parser, spine join, artifact and coverage output built and verified against the real acquired 2023-24 file; every rendering case and the drift refusals covered. Acceptance said "no D5 number published on any page or in `make data`'s default invocation, and PROVENANCE says why", which held from 2026-08-21 to 2026-09-05 and is superseded by ADR 0005 (row D5b) |
+| D5b (published 2026-09-05, ADR 0005) | D5 on the school pages | The owner's decision on issue #59, recorded as an ADR: CDE's own whole-school row rendered on every page in both languages -- total teaching FTE, seven outcome FTE counts, seven outcome shares, every one a copied cell -- beside CDE's own district and statewide rows and with coverage stated. No headline figure, no share divided out of a count, no total summed from the file's other rows, no cross-school comparison. Wired into `make data`, `make site`, `make publish` and `make site-offline`, so the a11y and EN/ES gates read the new markup |
 | A1 (built and deployed 2026-08-22, ADR 0003) | Grounded ask layer | One school per request; structuring, narration, verifier; fixed bilingual refusals; corpus of CDE definitions with hashes and retrieval dates; five committed evaluation suites with provenance-stamped results (157/157 on Bedrock claude-sonnet-4-6, 2026-08-22, real data; 23 of 534 model sentences withheld by the verifier); opt-in ask page that makes no request until a question is submitted, proven in a DOM; school pages byte-identical to a build without it; deployed 2026-08-22 as CloudFormation stack `homeroom-ask` in us-west-2 on Bedrock `global.anthropic.claude-sonnet-4-6`, verified live (cited answer, ranking bait refused, foreign origin rejected) |
-| M5 | D4, D6 | Dashboard indicators and per-pupil spending joined where published. (D5 is acquired and schema-verified as of D5a; publishing it on a page is a separate decision this roadmap has not made, tracked at issue level rather than promised a milestone here.) Both sources were surveyed 2026-09-05 and both exist and are readable, one of them at a different address than this project had recorded; neither is acquired and neither publishes a number. What M5 now waits on is not a file but two decisions, and they are recorded under "M5 source survey" below |
+| M5 | D4, D6 | Dashboard indicators and per-pupil spending joined where published. (D5 was the other decision tracked this way; it was made on 2026-09-05 and is ADR 0005, so D5 is now published rather than pending. This is the shape M5's two remaining decisions take.) Both sources were surveyed 2026-09-05 and both exist and are readable, one of them at a different address than this project had recorded; neither is acquired and neither publishes a number. What M5 now waits on is not a file but two decisions, and they are recorded under "M5 source survey" below |
 
 ## Metrics ledger
 
@@ -182,14 +183,17 @@ against. The provisional contract did not survive contact with the real file:
 five outcomes should have been seven, one row per school should have been up to
 150, and the column names were wrong in every particular (PROVENANCE.md D5 has
 the full list). `src/homeroom/assignments.py` and `fixtures/tamo.sample.txt`
-were rewritten to match what follows. Acquired is still not published: no D5
-number about a real school reaches `make data`'s default invocation or any page,
-and that remains a separate, not-yet-made decision.
+were rewritten to match what follows. Acquired was not published: from
+2026-08-21 to 2026-09-05 no D5 number about a real school reached `make data`'s
+default invocation or any page, because publishing was a separate decision this
+roadmap had not made. It was made on 2026-09-05 (ADR 0005, issue #59), and the
+rows below are the acquisition's own measurements, unchanged; what publishing
+measured is under "D5b published values".
 
 | Value | Measured | Source |
 |-------|----------|--------|
 | D5 files acquired | 1 (`tamo2324.txt`, 2023-24) | PROVENANCE.md D5 |
-| D5 numbers published about a real school | 0 | not wired into `make data`'s or `make site`'s default invocation, by design |
+| D5 numbers published about a real school, 2026-08-21 to 2026-09-05 | 0 | not wired into `make data`'s or `make site`'s default invocation, by design, until ADR 0005 |
 | Rows in the acquired file | 1,528,796, across 10,064 distinct schools (up to 150 rows per school: one per subject/grade-span/experience/credential combination) | D5 `tamo2324.txt` |
 | The one whole-school total row per school | Experience Level = Credential Level = `ALL`, Subject Area = `TA`; verified present exactly once for all 10,064 schools | D5, `src/homeroom/assignments.py` `school_outcomes` |
 | Assignment outcomes carried per school | 7 (`clear`, `out_of_field`, `intern`, `ineffective`, `incomplete`, `unknown`, `na`), not the 5 the provisional contract carried | `src/homeroom/assignments.py`, verified against the acquired header |
@@ -198,11 +202,45 @@ and that remains a separate, not-yet-made decision.
 | Rendering cases covered by the fixture | 4 (reported, genuine zero, masked, missing) plus a wholly-withheld school and a distractor row proving the selector ignores non-total rows | `fixtures/tamo.sample.txt` |
 | Drift refusals covered | 14 (missing column, renamed column, unreviewed aggregate level, unreviewed charter value, unreviewed DASS value, unreviewed grade span, unreviewed experience level, unreviewed credential level, unreviewed subject area, non-numeric CDS, overlong CDS, unknown sentinel, percent-sign format, duplicate whole-school-total row) | `tests/test_assignments.py` |
 
+### D5b published values (ADR 0005, 2026-09-05)
+
+The decision on issue #59, and what it put on the page. Every figure below was
+measured by building the fixture site and running the gates over it, which is
+what runs with no acquired file and no network. The acquired-file coverage
+numbers are deliberately absent from this table: `make site` runs on the machine
+that holds `data/raw/`, and this row would rather say nothing than state a count
+nobody measured -- the same rule that kept D5 unpublished until it was decided.
+
+| Value | Measured | Source |
+|-------|----------|--------|
+| Tables added to each school page | 3 (whole-school total, FTE count per outcome, published share per outcome) | `src/homeroom/render.py` `_assignments_section` |
+| Measures added to each school page | 15 rows (1 total + 7 outcome counts + 7 outcome shares), each in three columns: this school, its district, California; 45 cells | `make site-offline` |
+| Cell states present in the D5 section of one fixture page | 4 of 4 (5 published numbers, 6 genuine zeros, 2 withheld, 2 nothing published, on Example Elementary's English page) | `build/site-offline/01100170112345.en.html` |
+| Coverage rows added to each page's coverage section | 3 (schools publishing a teaching assignment total, withholding it, publishing none) | `src/homeroom/render.py` `_coverage_section` |
+| Fixture-build assignment coverage across 3 active schools | reported=1, suppressed=1, not_reported=1 | `make site-offline` |
+| D5 values computed rather than copied | 0 (shares are read from CDE's percent columns, never divided out of the counts; the whole-school row is CDE's own aggregate; district and statewide rows are CDE's own, never summed from schools) | `tests/test_pages.py::test_every_assignment_cell_is_exactly_what_the_pipeline_holds` |
+| Dimensions that must all read their aggregated value for a row to be a district's own | 6 (charter status, DASS, grade span, experience level, credential level, subject area) | `src/homeroom/context.py` `load_assignment_context` |
+| D5 context drift refusals covered | 7 (a slice on any of the six dimensions taken as the entity, a summed alternative, a masked aggregate cell, an absent district, duplicate whole-entity rows, a missing statewide row, aggregate rows spanning two years) | `tests/test_context.py` |
+| Other schools named anywhere in a school page's D5 section | 0 (ADR 0002: the section is about one school, beside CDE's own district and statewide rows, and nothing else) | `tests/test_pages.py::test_the_assignment_section_names_no_other_school` |
+| New bilingual strings | 19 per locale (12 interface, 7 outcome names), 38 total | `src/homeroom/i18n.py` |
+| WCAG violations with D5 present, axe-core A/AA plus best-practice | 0 across 6 rule sets, 17 pages, both languages | `make pages` |
+| html-validate errors with D5 present | 0 | `make htmlvalidate` |
+| Page re-runs with D5 present producing different bytes | 0 | `tests/test_pages.py::test_assignment_reruns_are_byte_identical`, and `make determinism` |
+| Suite size and branch coverage after D5b | 646 tests, 98.68% (floor is 95%); 621 and 98.69% before | `make test` |
+
+The three sections a page can now carry report on three different school years --
+D2's 2025-26, D3's 2024-25, D5's 2023-24 -- and each names its own in its own
+captions. A build given no D5 file renders no section at all and says so in
+words, which is a different page from one whose D5 cells are all empty and a
+different fact from a school the file does not mention.
+
 ### M4 measured values (2026-08-07)
 
 Measured by running `make site` against the acquired files and `make pages`
-against the committed fixtures. The page build reads D1 and D2 and nothing else,
-so no D5 figure can reach a page; the pages say that in words instead.
+against the committed fixtures. At M4 the page build read D1 and D2 and nothing
+else, so no D5 figure could reach a page and the pages said that in words
+instead; D3 joined at M3 and D5 at ADR 0005, and a build given neither still says
+so in words rather than leaving a gap.
 
 | Value | Measured | Source |
 |-------|----------|--------|
@@ -215,10 +253,10 @@ so no D5 figure can reach a page; the pages say that in words instead.
 | Pages the accessibility gate checks | 17 (`build/site-offline`: 3 fixture schools x 2 languages plus the landing page; `build/site-offline/ask`: 3 x 2 ask pages; `build/site-offline/county` and `build/site-offline/district`: 1 x 2 each, added 2026-09-05 with the browse hierarchy). `tools/a11y.mjs` is run once per directory and does not recurse, so counting one of them reported 6, and a directory with no run of its own is covered by nothing | `make pages` |
 | WCAG violations, axe-core A/AA plus best-practice | 0 across 6 rule sets, both languages | `tools/a11y.mjs` |
 | html-validate errors, conformance plus a11y presets | 0 | `make htmlvalidate` |
-| User-visible strings carried in both languages | 198 keys per locale, 396 strings total (122 interface, 33 reporting categories, 14 grade spans, 4 subgroup families, 25 chronic-absenteeism categories); 122 keys and 71 interface at M4, before D3 added its own 25-code catalog and 10 interface strings, 157 before the ask layer (ADR 0003) added 33 fixed interface strings (its labels, every refusal, and the ask page's own copy, none of which the model writes), 190 before the landing page added the two strings its front door needs, and 192 before the ask page stopped using a refusal as its help text and needed a help string of its own, 193 before publishing all 10,534 schools made a flat front door unusable and the county/district browse traded the landing page's schools heading for five of its own | `src/homeroom/i18n.py` |
+| User-visible strings carried in both languages | 217 keys per locale, 434 strings total (134 interface, 33 reporting categories, 14 grade spans, 4 subgroup families, 25 chronic-absenteeism categories, 7 teacher-assignment outcomes); 122 keys and 71 interface at M4, before D3 added its own 25-code catalog and 10 interface strings, 157 before the ask layer (ADR 0003) added 33 fixed interface strings (its labels, every refusal, and the ask page's own copy, none of which the model writes), 190 before the landing page added the two strings its front door needs, and 192 before the ask page stopped using a refusal as its help text and needed a help string of its own, 193 before publishing all 10,534 schools made a flat front door unusable and the county/district browse traded the landing page's schools heading for five of its own, and 198 before ADR 0005 published D5 and needed a seven-outcome catalog plus twelve interface strings for its section, its captions, its coverage rows and its source entry | `src/homeroom/i18n.py` |
 | Keys present in one locale and not the other | 0 | `tests/test_i18n.py` |
 | Spanish strings left identical to their English original | 3, all reviewed and named (the project's own name; CDE's two different Filipino category codes, `RE_F` in D2 and `RF` in D3, each the same word in Spanish) | `tests/test_i18n.py` |
-| D5 numbers on any page, including when the parsed file is loaded into the renderer | 0 | `tests/test_pages.py` |
+| D5 numbers on any page, before ADR 0005 | 0, including when a profile carrying parsed assignment outcomes was handed to the renderer. A build given no D5 file still publishes none and says so in words, which is the half of that claim that is still live and still tested | `tests/test_pages.py` |
 | Page re-runs producing different bytes | 0 | `tests/test_pages.py`, plus a double build compared by hash in CI |
 | Branch coverage after M4 | 98.73% (floor is 95%) | `make test` |
 
@@ -271,7 +309,10 @@ kind this project makes explicitly rather than in a parser:
    figures in the same files -- `currstatus`, `currnumer`, `currdenom`, `change`
    -- are copyable cells and raise no such question, and D4 without the bands is
    a coherent, smaller deliverable. This is the same shape of decision as the
-   open one about publishing D5, and it needs an ADR either way.
+   one about publishing D5, which was open when this was written and was made on
+   2026-09-05 (ADR 0005). D5's answer does not settle this one: D5's outcomes are
+   counts the state published and a band is an ordering the state assigned, which
+   is the distinction ADR 0002 turns on. It needs an ADR either way.
 2. **What number is "per-pupil spending"?** There is no published total, so the
    honest options are to show CDE's four components as four measures or to show
    none. Summing them is a computed cell, and on a `DNR` row a sum would read a

@@ -84,12 +84,12 @@ audit:
 	uv run --locked pip-audit
 
 # Build artifacts from locally acquired files (data/raw/ is never in git or CI).
-# D3 (chronic absenteeism, M3) is wired in by default. Add
-# `--assignments data/raw/<the D5 file>` to also carry teacher assignment
-# outcomes into the artifact -- D5 is acquired and schema-verified (PROVENANCE.md)
-# but publishing it is a separate, not-yet-made decision, so it stays off here.
+# D3 (chronic absenteeism, M3) and D5 (teacher assignment monitoring, ADR 0005)
+# are both wired in. D5 stayed off here until 2026-09-05 while publishing it was
+# an open question; it is decided, and an artifact that omitted a figure the
+# pages carry would be two different answers to the same question.
 data:
-	uv run python -m homeroom.artifacts --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --out data/out
+	uv run python -m homeroom.artifacts --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --assignments data/raw/tamo2324.txt --out data/out
 
 # Same pipeline over committed fixtures: runs anywhere, output flagged is_fixture.
 data-offline:
@@ -113,7 +113,7 @@ SCHOOL ?= 57726786056246
 ASK_ENDPOINT ?=
 
 site:
-	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --cds $(SCHOOL) --out build/site $(if $(ASK_ENDPOINT),--ask-endpoint $(ASK_ENDPOINT),) --landing
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --assignments data/raw/tamo2324.txt --cds $(SCHOOL) --out build/site $(if $(ASK_ENDPOINT),--ask-endpoint $(ASK_ENDPOINT),) --landing
 
 # The evidence bundle the ask service reads: one small file per school, from
 # the same acquired files and the same assembly code as the pages.
@@ -138,7 +138,7 @@ ask-serve:
 # reserved-TLD name, not homeroom.chelseakr.com: a fixture build is not the
 # published site, and must not claim the published site's addresses.
 site-offline:
-	uv run --locked python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --ask-endpoint https://ask.example.invalid --site-url https://homeroom.example --out build/site-offline --landing
+	uv run --locked python -m homeroom.site --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --assignments fixtures/tamo.sample.txt --ask-endpoint https://ask.example.invalid --site-url https://homeroom.example --out build/site-offline --landing
 
 # The accessibility gate the README's standards table promises from the first
 # school page. Builds the pages from fixtures, then checks the markup two ways:
@@ -232,8 +232,8 @@ ASK_STAGE := build/publish-ask
 publish:
 	@test -n "$(ASK_ENDPOINT)" || { echo "ASK_ENDPOINT is required: the deployed stack's FunctionUrl output" >&2; exit 1; }
 	rm -rf $(PUBLISH_DIR) $(ASK_STAGE)
-	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt $(foreach cds,$(SCHOOLS),--cds $(cds)) --out $(PUBLISH_DIR) --site-url https://$(SITE_DOMAIN) --landing
-	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt $(foreach cds,$(ASK_SCHOOLS),--cds $(cds)) --out $(ASK_STAGE) --ask-endpoint $(ASK_ENDPOINT) --site-url https://$(SITE_DOMAIN) --landing
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --assignments data/raw/tamo2324.txt $(foreach cds,$(SCHOOLS),--cds $(cds)) --out $(PUBLISH_DIR) --site-url https://$(SITE_DOMAIN) --landing
+	uv run python -m homeroom.site --directory data/raw/pubschls.txt --enrollment data/raw/cdenroll2526.txt --absenteeism data/raw/chronicabsenteeism25.txt --assignments data/raw/tamo2324.txt $(foreach cds,$(ASK_SCHOOLS),--cds $(cds)) --out $(ASK_STAGE) --ask-endpoint $(ASK_ENDPOINT) --site-url https://$(SITE_DOMAIN) --landing
 	mkdir -p $(PUBLISH_DIR)/ask
 	cp $(ASK_STAGE)/ask/*.html $(PUBLISH_DIR)/ask/
 	for cds in $(ASK_SCHOOLS); do cp $(ASK_STAGE)/$$cds.*.html $(PUBLISH_DIR)/; done

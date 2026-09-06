@@ -48,6 +48,8 @@ from homeroom.profiles import (
     ProfileAssembly,
     SchoolProfile,
     assemble_profiles,
+    assignment_measure,
+    assignment_total,
 )
 
 DIRECTORY_ACCESS_DATE = "2026-08-07"
@@ -58,18 +60,23 @@ ENROLLMENT_ACCESS_DATE = "2026-08-07"
 
 ASSIGNMENTS_ACCESS_DATE: str | None = "2026-08-21"
 """When the D5 file (``tamo2324.txt``) was downloaded and its schema verified
-against the real 2023-24 file. Mirrors PROVENANCE.md; tested for sync. Acquired is
-not the same fact as published: this date records that the file has been read and
-:mod:`homeroom.assignments` rewritten to match it (issue #5), not that any D5
-figure reaches ``make data``'s default invocation or a page -- it does not, and
-PROVENANCE.md and docs/ROADMAP.md both say so. Wiring D5 into the default build is
-a separate, not-yet-made decision."""
+against the real 2023-24 file. Mirrors PROVENANCE.md; tested for sync.
+
+Acquired is not the same fact as published, and for thirteen days it was the only
+fact this date recorded: the file had been read and :mod:`homeroom.assignments`
+rewritten to match it (issue #5), while whether any D5 figure should reach a
+build's default invocation or a page was an open question (issue #59). The owner
+answered it on 2026-09-05 (ADR 0005), so ``make data``, ``make site`` and
+``make publish`` are all given the file now. The two facts stay separate anyway:
+this constant says when the file was downloaded, and a build that is not given it
+stamps nothing and publishes nothing."""
 
 ABSENTEEISM_ACCESS_DATE: str | None = "2026-08-21"
 """When D3 (``chronicabsenteeism25.txt``, the 2024-25 file) was acquired. Mirrors
-PROVENANCE.md; tested for sync. Unlike D5, D3 is wired into `make data` and
-`make site`'s default invocation (Makefile): this is the first masked-heavy
-measure this project publishes end to end (M3, docs/ROADMAP.md)."""
+PROVENANCE.md; tested for sync. D3 is wired into `make data` and `make site`'s
+default invocation (Makefile): this is the first masked-heavy measure this
+project publishes end to end (M3, docs/ROADMAP.md). This docstring read "unlike
+D5" until 2026-09-05, when ADR 0005 wired D5 in alongside it."""
 
 
 @dataclass(frozen=True)
@@ -201,37 +208,17 @@ def _schools_payload(assembly: ProfileAssembly) -> dict[str, object]:
     return payload
 
 
-def _assignment_measure(
-    profile: SchoolProfile, outcome: str, *, percent: bool
-) -> Measure:
-    """The measure coverage counts for one school and outcome.
-
-    A school the D5 file never mentions counts as not reported, the same fact the
-    artifact publishes for it. Counting is not deriving: nothing here becomes a
-    value on a page.
-    """
-    row = profile.teacher_assignments
-    if row is None:
-        return Measure.not_reported()
-    return row.percents[outcome] if percent else row.counts[outcome]
-
-
 def _assignment_coverage(assembly: ProfileAssembly) -> dict[str, object]:
     profiles = assembly.profiles
     return {
-        "total_assignments": coverage(
-            p.teacher_assignments.total
-            if p.teacher_assignments is not None
-            else Measure.not_reported()
-            for p in profiles
-        ),
+        "total_assignments": coverage(assignment_total(p) for p in profiles),
         "outcomes": {
             outcome: {
                 "count": coverage(
-                    _assignment_measure(p, outcome, percent=False) for p in profiles
+                    assignment_measure(p, outcome, percent=False) for p in profiles
                 ),
                 "percent": coverage(
-                    _assignment_measure(p, outcome, percent=True) for p in profiles
+                    assignment_measure(p, outcome, percent=True) for p in profiles
                 ),
             }
             for outcome in OUTCOMES
@@ -413,7 +400,7 @@ def main(argv: list[str] | None = None) -> int:
         print("teacher assignments: no D5 file supplied, nothing published")
     else:
         clear_counts = coverage(
-            _assignment_measure(profile, "clear", percent=False)
+            assignment_measure(profile, "clear", percent=False)
             for profile in assembly.profiles
         )
         print(

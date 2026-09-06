@@ -40,6 +40,14 @@ each an ``All``/``Yes``/``No`` value, where D2 has only the one charter dimensio
 The genuine district- or state-wide rate is the row where both read ``All``;
 :func:`load_absenteeism_context` accepts no other, the same way :func:`load_context`
 accepts only D2's single ``ALL_CHARTER``.
+
+D5 (teacher assignment monitoring, ADR 0005) needs the same care over six
+dimensions rather than one or two: charter, DASS, school grade span, teacher
+experience level, teacher credential level and subject area all have to read the
+file's own aggregated value for a row to mean "this district, every school,
+every subject, every teacher". :func:`load_assignment_context` accepts no other
+row, and fails closed -- no statewide total, or two rows for one entity, stops
+the build -- rather than publishing one slice of a district as the district.
 """
 
 from __future__ import annotations
@@ -62,6 +70,26 @@ from homeroom.absenteeism import (
 from homeroom.absenteeism import (
     AbsenteeismDriftError,
     parse_absenteeism,
+)
+from homeroom.assignments import (
+    CHARTER_ALL as ASSIGNMENT_CHARTER_ALL,
+)
+from homeroom.assignments import (
+    CREDENTIAL_ALL,
+    DASS_ALL,
+    EXPERIENCE_ALL,
+    GRADE_SPAN_ALL,
+    OUTCOMES,
+    SUBJECT_TOTAL,
+    AssignmentDriftError,
+    AssignmentRow,
+    parse_assignments,
+)
+from homeroom.assignments import (
+    DISTRICT_LEVEL as ASSIGNMENT_DISTRICT_LEVEL,
+)
+from homeroom.assignments import (
+    STATE_LEVEL as ASSIGNMENT_STATE_LEVEL,
 )
 from homeroom.enrollment import (
     ALL_CHARTER,
@@ -289,4 +317,126 @@ def load_absenteeism_context(path: Path) -> AbsenteeismContext:
         },
         state=AbsenteeismAggregate(cds_code=STATE_CDS, categories=state_categories),
         academic_year=years.pop(),
+    )
+
+
+class AssignmentContextDriftError(AssignmentDriftError):
+    """D5's aggregate rows are not shaped the way this module was verified against."""
+
+
+@dataclass(frozen=True)
+class AssignmentAggregate:
+    """One entity's published teacher assignment outcomes, as CDE published them.
+
+    ``total`` is the entity's total teaching FTE; ``counts`` and ``percents`` are
+    the seven outcome cells, each a :class:`~homeroom.measures.Measure`, so a
+    withheld district cell stays withheld all the way to the page. Nothing here
+    is summed from schools and no percent is divided out of a count.
+    """
+
+    cds_code: str
+    total: Measure = field(default_factory=Measure.not_reported)
+    counts: dict[str, Measure] = field(default_factory=dict)
+    percents: dict[str, Measure] = field(default_factory=dict)
+
+    def count(self, outcome: str) -> Measure:
+        return self.counts.get(outcome, Measure.not_reported())
+
+    def percent(self, outcome: str) -> Measure:
+        return self.percents.get(outcome, Measure.not_reported())
+
+
+@dataclass(frozen=True)
+class AssignmentContext:
+    """Every district's assignment outcomes, plus the state's, from CDE's own rows."""
+
+    districts: dict[str, AssignmentAggregate]
+    state: AssignmentAggregate
+    academic_year: str
+
+    def for_district(self, cds_code: str) -> AssignmentAggregate:
+        key = district_key(cds_code)
+        return self.districts.get(key, AssignmentAggregate(cds_code=key))
+
+
+def _is_whole_entity_row(row: AssignmentRow) -> bool:
+    """True for the one row per aggregate entity that describes all of it.
+
+    Six dimensions have to read their aggregated value at once. Charter School
+    and DASS are the words ``All``; School Grade Span, Teacher Experience Level
+    and Teacher Credential Level are ``ALL``; Subject Area is ``TA``. A row
+    missing any one of them is a slice -- one grade span, or one subject, or the
+    charter schools only -- and publishing it as the district would be the same
+    error D2's three charter rows invite, where taking the first match makes a
+    district fifteen times too small.
+
+    Grade span is part of the filter here and deliberately is not part of
+    :func:`homeroom.assignments._is_school_total`: a school-level row is never
+    ``ALL`` there, because it already carries the one span that school serves,
+    while an aggregate entity spans several and publishes a row for each.
+    """
+    return (
+        row.charter == ASSIGNMENT_CHARTER_ALL
+        and row.dass == DASS_ALL
+        and row.grade_span == GRADE_SPAN_ALL
+        and row.experience_level == EXPERIENCE_ALL
+        and row.credential_level == CREDENTIAL_ALL
+        and row.subject_area == SUBJECT_TOTAL
+    )
+
+
+def load_assignment_context(path: Path) -> AssignmentContext:
+    """Read district and statewide assignment outcomes from D5's own rows.
+
+    Only the whole-entity rows described in :func:`_is_whole_entity_row` are
+    read, at district and state level, and a second such row for one entity is
+    drift rather than a row to overwrite: keeping the last one seen would pick a
+    published number by file order. A file with no statewide row stops the build,
+    because a page cannot claim statewide context it does not have and must not
+    quietly show nothing where the state published something.
+    """
+    districts: dict[str, AssignmentAggregate] = {}
+    state: AssignmentAggregate | None = None
+    years: set[str] = set()
+    seen: set[tuple[str, str]] = set()
+
+    for row in parse_assignments(path):
+        if row.level not in (ASSIGNMENT_DISTRICT_LEVEL, ASSIGNMENT_STATE_LEVEL):
+            continue
+        if not _is_whole_entity_row(row):
+            continue
+        key = (row.level, row.cds_code)
+        if key in seen:
+            raise AssignmentContextDriftError(
+                f"{path.name}: {row.level}-level {row.cds_code} has more than one "
+                "whole-entity row (Charter School and DASS 'All', grade span, "
+                "experience and credential 'ALL', subject area 'TA'); the file's "
+                "grain is not what this module was verified against"
+            )
+        seen.add(key)
+        years.add(row.academic_year)
+        figures = AssignmentAggregate(
+            cds_code=row.cds_code,
+            total=row.total,
+            counts={outcome: row.counts[outcome] for outcome in OUTCOMES},
+            percents={outcome: row.percents[outcome] for outcome in OUTCOMES},
+        )
+        if row.level == ASSIGNMENT_STATE_LEVEL:
+            state = figures
+            continue
+        districts[row.cds_code] = figures
+
+    if state is None:
+        raise AssignmentContextDriftError(
+            f"{path.name}: no statewide whole-entity row; statewide context "
+            "cannot be published without it"
+        )
+    if len(years) != 1:
+        raise AssignmentContextDriftError(
+            f"{path.name}: aggregate rows span academic years {sorted(years)}; "
+            "context must come from one year"
+        )
+
+    return AssignmentContext(
+        districts=districts, state=state, academic_year=years.pop()
     )

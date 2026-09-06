@@ -12,9 +12,11 @@ import pytest
 
 from homeroom.context import (
     AbsenteeismContextDriftError,
+    AssignmentContextDriftError,
     ContextDriftError,
     district_key,
     load_absenteeism_context,
+    load_assignment_context,
     load_context,
 )
 from homeroom.enrollment import EnrollmentDriftError, parse_enrollment, school_totals
@@ -383,3 +385,194 @@ def test_absenteeism_aggregate_rows_spanning_two_years_are_drift(
     )
     with pytest.raises(AbsenteeismContextDriftError, match="academic years"):
         load_absenteeism_context(p)
+
+
+# --- D5 teacher assignment context: six dimensions have to read "all" ----------
+#
+# This file crosses more dimensions than either of the two above. A district row
+# exists for every combination of charter status, DASS, grade span, teacher
+# experience level, teacher credential level and subject area, and only the one
+# where all six read their aggregated value describes the district. The rest are
+# slices -- one grade span, one subject, the charter schools alone -- and any of
+# them published as "In this district" would be a wrong number beside a real
+# school's, which is the same defect D2's three charter rows once caused.
+
+TAMO_HEADER = (
+    "Academic Year\tAggregate Level\tCounty Code\tDistrict Code\tSchool Code"
+    "\tCounty Name\tDistrict Name\tSchool Name\tCharter School\tDASS"
+    "\tSchool Grade Span\tTeacher Experience Level\tTeacher Credential Level"
+    "\tSubject Area\tTotal FTE\tClear FTE (count)\tOut-of-Field FTE (count)"
+    "\tIntern FTE (count)\tIneffective FTE (count)\tIncomplete FTE (count)"
+    "\tUnknown FTE (count)\tN/A FTE (count)\tClear FTE (percent)"
+    "\tOut-of-Field FTE (percent)\tIntern FTE (percent)\tIneffective FTE (percent)"
+    "\tIncomplete FTE (percent)\tUnknown FTE FTE (percent)\tN/A FTE (percent)\n"
+)
+
+
+def tamo_row(
+    *,
+    level: str,
+    total: str,
+    clear: str = "80.00",
+    clear_percent: str = "80.0",
+    charter: str = "All",
+    dass: str = "All",
+    span: str = "ALL",
+    experience: str = "ALL",
+    credential: str = "ALL",
+    subject: str = "TA",
+    county: str = "01",
+    district: str = "10017",
+    school: str = "",
+    year: str = "2023-24",
+) -> str:
+    # Six more count columns after Clear, then Clear's percent, then six more
+    # percents: the acquired header's own order, which the parser reads by name
+    # but a fixture still has to write positionally.
+    other_counts = "\t".join(["0.00"] * 6)
+    other_percents = "\t".join(["0.0"] * 6)
+    return (
+        f"{year}\t{level}\t{county}\t{district}\t{school}\tYolo\tDavis Joint Unified"
+        f"\tBirch Lane\t{charter}\t{dass}\t{span}\t{experience}\t{credential}"
+        f"\t{subject}\t{total}\t{clear}\t{other_counts}"
+        f"\t{clear_percent}\t{other_percents}\n"
+    )
+
+
+def write_tamo(tmp_path: Path, rows: str) -> Path:
+    p = tmp_path / "tamo.txt"
+    p.write_text(TAMO_HEADER + rows, encoding="utf-8")
+    return p
+
+
+TAMO_STATE = tamo_row(
+    level="T", total="1000.00", clear="880.00", county="00", district=""
+)
+
+
+def test_assignment_context_takes_only_the_row_where_every_dimension_is_all(
+    tmp_path: Path,
+) -> None:
+    """Five decoys, one real district row, and the decoys must not win.
+
+    Each decoy is a genuine published row that is not the district: the charter
+    schools only, the DASS schools only, one grade span, one experience level,
+    one subject. Taking the first match -- which is what a reader that filtered
+    on level alone would do -- publishes any of them as the whole district.
+    """
+    p = write_tamo(
+        tmp_path,
+        tamo_row(level="D", total="55.00", charter="Yes")
+        + tamo_row(level="D", total="60.00", dass="Yes")
+        + tamo_row(level="D", total="65.00", span="GRK6")
+        + tamo_row(level="D", total="70.00", experience="EXP")
+        + tamo_row(level="D", total="75.00", subject="MATH")
+        + tamo_row(level="D", total="600.00")
+        + TAMO_STATE,
+    )
+    district = load_assignment_context(p).for_district("01100170112345")
+    assert district.total.number() == 600.0
+    for decoy in (55.0, 60.0, 65.0, 70.0, 75.0):
+        assert district.total.number() != decoy
+
+
+def test_assignment_context_never_sums_school_rows(tmp_path: Path) -> None:
+    """CDE computed the district total; Homeroom copies it. Two school rows sum
+    to 30 and the district's own row says 600, which is the number published."""
+    p = write_tamo(
+        tmp_path,
+        tamo_row(level="S", total="10.00", charter="No", dass="No", school="0000001")
+        + tamo_row(level="S", total="20.00", charter="No", dass="No", school="0000002")
+        + tamo_row(level="D", total="600.00")
+        + TAMO_STATE,
+    )
+    assert (
+        load_assignment_context(p).for_district("01100170000001").total.number()
+        == 600.0
+    )
+
+
+def test_assignment_masked_district_and_state_cells_stay_withheld(
+    tmp_path: Path,
+) -> None:
+    """The acquired 2023-24 file masks nothing, which is a fact about one file.
+
+    A future year that masks a district cell has to render as withheld and not
+    as zero, so the path is exercised here rather than left dead until the day
+    it matters.
+    """
+    p = write_tamo(
+        tmp_path,
+        tamo_row(level="D", total="*", clear="*", clear_percent="*")
+        + tamo_row(
+            level="T", total="*", clear="*", clear_percent="*", county="00", district=""
+        ),
+    )
+    ctx = load_assignment_context(p)
+    for figures in (ctx.for_district("01100170112345"), ctx.state):
+        for measure in (
+            figures.total,
+            figures.count("clear"),
+            figures.percent("clear"),
+        ):
+            assert measure.status is MeasureStatus.SUPPRESSED
+            assert not measure.is_zero
+            with pytest.raises(SuppressedValueError):
+                measure.number()
+
+
+def test_assignment_district_with_no_published_rows_is_absent_not_invented(
+    tmp_path: Path,
+) -> None:
+    p = write_tamo(tmp_path, TAMO_STATE)
+    figures = load_assignment_context(p).for_district("57726786056246")
+    assert figures.cds_code == district_key("57726786056246")
+    assert figures.total.status is MeasureStatus.NOT_REPORTED
+    assert figures.count("clear").status is MeasureStatus.NOT_REPORTED
+    assert not figures.total.is_zero
+
+
+def test_assignment_duplicate_whole_entity_rows_are_drift(tmp_path: Path) -> None:
+    """Last-one-wins would pick a district's published figure by file order."""
+    p = write_tamo(
+        tmp_path,
+        tamo_row(level="D", total="600.00")
+        + tamo_row(level="D", total="700.00")
+        + TAMO_STATE,
+    )
+    with pytest.raises(AssignmentContextDriftError, match="more than one"):
+        load_assignment_context(p)
+
+
+def test_assignment_missing_statewide_row_is_drift(tmp_path: Path) -> None:
+    """A page cannot claim statewide context a build never read."""
+    p = write_tamo(tmp_path, tamo_row(level="D", total="600.00"))
+    with pytest.raises(AssignmentContextDriftError, match="no statewide"):
+        load_assignment_context(p)
+
+
+def test_assignment_aggregate_rows_spanning_two_years_are_drift(
+    tmp_path: Path,
+) -> None:
+    p = write_tamo(
+        tmp_path,
+        TAMO_STATE + tamo_row(level="D", total="600.00", year="2022-23"),
+    )
+    with pytest.raises(AssignmentContextDriftError, match="academic years"):
+        load_assignment_context(p)
+
+
+def test_assignment_county_rows_are_not_mistaken_for_districts(
+    tmp_path: Path,
+) -> None:
+    """A county row carries a blank district code, which zero-fills to a CDS a
+    district lookup would otherwise find and publish as the district."""
+    p = write_tamo(
+        tmp_path,
+        tamo_row(level="C", total="9000.00", district="")
+        + tamo_row(level="D", total="600.00")
+        + TAMO_STATE,
+    )
+    ctx = load_assignment_context(p)
+    assert ctx.for_district("01100170112345").total.number() == 600.0
+    assert all(figures.total.number() != 9000.0 for figures in ctx.districts.values())

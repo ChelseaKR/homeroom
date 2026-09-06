@@ -191,11 +191,28 @@ REQUIRED_COLUMNS = (
 """Every column this parser reads. Absence of any is drift and fails the build."""
 
 SCHOOL_LEVEL = "S"
+DISTRICT_LEVEL = "D"
+STATE_LEVEL = "T"
 KNOWN_LEVELS = frozenset({"T", "C", "D", "S"})
-"""Aggregate levels: state, county, district, school. Anything else is drift."""
+"""Aggregate levels: state, county, district, school. Anything else is drift.
+
+``DISTRICT_LEVEL`` and ``STATE_LEVEL`` are named because a school page reads
+CDE's own district and statewide rows beside the school's own (ADR 0005;
+:func:`homeroom.context.load_assignment_context`), never a sum of school rows.
+The county level is parsed and named nowhere else: no page is about a county's
+teaching assignments."""
 
 KNOWN_CHARTER_VALUES = frozenset({"All", "Yes", "No"})
 KNOWN_DASS_VALUES = frozenset({"All", "Yes", "No"})
+
+CHARTER_ALL = "All"
+DASS_ALL = "All"
+"""The "regardless of this dimension" value for the two status columns.
+
+Spelled as words here and as ``ALL``/``TA`` in the four dimension columns above,
+which is CDE's inconsistency and not one to normalise away: a district row means
+"every school in this district" only when all six read their own aggregated
+value, and :func:`homeroom.context.load_assignment_context` accepts no other."""
 
 
 class AssignmentDriftError(ValueError):

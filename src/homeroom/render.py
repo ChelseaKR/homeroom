@@ -37,10 +37,13 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass, field
 
+from homeroom.assignments import OUTCOMES
 from homeroom.context import (
     AbsenteeismAggregate,
     AbsenteeismContext,
     AggregateFigures,
+    AssignmentAggregate,
+    AssignmentContext,
     EnrollmentContext,
 )
 from homeroom.enrollment import GRADE_COLUMNS, TOTAL_CATEGORY
@@ -54,6 +57,7 @@ from homeroom.i18n import (
     family_name,
     format_number,
     grade_name,
+    outcome_name,
     text,
 )
 from homeroom.measures import Measure, MeasureStatus, coverage
@@ -62,6 +66,8 @@ from homeroom.profiles import (
     SUBGROUP_FAMILIES,
     ProfileAssembly,
     SchoolProfile,
+    assignment_measure,
+    assignment_total,
 )
 
 DIRECTORY_URL = "https://www.cde.ca.gov/schooldirectory/"
@@ -72,6 +78,9 @@ ENROLLMENT_URL = "https://www.cde.ca.gov/ds/ad/filesenrcensus.asp"
 
 ABSENTEEISM_URL = "https://www.cde.ca.gov/ds/ad/filesabd.asp"
 """CDE's page for D3. Mirrors PROVENANCE.md; tested for agreement with it."""
+
+ASSIGNMENTS_URL = "https://www.cde.ca.gov/ds/ad/filestamo.asp"
+"""CDE's page for D5. Mirrors PROVENANCE.md; tested for agreement with it."""
 
 LIGHT: dict[str, str] = {
     "surface": "#fbfbf8",
@@ -257,11 +266,17 @@ class SiteCoverage:
     absenteeism_academic_year: str | None
     absenteeism_total: dict[str, int]
     absenteeism_subgroups: dict[str, dict[str, int]]
+    assignments_supplied: bool
+    assignments_academic_year: str | None
+    assignments_total: dict[str, int]
+    assignment_counts: dict[str, dict[str, int]]
+    assignment_percents: dict[str, dict[str, int]]
 
 
 def site_coverage(assembly: ProfileAssembly) -> SiteCoverage:
     profiles = assembly.profiles
     absenteeism_supplied = assembly.absenteeism_academic_year is not None
+    assignments_supplied = assembly.assignments_academic_year is not None
     return SiteCoverage(
         schools=len(profiles),
         total_enrollment=coverage(p.total_enrollment for p in profiles),
@@ -289,6 +304,33 @@ def site_coverage(assembly: ProfileAssembly) -> SiteCoverage:
                 for code in family
             }
             if absenteeism_supplied
+            else {}
+        ),
+        assignments_supplied=assignments_supplied,
+        assignments_academic_year=assembly.assignments_academic_year,
+        assignments_total=(
+            coverage(assignment_total(p) for p in profiles)
+            if assignments_supplied
+            else {}
+        ),
+        assignment_counts=(
+            {
+                outcome: coverage(
+                    assignment_measure(p, outcome, percent=False) for p in profiles
+                )
+                for outcome in OUTCOMES
+            }
+            if assignments_supplied
+            else {}
+        ),
+        assignment_percents=(
+            {
+                outcome: coverage(
+                    assignment_measure(p, outcome, percent=True) for p in profiles
+                )
+                for outcome in OUTCOMES
+            }
+            if assignments_supplied
             else {}
         ),
     )
@@ -637,6 +679,90 @@ def _absenteeism_section(
     )
 
 
+def _assignments_section(
+    profile: SchoolProfile,
+    locale: Locale,
+    cover: SiteCoverage,
+    district: AssignmentAggregate,
+    state: AssignmentAggregate,
+) -> str:
+    """Teacher assignment monitoring (D5, ADR 0005), on this school's own terms.
+
+    Structured exactly like the sections above it: a total, then a table per
+    figure family, every cell in the same four states, the same district and
+    statewide columns read from CDE's own aggregate rows, and the same coverage
+    tally. Two things are specific to this measure and both are decisions ADR
+    0005 records rather than rendering choices made here.
+
+    *Counts and shares are separate tables, and both are copied.* CDE publishes
+    an FTE count and a percent for each outcome. This module reads both and
+    divides neither, so a school whose percent cell is withheld shows a withheld
+    share even where its count is visible.
+
+    *All seven outcomes, never one of them.* There is no headline "share on a
+    clear credential" here, because one number standing for seven is the
+    compression ADR 0002 refuses and the most sortable thing the file contains.
+    """
+    # D5 reports on its own cycle (2023-24 in the acquired file, against D2's
+    # 2025-26 and D3's 2024-25), so the captions below name this section's own
+    # year. Three sources, three calendars, and no caption borrowing another's.
+    year = cover.assignments_academic_year or profile.academic_year
+    total_table = _measure_table(
+        locale=locale,
+        caption=text(locale, "caption_assignments_total").format(
+            school=profile.school.name, year=year
+        ),
+        row_header=text(locale, "col_figure"),
+        rows=[
+            Row(
+                label=_esc(text(locale, "assignments_total_label")),
+                measure=assignment_total(profile),
+                counts=cover.assignments_total,
+                district=district.total,
+                state=state.total,
+            )
+        ],
+    )
+    blocks: list[str] = [
+        f"<p>{_esc(text(locale, 'assignments_intro'))}</p>",
+        total_table,
+    ]
+    for caption_key, percent in (
+        ("caption_assignments_counts", False),
+        ("caption_assignments_shares", True),
+    ):
+        table = _measure_table(
+            locale=locale,
+            caption=text(locale, caption_key).format(
+                school=profile.school.name, year=year
+            ),
+            row_header=text(locale, "col_outcome"),
+            rows=[
+                Row(
+                    label=_esc(outcome_name(locale, outcome)),
+                    measure=assignment_measure(profile, outcome, percent=percent),
+                    counts=(
+                        cover.assignment_percents[outcome]
+                        if percent
+                        else cover.assignment_counts[outcome]
+                    ),
+                    district=(
+                        district.percent(outcome)
+                        if percent
+                        else district.count(outcome)
+                    ),
+                    state=state.percent(outcome) if percent else state.count(outcome),
+                    unit="%" if percent else "",
+                )
+                for outcome in OUTCOMES
+            ],
+        )
+        blocks.append(table)
+    return _section(
+        "assignments", text(locale, "assignments_heading"), "\n".join(blocks)
+    )
+
+
 def _coverage_section(locale: Locale, cover: SiteCoverage) -> str:
     pairs = [
         ("coverage_schools", cover.schools),
@@ -662,6 +788,23 @@ def _coverage_section(locale: Locale, cover: SiteCoverage) -> str:
                 ),
             ]
         )
+    if cover.assignments_supplied:
+        pairs.extend(
+            [
+                (
+                    "coverage_assignments_published",
+                    cover.assignments_total["reported"],
+                ),
+                (
+                    "coverage_assignments_withheld",
+                    cover.assignments_total["suppressed"],
+                ),
+                (
+                    "coverage_assignments_nothing",
+                    cover.assignments_total["not_reported"],
+                ),
+            ]
+        )
     items = "\n".join(
         f"<dt>{_esc(text(locale, key))}</dt>"
         f'<dd class="count">{_esc(format_number(value))}</dd>'
@@ -675,8 +818,20 @@ def _coverage_section(locale: Locale, cover: SiteCoverage) -> str:
     )
 
 
-def _not_yet_section(locale: Locale, *, absenteeism_supplied: bool) -> str:
-    keys = ["not_yet_assignments"]
+def _not_yet_section(
+    locale: Locale, *, assignments_supplied: bool, absenteeism_supplied: bool
+) -> str:
+    """What this build does not have, said in words rather than left blank.
+
+    A source the build was not given gets a paragraph here instead of an empty
+    table, because an absent section reads as a measure that does not exist. D5
+    joined D3 in being conditional when ADR 0005 made it publishable: before
+    that its paragraph was unconditional, since no build could be handed the
+    file at all.
+    """
+    keys: list[str] = []
+    if not assignments_supplied:
+        keys.append("not_yet_assignments")
     if not absenteeism_supplied:
         keys.append("not_yet_absenteeism")
     keys.append("not_yet_measures")
@@ -895,17 +1050,20 @@ def render_school(
     is_fixture: bool,
     context: EnrollmentContext | None = None,
     absenteeism_context: AbsenteeismContext | None = None,
+    assignment_context: AssignmentContext | None = None,
     ask_href: str | None = None,
     site_url: str | None = None,
 ) -> str:
     """One school, one language, as a complete standalone HTML document.
 
     ``context`` carries CDE's own district and statewide enrollment rows.
-    ``absenteeism_context`` carries the same for D3. When either is absent every
-    context cell renders as nothing published, which is the honest state for a
-    build that did not load that aggregate, and never a zero. The chronic
-    absenteeism section itself only appears when ``cover.absenteeism_supplied``:
-    a build with no D3 source says so in words in the "not yet" section instead
+    ``absenteeism_context`` and ``assignment_context`` carry the same for D3 and
+    D5. When any of them is absent every context cell in that section renders as
+    nothing published, which is the honest state for a build that did not load
+    that aggregate, and never a zero. The chronic absenteeism and teaching
+    assignment sections themselves only appear when
+    ``cover.absenteeism_supplied`` and ``cover.assignments_supplied``: a build
+    with no D3 or no D5 source says so in words in the "not yet" section instead
     of rendering an empty table.
 
     ``ask_href`` adds the one link to the school's ask page (ADR 0003). Left
@@ -932,6 +1090,16 @@ def render_school(
         absenteeism_context.state
         if absenteeism_context is not None
         else AbsenteeismAggregate(cds_code="")
+    )
+    assignment_district = (
+        assignment_context.for_district(school.cds_code)
+        if assignment_context is not None
+        else AssignmentAggregate(cds_code=school.cds_code)
+    )
+    assignment_state = (
+        assignment_context.state
+        if assignment_context is not None
+        else AssignmentAggregate(cds_code="")
     )
     title = (
         text(locale, "page_title").format(
@@ -962,8 +1130,21 @@ def render_school(
             if cover.absenteeism_supplied
             else []
         ),
+        *(
+            [
+                _assignments_section(
+                    profile, locale, cover, assignment_district, assignment_state
+                )
+            ]
+            if cover.assignments_supplied
+            else []
+        ),
         _coverage_section(locale, cover),
-        _not_yet_section(locale, absenteeism_supplied=cover.absenteeism_supplied),
+        _not_yet_section(
+            locale,
+            assignments_supplied=cover.assignments_supplied,
+            absenteeism_supplied=cover.absenteeism_supplied,
+        ),
         _sources_section(sources, locale),
         "</main>",
         '<footer>\n<div class="wrap">\n'

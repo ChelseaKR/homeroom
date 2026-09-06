@@ -14,8 +14,8 @@ The catalogs below are plain dictionaries keyed by locale. The parity gate lives
   is on a short reviewed list of words that are genuinely the same in both;
 * a template's ``{placeholder}`` set differs between locales, which is how a
   number quietly disappears from a translated sentence;
-* a reporting category, grade column, or subgroup family gains a code in the
-  pipeline without a name in both languages.
+* a reporting category, grade column, subgroup family, or teacher-assignment
+  outcome gains a code in the pipeline without a name in both languages.
 
 That last one is the important one: the display names are not decoration, they are
 what a family reads instead of ``ELAS_RFEP``, and an untranslated code would leave
@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from homeroom.assignments import OUTCOME_NAMES
 from homeroom.enrollment import GRADE_COLUMNS
 from homeroom.profiles import (
     ABSENTEEISM_CATEGORY_NAMES,
@@ -190,14 +191,54 @@ UI: dict[Locale, dict[str, str]] = {
         "coverage_absenteeism_nothing": (
             "Schools publishing no chronic absenteeism rate at all"
         ),
+        # Teacher assignment monitoring (D5, ADR 0005). This copy carries one
+        # job the other sections do not: keeping a family from reading a
+        # credential outcome as a verdict on the person teaching their child.
+        # The state classifies assignments, not teachers, and the words here
+        # have to say so before any number is read.
+        "assignments_heading": "Teaching assignments and credentials",
+        "assignments_intro": (
+            "Every year California checks which credential each teaching "
+            "assignment at a school was held on. The figures below are the "
+            "state's own count of those assignments, in full-time-equivalent "
+            "units: one full-time assignment counts as 1 and a half-time "
+            "assignment as 0.5, so these count assignments and not people. They "
+            "record how the state classified an assignment, not how well anyone "
+            "teaches. Homeroom does not score them and does not add them "
+            "together; every figure here is printed exactly as the state "
+            "published it."
+        ),
+        "assignments_total_label": "All teaching assignments",
+        "col_outcome": "Credential outcome",
+        "caption_assignments_total": (
+            "Teaching assignments at {school}, {year} school year, in "
+            "full-time-equivalent units."
+        ),
+        "caption_assignments_counts": (
+            "Teaching assignments by credential outcome at {school}, {year} "
+            "school year, in full-time-equivalent units."
+        ),
+        "caption_assignments_shares": (
+            "Share of teaching assignments in each credential outcome at "
+            "{school}, {year} school year, as the state published it."
+        ),
+        "coverage_assignments_published": (
+            "Schools publishing a teaching assignment total"
+        ),
+        "coverage_assignments_withheld": (
+            "Schools where that assignment total is withheld"
+        ),
+        "coverage_assignments_nothing": (
+            "Schools publishing no teaching assignment figure at all"
+        ),
         "not_yet_heading": "What is not on this page yet",
         "not_yet_assignments": (
-            "Teacher assignment data is not yet published here. California "
-            "publishes, for each school, how many teaching assignments were held "
-            "by a teacher with a clear credential matched to what they teach. "
-            "Homeroom has read that file and confirmed what it contains, and has "
-            "not yet decided how to publish it, so this page shows no figure about "
-            "the teachers at this school."
+            "Teaching assignment data is not yet acquired for this page. "
+            "California publishes, for each school, which credential each "
+            "teaching assignment was held on, and Homeroom publishes it where "
+            "the file is in hand. This build was not given that file, so this "
+            "page shows no figure about the teaching assignments at this school "
+            "and will not until the file is here."
         ),
         "not_yet_absenteeism": (
             "Chronic absenteeism data is not yet acquired for this page. Homeroom "
@@ -220,6 +261,8 @@ UI: dict[Locale, dict[str, str]] = {
         "source_d2_title": "Census Day Enrollment Data",
         "source_d3_name": "Chronic absenteeism",
         "source_d3_title": "Chronic Absenteeism Data",
+        "source_d5_name": "Teaching assignments",
+        "source_d5_title": "Teacher Assignment Monitoring Outcome data",
         "source_file": "File",
         "source_downloaded": "Downloaded",
         "source_year": "School year",
@@ -290,11 +333,15 @@ UI: dict[Locale, dict[str, str]] = {
             "about this school is below, each figure on its own terms, beside "
             "the district and statewide figures the page already shows."
         ),
+        # Says what this *answer* can draw on, not what the page shows. Those
+        # stopped being the same thing under ADR 0005: the page now carries
+        # teaching assignments and the ask layer's evidence bundle does not, so
+        # a sentence about "the files behind this page" would be false.
         "ask_refusal_outside": (
             "That is not something the California Department of Education's "
             "published files say about this school, so this answer cannot say "
-            "it either. The files behind this page cover enrollment on Census "
-            "Day and chronic absenteeism. Anything else, such as teaching "
+            "it either. The figures this answer can draw on cover enrollment on "
+            "Census Day and chronic absenteeism. Anything else, such as teaching "
             "quality, safety, or how a school feels, is a question for the "
             "school itself."
         ),
@@ -500,14 +547,55 @@ UI: dict[Locale, dict[str, str]] = {
         "coverage_absenteeism_nothing": (
             "Escuelas que no publican ninguna tasa de ausentismo crónico"
         ),
+        # Monitoreo de la asignación docente (D5, ADR 0005). Este texto tiene
+        # una tarea que las demás secciones no tienen: evitar que una familia
+        # lea un resultado de credencial como un juicio sobre la persona que le
+        # enseña a su hijo. El estado clasifica asignaciones, no maestros, y
+        # estas palabras lo dicen antes de que se lea ninguna cifra.
+        "assignments_heading": "Asignaciones docentes y credenciales",
+        "assignments_intro": (
+            "Cada año California revisa con qué credencial se cubrió cada "
+            "asignación docente de una escuela. Las cifras de abajo son el "
+            "conteo propio del estado de esas asignaciones, en unidades "
+            "equivalentes a tiempo completo: una asignación de tiempo completo "
+            "cuenta como 1 y una de medio tiempo como 0.5, así que cuentan "
+            "asignaciones y no personas. Registran cómo clasificó el estado una "
+            "asignación, no qué tan bien enseña alguien. Homeroom no las "
+            "califica ni las suma; cada dato aparece tal como lo publicó el "
+            "estado."
+        ),
+        "assignments_total_label": "Todas las asignaciones docentes",
+        "col_outcome": "Resultado de la credencial",
+        "caption_assignments_total": (
+            "Asignaciones docentes en {school}, ciclo escolar {year}, en "
+            "unidades equivalentes a tiempo completo."
+        ),
+        "caption_assignments_counts": (
+            "Asignaciones docentes por resultado de la credencial en {school}, "
+            "ciclo escolar {year}, en unidades equivalentes a tiempo completo."
+        ),
+        "caption_assignments_shares": (
+            "Proporción de las asignaciones docentes en cada resultado de la "
+            "credencial en {school}, ciclo escolar {year}, tal como la publicó "
+            "el estado."
+        ),
+        "coverage_assignments_published": (
+            "Escuelas que publican un total de asignaciones docentes"
+        ),
+        "coverage_assignments_withheld": (
+            "Escuelas donde ese total de asignaciones está retenido"
+        ),
+        "coverage_assignments_nothing": (
+            "Escuelas que no publican ningún dato de asignaciones docentes"
+        ),
         "not_yet_heading": "Lo que todavía no está en esta página",
         "not_yet_assignments": (
-            "Los datos sobre la asignación de maestros todavía no se publican "
-            "aquí. California publica, por escuela, cuántas asignaciones docentes "
-            "estaban a cargo de un maestro con credencial vigente que corresponde "
-            "a lo que enseña. Homeroom leyó ese archivo y confirmó lo que "
-            "contiene, y todavía no ha decidido cómo publicarlo, así que esta "
-            "página no muestra ningún dato sobre los maestros de esta escuela."
+            "Los datos de asignaciones docentes todavía no se han obtenido para "
+            "esta página. California publica, por escuela, con qué credencial se "
+            "cubrió cada asignación docente, y Homeroom lo publica cuando tiene "
+            "el archivo. Esta compilación no recibió ese archivo, así que esta "
+            "página no muestra ningún dato sobre las asignaciones docentes de "
+            "esta escuela y no lo hará hasta tener el archivo."
         ),
         "not_yet_absenteeism": (
             "Los datos de ausentismo crónico todavía no se han obtenido para esta "
@@ -531,6 +619,10 @@ UI: dict[Locale, dict[str, str]] = {
         "source_d2_title": "Datos de matrícula del Día del Censo",
         "source_d3_name": "Ausentismo crónico",
         "source_d3_title": "Datos de ausentismo crónico",
+        "source_d5_name": "Asignaciones docentes",
+        "source_d5_title": (
+            "Datos de resultados del monitoreo de la asignación de maestros"
+        ),
         "source_file": "Archivo",
         "source_downloaded": "Descargado el",
         "source_year": "Ciclo escolar",
@@ -612,11 +704,11 @@ UI: dict[Locale, dict[str, str]] = {
         "ask_refusal_outside": (
             "Eso no es algo que los archivos publicados del Departamento de "
             "Educación de California digan sobre esta escuela, así que esta "
-            "respuesta tampoco puede decirlo. Los archivos detrás de esta "
-            "página cubren la matrícula del Día del Censo y el ausentismo "
-            "crónico. Cualquier otra cosa, como la calidad de la enseñanza, la "
-            "seguridad o cómo se siente una escuela, es una pregunta para la "
-            "escuela misma."
+            "respuesta tampoco puede decirlo. Las cifras de las que puede partir "
+            "esta respuesta cubren la matrícula del Día del Censo y el "
+            "ausentismo crónico. Cualquier otra cosa, como la calidad de la "
+            "enseñanza, la seguridad o cómo se siente una escuela, es una "
+            "pregunta para la escuela misma."
         ),
         "ask_refusal_unknown_school": (
             "Esta versión no incluye ninguna escuela activa con ese código CDS, "
@@ -850,6 +942,31 @@ ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE: dict[Locale, dict[str, str]] = {
     "es": ABSENTEEISM_CATEGORY_NAMES_ES,
 }
 
+OUTCOME_NAMES_ES: dict[str, str] = {
+    "clear": "Credencial vigente, con la asignación que le corresponde",
+    "out_of_field": "Con credencial, pero asignado fuera de esa autorización",
+    "intern": "Enseñando con una credencial de pasante",
+    "ineffective": (
+        "Enseñando con un permiso, una exención u otra base sin credencial"
+    ),
+    "incomplete": "Datos de la asignación incompletos",
+    "unknown": "Autorización no establecida en los registros del estado",
+    "na": "Resultado del monitoreo de asignaciones no aplicable",
+}
+"""Spanish for the seven D5 authorization outcomes (ADR 0005).
+
+The English side is :data:`homeroom.assignments.OUTCOME_NAMES`, read from the
+acquired file's own columns. Each names the underlying fact -- which credential
+the assignment sat on -- rather than repeating CDE's term of art, for the same
+reason D2's ``RE_D`` is expanded: a family meets these words cold, and a label
+they cannot read is a label that invites them to guess.
+"""
+
+OUTCOME_NAMES_BY_LOCALE: dict[Locale, dict[str, str]] = {
+    "en": dict(OUTCOME_NAMES),
+    "es": OUTCOME_NAMES_ES,
+}
+
 DELIBERATELY_SHARED: frozenset[str] = frozenset({"site_name", "RE_F", "RF"})
 """Strings that are correctly identical in both languages, each for a reason.
 
@@ -873,6 +990,7 @@ PLURAL_SAFE_CATALOGS: tuple[dict[Locale, dict[str, str]], ...] = (
     FAMILY_NAMES,
     CATEGORY_NAMES_BY_LOCALE,
     ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE,
+    OUTCOME_NAMES_BY_LOCALE,
 )
 """Every locale-keyed catalog, so the parity gate cannot miss one by being added
 to the module and not to the test."""
@@ -904,6 +1022,10 @@ def absenteeism_category_name(locale: Locale, code: str) -> str:
     return ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE[locale][code]
 
 
+def outcome_name(locale: Locale, outcome: str) -> str:
+    return OUTCOME_NAMES_BY_LOCALE[locale][outcome]
+
+
 def format_number(value: float) -> str:
     """A count as both locales write it.
 
@@ -929,6 +1051,8 @@ __all__ = [
     "LOCALES",
     "LOCALE_NAMES",
     "OTHER_LOCALE",
+    "OUTCOME_NAMES_BY_LOCALE",
+    "OUTCOME_NAMES_ES",
     "PLURAL_SAFE_CATALOGS",
     "SUBGROUP_FAMILIES",
     "UI",
@@ -939,6 +1063,7 @@ __all__ = [
     "family_name",
     "format_number",
     "grade_name",
+    "outcome_name",
     "strings",
     "text",
 ]

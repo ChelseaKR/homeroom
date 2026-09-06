@@ -1,10 +1,10 @@
-"""The measures the ask layer may look up: exactly the ones a school page shows.
+"""The measures the ask layer may look up: a subset of what a school page shows.
 
 A :class:`MeasureSpec` names one figure a page renders, in the vocabulary the
 structuring step hands the model and the verifier checks against. The catalog
 is derived from the same constants the renderer uses (grade columns, subgroup
-families, D3 categories), so a measure the page cannot show is a measure the
-model cannot ask for, and the two cannot drift apart.
+families, D3 categories), so a measure the catalog carries is one the page can
+show, and the two cannot drift apart in that direction.
 
 Measure keys:
 
@@ -13,8 +13,16 @@ Measure keys:
 * ``absenteeism.total``, ``absenteeism.group.<code>`` from D3 (rates, percent).
 
 Nothing here is a score, and nothing combines two keys. Teacher assignments
-(D5) are deliberately absent: no D5 number is published on any page, and the
-catalog is the list of what is published.
+(D5) are deliberately absent, and the reason changed on 2026-09-05. It used to
+be that no D5 number was published anywhere, so the catalog of what is published
+could not carry one. ADR 0005 publishes D5 on the pages and deliberately does not
+add it here: a measure in this catalog needs a corpus topic for its definitions,
+verifier cases for its unit and its suppression wording, and a live evaluation
+run before any sentence about it reaches a reader. That is a decision with its
+own cost and it has not been made. Until it is, a question about teaching
+assignments is outside what this layer can answer, and ``ask_refusal_outside``
+says so by naming the figures the *answer* can draw on rather than the figures
+the page carries.
 """
 
 from __future__ import annotations

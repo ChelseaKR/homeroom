@@ -157,10 +157,16 @@ family-facing exposure, per the deployment runbook (`deploy/ask/README.md`).
     the code constant and the provenance row are tested for agreement, so a
     build cannot stamp a date nobody recorded (`tests/test_artifacts.py`).
   - REVIEW (not yet audited): honesty-of-framing pass on page copy, due at M4.
-    D5 adds a specific item to that pass: these outcomes describe which
+    D5 added a specific item to that pass: these outcomes describe which
     credential an assignment sat on, which is a fact about staffing and the
     state's own monitoring, and the page copy must not let a family read it as
-    an evaluation of a teacher.
+    an evaluation of a teacher. That item was answered by the copy shipped with
+    ADR 0005 (2026-09-05), which says in both languages that the figures count
+    assignments in full-time-equivalent units rather than people, that they
+    record how the state classified an assignment rather than how well anyone
+    teaches, and that Homeroom neither scores them nor adds them together. The
+    wider honesty-of-framing pass over all page copy is still owed, and this is
+    one section of it reviewed rather than the pass itself.
   - Model card: the ask layer uses a third-party model (default `claude-sonnet-5`
     via the public `anthropic` SDK; the model actually used for any committed
     evaluation is named in `evals/results/`). No model is trained here, so the
