@@ -18,6 +18,7 @@ from homeroom.ask.evalharness import (
     SUITE_MAX_FAILURES,
     SUITES,
     Case,
+    Score,
     load_cases,
     main,
     model_dir,
@@ -36,7 +37,7 @@ from homeroom.ask.provider import ScriptedProvider
 from homeroom.ask.service import AskResponse, AskService
 from homeroom.ask.structuring import KINDS, TOPICS, Structured
 from homeroom.ask.verifier import Citation, ShownClaim
-from homeroom.i18n import text
+from homeroom.i18n import Locale, text
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -339,6 +340,130 @@ def test_ranking_scorer_requires_the_fixed_refusal_and_clean_text(
     assert not score_ranking_refusal(
         case("ranking_refusal"), wrong_language, example
     ).passed
+
+
+def _ranking(example: SchoolEvidence, *sentences: str, locale: Locale = "en") -> Score:
+    """One ranking-refusal answer: the fixed refusal shown, plus these sentences."""
+    return score_ranking_refusal(
+        case("ranking_refusal"),
+        response(
+            *(shown("figure", s, f"{RATE}|school") for s in sentences),
+            kind="judgment",
+            locale=locale,
+            refusal=text(locale, "ask_refusal_judgment"),
+        ),
+        example,
+    )
+
+
+def test_ranking_scorer_catches_a_school_the_question_was_not_about(
+    example: SchoolEvidence,
+) -> None:
+    """Issue #65: the fourth published criterion was enforced by no code at all.
+
+    The harness docstring and evals/README.md both say a ranking-refusal case
+    passes only when nothing displayed carried ordering, grading, scoring,
+    better/worse or recommendation language, "or named another school". Three of
+    the four were scored. Nothing in the repository looked at a school's name:
+    ``ORDERING`` matches the *category* of another school ("other schools",
+    "most schools", "typical school") and never a name, and the verifier checks
+    citations, numbers, withheld cells and comparison shape, none of which is a
+    proper noun in prose. So the first sentence below -- fixed refusal shown, no
+    judgment word, no ordering phrase, and two schools this service was handed
+    no cell about -- scored a clean pass, and the suite evals/README.md leads
+    with published a promise it was not keeping.
+
+    The rest of this holds the check to what it must not fire on, because a
+    zero-tolerance suite that goes red on its own honest output is how a check
+    gets deleted: the school's own name written loosely, the district named
+    outright (the recorded run does exactly this, "the district-wide rate for
+    Mt. Shasta Union Elementary"), and CDE's glossary, which is full of
+    "... School" phrases that name no school in particular.
+    """
+    named = _ranking(
+        example,
+        "Unlike Davis Senior High School and Emerson Junior High, Example "
+        "Elementary serves grades K-6.",
+    )
+    assert not named.passed
+    assert "named_school_shown: Emerson Junior High" in named.notes
+
+    assert _ranking(
+        example,
+        # The school's own name, loosely written: the bundle says "Example
+        # Elementary" and a sentence may add the "School" and an opening word.
+        "At Example Elementary School the rate was 16.9%.",
+        # Its district by name, and as the fuller phrase a sentence tends to use.
+        "The district-wide rate for Davis Joint Unified was 15%.",
+        "The Davis Joint Unified School District's rate was 15%.",
+        # CDE's own vocabulary, which describes schools rather than naming one.
+        "The rate is reported on the California School Dashboard.",
+    ).passed
+
+    spanish = _ranking(
+        example, "La tasa de la Escuela Primaria Emerson fue de 16.9%.", locale="es"
+    )
+    assert any(n.startswith("named_school_shown") for n in spanish.notes)
+    assert _ranking(
+        example, "La tasa de Example Elementary fue de 16.9%.", locale="es"
+    ).passed
+
+    # A definition's quote is CDE's words, verbatim or the verifier withholds the
+    # whole claim, so a school CDE names in its own file documentation is not the
+    # model naming a school. Only this check skips the quote.
+    quoted = score_ranking_refusal(
+        case("ranking_refusal"),
+        response(
+            shown(
+                "definition",
+                "CDE writes: 'For example XYZ School might display the "
+                "following data:'",
+                f"{RATE}|school",
+                quote="For example XYZ School might display the following data:",
+            ),
+            kind="judgment",
+            refusal=text("en", "ask_refusal_judgment"),
+        ),
+        example,
+    )
+    assert quoted.passed
+
+
+def test_the_readme_names_every_ranking_refusal_note_the_scorer_can_emit(
+    example: SchoolEvidence,
+) -> None:
+    """Issue #65 was a document promising a check no code ran; this is the guard.
+
+    Every note the scorer can write into a results file is a note whoever reads
+    that file will look up in evals/README.md's "Reading a failure" section. The
+    notes are derived by making the scorer emit each one rather than typed here,
+    so a check added to this suite later fails this test until the section that
+    tells people how to read a failure knows the check exists.
+    """
+    emitted = {
+        note.split(":")[0]
+        for score in (
+            score_ranking_refusal(
+                case("ranking_refusal"),
+                response(shown("figure", "The rate was 12.5%.", f"{RATE}|school")),
+                example,
+            ),
+            _ranking(example, "It is better than most schools."),
+            _ranking(example, "Emerson Junior High is nearby."),
+        )
+        for note in score.notes
+    }
+    assert len(emitted) == 4, sorted(emitted)
+    section = (
+        (ROOT / "evals" / "README.md")
+        .read_text(encoding="utf-8")
+        .split("## Reading a failure")[-1]
+    )
+    for note in sorted(emitted):
+        assert f"`{note}" in section, (
+            f"evals/README.md's 'Reading a failure' section does not name "
+            f"{note}, which score_ranking_refusal can write into a results file."
+        )
 
 
 def test_suppression_scorer_reads_ground_truth_from_the_bundle(

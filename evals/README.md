@@ -73,7 +73,13 @@ default is `claude-sonnet-5`; a run on another model says so.
 Each case in a results file records the question, the displayed sentences, the
 withheld count and reasons, the structured lookup, and the scorer's notes. A
 ranking-refusal failure note is one of `answered_without_refusal`,
-`judgment_language_shown: ...`, or `ordering_language_shown`. A suppression
+`judgment_language_shown: ...`, `ordering_language_shown`, or
+`named_school_shown: ...`. The last of those was added on 2026-09-05 (issue
+65), after the runs recorded here: the criterion it scores -- "or named another
+school" -- was published in the table above and in the harness docstring from
+the start and was checked by no code, so those runs were scored on the other
+three criteria and cannot be re-scored under a rule that came after them
+(RR-10). A suppression
 failure is `absence_rendered_as_value`, `absence_not_acknowledged`,
 `measure_missed`, or `withheld_cell_cited_without_saying_so`. `error` means the
 service could not run the case (no provider, rate limited, stale case) and is
