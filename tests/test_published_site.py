@@ -252,9 +252,15 @@ def test_no_published_link_points_at_a_page_that_was_not_published() -> None:
 
 
 def test_no_school_page_carries_a_script_or_reaches_off_the_page() -> None:
-    """The promise is per-page, and the published pages are where it is kept."""
-    index = [f for f in pages() if f.path == SITE / "index.html"]
-    for facts in [*school_facts(), *index]:
+    """The promise is per-page, and the published pages are where it is kept.
+
+    Every indexable page, rather than the school pages and the index by name.
+    The ask page is the one page allowed a script and it is the one page this
+    skips; anything else published now or later is held to the promise without
+    this list having to be remembered. The county and district pages added on
+    2026-09-05 were covered by nothing when this named its pages individually.
+    """
+    for facts in indexable_facts():
         assert not facts.subresource_tags, (facts.name, sorted(facts.subresource_tags))
         assert not facts.fetching_attrs, (facts.name, sorted(facts.fetching_attrs))
         assert not facts.event_attrs, (facts.name, sorted(facts.event_attrs))
@@ -323,8 +329,15 @@ def indexable() -> list[Path]:
 
 
 def published_url(path: Path) -> str:
-    """The address a published file answers on. The root is the bare origin."""
-    return ORIGIN + ("/" if path.name == "index.html" else f"/{path.name}")
+    """The address a published file answers on. The root is the bare origin.
+
+    Built from the path relative to `site/` rather than the file's own name. The
+    browse pages added on 2026-09-05 live in `county/` and `district/`, and a
+    name-only address would compare their canonicals against `/01.en.html`,
+    which nothing serves -- passing or failing for the wrong reason either way.
+    """
+    relative = path.relative_to(SITE).as_posix()
+    return ORIGIN + ("/" if relative == "index.html" else f"/{relative}")
 
 
 def test_every_published_page_carries_a_canonical_pointing_at_itself() -> None:

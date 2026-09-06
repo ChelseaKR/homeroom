@@ -35,6 +35,15 @@ from homeroom.artifacts import (
     ENROLLMENT_ACCESS_DATE,
 )
 from homeroom.askpage import ask_page_name, render_ask_page
+from homeroom.browse import (
+    counties,
+    county_code,
+    county_page_name,
+    district_page_name,
+    districts_in,
+    render_county,
+    render_district,
+)
 from homeroom.context import (
     AbsenteeismContextDriftError,
     ContextDriftError,
@@ -237,6 +246,61 @@ def sitemap_xml(site_url: str, paths: list[str]) -> str:
     )
 
 
+def _write_browse_pages(
+    out_dir: Path,
+    schools: list[SchoolProfile],
+    *,
+    is_fixture: bool,
+    site_url: str | None,
+) -> tuple[list[Path], list[str]]:
+    """The county and district pages, and the addresses the sitemap lists them at.
+
+    These exist for the reason the landing page stopped listing schools: 10,534
+    of them is not a list a reader can use (`browse.py`). They are written with
+    the landing page rather than always, because they are its own two steps down
+    and a build with no front door has nothing to reach them from.
+    """
+    written: list[Path] = []
+    names: list[str] = []
+    found_counties = counties(schools)
+    all_districts = districts_in(schools)
+    for locale in LOCALES:
+        for code, name in found_counties.items():
+            name_at = county_page_name(code, locale)
+            rendered = render_county(
+                schools,
+                code,
+                name,
+                locale=locale,
+                is_fixture=is_fixture,
+                site_url=site_url,
+            )
+            written.append(_write_page(out_dir, name_at, rendered))
+            names.append(name_at)
+        for code, name in all_districts.items():
+            name_at = district_page_name(code, locale)
+            rendered = render_district(
+                schools,
+                code,
+                name,
+                found_counties[county_code(code)],
+                locale=locale,
+                is_fixture=is_fixture,
+                site_url=site_url,
+            )
+            written.append(_write_page(out_dir, name_at, rendered))
+            names.append(name_at)
+    return written, names
+
+
+def _write_page(out_dir: Path, name: str, markup: str) -> Path:
+    """Write one page, creating the directory it sits in if it is a new one."""
+    path = out_dir / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(markup, encoding="utf-8")
+    return path
+
+
 def build_site(
     *,
     directory: Path,
@@ -348,6 +412,11 @@ def build_site(
                 )
                 pages.append(ask_path)
     if landing:
+        browsed, browsed_names = _write_browse_pages(
+            out_dir, schools, is_fixture=is_fixture, site_url=site_url
+        )
+        pages.extend(browsed)
+        indexable.extend(browsed_names)
         index = out_dir / "index.html"
         index.write_text(
             render_landing(schools, is_fixture=is_fixture, site_url=site_url),

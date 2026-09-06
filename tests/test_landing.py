@@ -4,9 +4,16 @@ A hosted site needs a root. The risk a root page carries is not a rendering bug,
 it is a claim: a front door that says "California school data" over a list of
 three schools tells a family the state is covered when it is not. So these tests
 check the structure the accessibility gates assume, and then they check that the
-page names both languages, links every school it published in both, carries the
-non-affiliation and no-ranking notices, reaches nowhere, and states that the list
-is what has been published so far rather than what exists.
+page names both languages, carries the non-affiliation and no-ranking notices,
+reaches nowhere, and states that the list is what has been published so far
+rather than what exists.
+
+It linked every published school directly until 2026-09-05. At 10,534 schools
+that made the front door a wall of 21,069 names, so it lists counties now and
+`browse.py` carries the district and school steps. The invariant did not move
+with the markup: a school is published for a family only if that family can
+reach it from the root, so it is walked here rather than pattern-matched --
+index, county, district, school -- in both languages.
 
 ``--landing`` is off by default, and a build without it is byte-identical to one
 from before this module existed; that is asserted here too, because the fixture
@@ -118,14 +125,45 @@ def test_the_landing_page_carries_both_languages_each_marked(index: Path) -> Non
     for locale in LOCALES:
         assert f'<section lang="{locale}"' in markup, locale
         assert text(locale, "landing_status") in markup, locale
-        assert text(locale, "landing_schools_heading") in markup, locale
+        assert text(locale, "landing_counties_heading") in markup, locale
 
 
-def test_every_published_school_is_linked_in_both_languages(index: Path) -> None:
-    markup = index.read_text(encoding="utf-8")
-    for cds in SCHOOLS:
-        for locale in LOCALES:
-            assert f'href="{page_name(cds, locale)}"' in markup, (cds, locale)
+def reachable_schools(built: Path, locale: str) -> set[str]:
+    """Every school page a reader can get to from the front door, in one locale.
+
+    Walked rather than asserted against the markup, because the walk is the
+    claim: three pages now stand between the root and a school, and a broken
+    step anywhere in them takes a school off the site for a family without
+    taking its file out of the build.
+    """
+    index = parse(built / "index.html")
+    counties = [
+        href
+        for href in index.hrefs
+        if href.startswith("county/") and href.endswith(f".{locale}.html")
+    ]
+    assert counties, f"the front door reaches no county in {locale}"
+    reached: set[str] = set()
+    for county_href in counties:
+        county_page = built / county_href
+        county = parse(county_page)
+        districts = [h for h in county.hrefs if "district/" in h]
+        assert districts, f"{county_href} reaches no district"
+        for district_href in districts:
+            district_page = (county_page.parent / district_href).resolve()
+            for href in parse(district_page).hrefs:
+                school = (district_page.parent / href).resolve()
+                if school.parent == built and school.name.endswith(f".{locale}.html"):
+                    reached.add(school.name)
+    return reached
+
+
+def test_every_published_school_is_reachable_from_the_front_door(built: Path) -> None:
+    """Published and unreachable is not published, so the whole walk is checked."""
+    for locale in LOCALES:
+        assert reachable_schools(built, locale) == {
+            page_name(cds, locale) for cds in SCHOOLS
+        }, locale
 
 
 def test_the_landing_page_links_nothing_it_did_not_publish(
@@ -143,10 +181,8 @@ def test_the_landing_page_links_nothing_it_did_not_publish(
         cds_codes=(only,),
         landing=True,
     )
-    markup = (out / "index.html").read_text(encoding="utf-8")
-    for cds in SCHOOLS:
-        linked = any(page_name(cds, loc) in markup for loc in LOCALES)
-        assert linked is (cds == only), cds
+    for locale in LOCALES:
+        assert reachable_schools(out, locale) == {page_name(only, locale)}, locale
     written = {p.name for p in out.glob("*.html")}
     for locale in LOCALES:
         assert page_name(only, locale) in written

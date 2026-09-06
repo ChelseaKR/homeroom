@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Los Angeles County · Homeroom</title>
+<meta name="description" content="Los Angeles County. California public school data, readable by the families it describes.">
+<link rel="canonical" href="https://homeroom.chelseakr.com/county/19.en.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Homeroom">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:title" content="Los Angeles County · Homeroom">
+<meta property="og:description" content="Los Angeles County. California public school data, readable by the families it describes.">
+<meta property="og:url" content="https://homeroom.chelseakr.com/county/19.en.html">
+<meta property="og:image" content="https://homeroom.chelseakr.com/social-card.en.png">
+<meta property="og:image:alt" content="Homeroom: California public school data, readable by the families it describes. No score, no grade, no ranking. If a figure cannot be shown honestly, it is not shown.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Los Angeles County · Homeroom">
+<meta name="twitter:description" content="Los Angeles County. California public school data, readable by the families it describes.">
+<meta name="twitter:image" content="https://homeroom.chelseakr.com/social-card.en.png">
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fbfbf8;
+  --raised: #ffffff;
+  --note: #f2f2ec;
+  --rule: #e0e0d6;
+  --rule-strong: #c4c4b8;
+  --ink: #191a15;
+  --ink-2: #4d4e47;
+  --ink-3: #63645c;
+  --accent: #17568f;
+  --zero: #5a3f9c;
+  --withheld: #8a4210;
+  --nothing: #55564f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface: #16171a;
+    --raised: #1e1f22;
+    --note: #232427;
+    --rule: #35363a;
+    --rule-strong: #4c4d52;
+    --ink: #f3f3ef;
+    --ink-2: #c3c4bc;
+    --ink-3: #a3a49c;
+    --accent: #8bbcf2;
+    --zero: #c0aef5;
+    --withheld: #f0a45f;
+    --nothing: #a9aaa2;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 17px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.wrap { max-width: 58rem; margin: 0 auto; padding: 0 1.25rem; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.vh {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 10;
+  background: var(--raised); color: var(--accent);
+  padding: .6rem 1rem; border: 1px solid var(--rule-strong);
+}
+.skip-link:focus { left: .5rem; top: .5rem; }
+.site { border-bottom: 1px solid var(--rule); background: var(--raised); }
+.bar {
+  display: flex; flex-wrap: wrap; gap: .75rem 1.5rem;
+  align-items: baseline; justify-content: space-between;
+  padding-top: .9rem; padding-bottom: .9rem;
+}
+.brand { margin: 0; }
+.brand-name { font-weight: 700; letter-spacing: -.01em; }
+.brand-tag { color: var(--ink-2); font-size: .92rem; display: block; }
+.eyebrow {
+  font-size: .76rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-3); margin: 2rem 0 .5rem;
+}
+h1 { font-size: clamp(1.8rem, 1.2rem + 2.4vw, 2.6rem); line-height: 1.15; margin: 0 0 1rem; letter-spacing: -.02em; }
+h2 { font-size: 1.35rem; margin: 3rem 0 .5rem; padding-top: 1.4rem; border-top: 1px solid var(--rule); letter-spacing: -.01em; }
+h3 { font-size: 1.05rem; margin: 2rem 0 .4rem; color: var(--ink-2); }
+p { margin: 0 0 1rem; max-width: 44rem; }
+.identity { margin: 0 0 1.5rem; display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; max-width: 44rem; }
+.identity dt { color: var(--ink-3); font-size: .9rem; }
+.identity dd { margin: 0; }
+.note { background: var(--note); border: 1px solid var(--rule); padding: 1rem 1.1rem; margin: 0 0 1.5rem; }
+.note p:last-child { margin-bottom: 0; }
+.note-title { font-weight: 700; }
+.states { margin: 1rem 0 0; display: grid; grid-template-columns: max-content 1fr; gap: .55rem 1.1rem; align-items: baseline; }
+.states dt { white-space: nowrap; }
+.states dd { margin: 0; color: var(--ink-2); }
+.scroll { overflow-x: auto; margin: 0 0 .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 32rem; }
+caption { text-align: left; color: var(--ink-2); font-size: .95rem; padding: 0 0 .6rem; }
+th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--rule); vertical-align: baseline; }
+thead th { border-bottom: 2px solid var(--rule-strong); font-size: .85rem; color: var(--ink-2); font-weight: 600; }
+tbody th { font-weight: 400; }
+td.count, th.count { text-align: right; font-variant-numeric: tabular-nums; }
+.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+.state { font-size: .86rem; }
+.m-number .num { color: var(--ink); }
+.m-zero { border-left: 3px solid var(--zero); }
+.m-zero .num, .m-zero .state { color: var(--zero); }
+.m-withheld { border-left: 3px solid var(--withheld); }
+.m-withheld .state { color: var(--withheld); font-style: italic; }
+.m-nothing { border-left: 3px solid var(--nothing); }
+.m-nothing .state { color: var(--nothing); }
+/* The page is about one school, so its own column stays the loudest of the three.
+   The separation is weight and a rule, never colour alone: the four cell states
+   already own the colours, and reusing them here would make a district's withheld
+   cell and a school's withheld cell say different things in the same hue. */
+td.c-district .num, td.c-state .num { font-weight: 400; color: var(--ink-2); }
+td.c-district { border-left-color: var(--rule-strong); }
+.s-number { font-weight: 600; }
+.s-zero { color: var(--zero); }
+.s-withheld { color: var(--withheld); font-style: italic; }
+.s-nothing { color: var(--nothing); }
+.coverage-note { color: var(--ink-2); font-size: .93rem; }
+.ask { margin: 0 0 1.5rem; }
+.sources dt { font-weight: 600; margin-top: .9rem; }
+.sources dd { margin: 0; color: var(--ink-2); }
+main { padding-bottom: 3rem; }
+footer { border-top: 1px solid var(--rule); background: var(--raised); padding: 1.5rem 0 3rem; }
+footer p { color: var(--ink-2); font-size: .92rem; }
+@media (max-width: 34rem) {
+  .identity, .states { grid-template-columns: 1fr; gap: .15rem; }
+  .states dd { margin-bottom: .6rem; }
+}
+
+.browse-list { padding-left: 1.3rem; }
+.browse-list li { margin: 0 0 .5rem; }
+.crumb { margin: 0 0 1rem; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to the main content</a>
+<header class="site">
+<div class="wrap bar">
+<p class="brand"><span class="brand-name">Homeroom</span><span class="brand-tag">California public school data, readable by the families it describes.</span></p>
+</div>
+</header>
+<main id="main" class="wrap">
+<p class="crumb"><a href="../index.html">All counties</a></p>
+<h1>Los Angeles County</h1>
+<h2>School districts</h2>
+<ul class="browse-list">
+<li><a href="../district/1910199.en.html">Los Angeles County Office of Education</a></li>
+<li><a href="../district/1964212.en.html">ABC Unified</a></li>
+<li><a href="../district/1964246.en.html">Antelope Valley Union High</a></li>
+<li><a href="../district/1964261.en.html">Arcadia Unified</a></li>
+<li><a href="../district/1964279.en.html">Azusa Unified</a></li>
+<li><a href="../district/1964287.en.html">Baldwin Park Unified</a></li>
+<li><a href="../district/1964295.en.html">Bassett Unified</a></li>
+<li><a href="../district/1964303.en.html">Bellflower Unified</a></li>
+<li><a href="../district/1964311.en.html">Beverly Hills Unified</a></li>
+<li><a href="../district/1964329.en.html">Bonita Unified</a></li>
+<li><a href="../district/1964337.en.html">Burbank Unified</a></li>
+<li><a href="../district/1964345.en.html">Castaic Union</a></li>
+<li><a href="../district/1964352.en.html">Centinela Valley Union High</a></li>
+<li><a href="../district/1964378.en.html">Charter Oak Unified</a></li>
+<li><a href="../district/1964394.en.html">Claremont Unified</a></li>
+<li><a href="../district/1964436.en.html">Covina-Valley Unified</a></li>
+<li><a href="../district/1964444.en.html">Culver City Unified</a></li>
+<li><a href="../district/1964451.en.html">Downey Unified</a></li>
+<li><a href="../district/1964469.en.html">Duarte Unified</a></li>
+<li><a href="../district/1964477.en.html">Eastside Union Elementary</a></li>
+<li><a href="../district/1964485.en.html">East Whittier City Elementary</a></li>
+<li><a href="../district/1964501.en.html">El Monte City</a></li>
+<li><a href="../district/1964519.en.html">El Monte Union High</a></li>
+<li><a href="../district/1964527.en.html">El Rancho Unified</a></li>
+<li><a href="../district/1964535.en.html">El Segundo Unified</a></li>
+<li><a href="../district/1964550.en.html">Garvey Elementary</a></li>
+<li><a href="../district/1964568.en.html">Glendale Unified</a></li>
+<li><a href="../district/1964576.en.html">Glendora Unified</a></li>
+<li><a href="../district/1964584.en.html">Gorman Joint</a></li>
+<li><a href="../district/1964592.en.html">Hawthorne</a></li>
+<li><a href="../district/1964600.en.html">Hermosa Beach City Elementary</a></li>
+<li><a href="../district/1964626.en.html">Hughes-Elizabeth Lakes Union Elementary</a></li>
+<li><a href="../district/1964634.en.html">Inglewood Unified</a></li>
+<li><a href="../district/1964642.en.html">Keppel Union Elementary</a></li>
+<li><a href="../district/1964659.en.html">La Canada Unified</a></li>
+<li><a href="../district/1964667.en.html">Lancaster Elementary</a></li>
+<li><a href="../district/1964683.en.html">Las Virgenes Unified</a></li>
+<li><a href="../district/1964691.en.html">Lawndale Elementary</a></li>
+<li><a href="../district/1964709.en.html">Lennox</a></li>
+<li><a href="../district/1964717.en.html">Little Lake City Elementary</a></li>
+<li><a href="../district/1964725.en.html">Long Beach Unified</a></li>
+<li><a href="../district/1964733.en.html">Los Angeles Unified</a></li>
+<li><a href="../district/1964758.en.html">Los Nietos</a></li>
+<li><a href="../district/1964774.en.html">Lynwood Unified</a></li>
+<li><a href="../district/1964790.en.html">Monrovia Unified</a></li>
+<li><a href="../district/1964808.en.html">Montebello Unified</a></li>
+<li><a href="../district/1964816.en.html">Mountain View Elementary</a></li>
+<li><a href="../district/1964832.en.html">Newhall</a></li>
+<li><a href="../district/1964840.en.html">Norwalk-La Mirada Unified</a></li>
+<li><a href="../district/1964857.en.html">Palmdale Elementary</a></li>
+<li><a href="../district/1964865.en.html">Palos Verdes Peninsula Unified</a></li>
+<li><a href="../district/1964873.en.html">Paramount Unified</a></li>
+<li><a href="../district/1964881.en.html">Pasadena Unified</a></li>
+<li><a href="../district/1964907.en.html">Pomona Unified</a></li>
+<li><a href="../district/1964931.en.html">Rosemead Elementary</a></li>
+<li><a href="../district/1964964.en.html">San Marino Unified</a></li>
+<li><a href="../district/1964980.en.html">Santa Monica-Malibu Unified</a></li>
+<li><a href="../district/1964998.en.html">Saugus Union</a></li>
+<li><a href="../district/1965029.en.html">South Pasadena Unified</a></li>
+<li><a href="../district/1965037.en.html">South Whittier Elementary</a></li>
+<li><a href="../district/1965045.en.html">Sulphur Springs Union</a></li>
+<li><a href="../district/1965052.en.html">Temple City Unified</a></li>
+<li><a href="../district/1965060.en.html">Torrance Unified</a></li>
+<li><a href="../district/1965078.en.html">Valle Lindo Elementary</a></li>
+<li><a href="../district/1965094.en.html">West Covina Unified</a></li>
+<li><a href="../district/1965102.en.html">Westside Union Elementary</a></li>
+<li><a href="../district/1965110.en.html">Whittier City</a></li>
+<li><a href="../district/1965128.en.html">Whittier Union High</a></li>
+<li><a href="../district/1965136.en.html">William S. Hart Union High</a></li>
+<li><a href="../district/1965151.en.html">Wilsona Elementary</a></li>
+<li><a href="../district/1973437.en.html">Compton Unified</a></li>
+<li><a href="../district/1973445.en.html">Hacienda la Puente Unified</a></li>
+<li><a href="../district/1973452.en.html">Rowland Unified</a></li>
+<li><a href="../district/1973460.en.html">Walnut Valley Unified</a></li>
+<li><a href="../district/1974195.en.html">San Gabriel Valley Regional Occupational Program</a></li>
+<li><a href="../district/1974328.en.html">Tri-Cities ROP</a></li>
+<li><a href="../district/1974336.en.html">Southern California ROC</a></li>
+<li><a href="../district/1974427.en.html">Long Beach Unified ROP</a></li>
+<li><a href="../district/1974435.en.html">Los Angeles Unified ROCP</a></li>
+<li><a href="../district/1974443.en.html">Los Angeles County ROP</a></li>
+<li><a href="../district/1974773.en.html">Hart ROP</a></li>
+<li><a href="../district/1974799.en.html">Antelope Valley ROP</a></li>
+<li><a href="../district/1974831.en.html">Compton Unified ROP</a></li>
+<li><a href="../district/1974849.en.html">San Antonio ROP</a></li>
+<li><a href="../district/1975291.en.html">San Gabriel Unified</a></li>
+<li><a href="../district/1975309.en.html">Acton-Agua Dulce Unified</a></li>
+<li><a href="../district/1975333.en.html">Manhattan Beach Unified</a></li>
+<li><a href="../district/1975341.en.html">Redondo Beach Unified</a></li>
+<li><a href="../district/1975713.en.html">Alhambra Unified</a></li>
+<li><a href="../district/1976869.en.html">Wiseburn Unified</a></li>
+<li><a href="../district/1977016.en.html">California Advancing Pathways for Students in Los Angeles County ROC/P</a></li>
+</ul>
+<p>No score, no grade, no ranking. If a figure cannot be shown honestly, it is not shown.</p>
+<p>Homeroom is not affiliated with, endorsed by, or connected to the California Department of Education, the State of California, or any school district.</p>
+</main>
+</body>
+</html>

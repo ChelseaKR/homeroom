@@ -39,18 +39,25 @@ SPINE = [
 ]
 
 
-def corpus(schools: int) -> list[str]:
-    """A published tree of `schools` school pages plus the usual spine."""
+def corpus(schools: int, browse: int = 0) -> list[str]:
+    """A published tree of `schools` school pages, `browse` county and district
+    pages, and the usual spine."""
     pages = [
         f"{10000000000000 + n}.{loc}.html"
         for n in range(schools)
+        for loc in ("en", "es")
+    ]
+    pages += [
+        f"{kind}/{n:05d}.{loc}.html"
+        for kind in ("county", "district")
+        for n in range(browse)
         for loc in ("en", "es")
     ]
     return sorted(SPINE + pages)
 
 
 def schools_in(selected: list[str]) -> list[str]:
-    return [r for r in selected if sentinel.is_school_page(r)]
+    return [r for r in selected if sentinel.rotates(r)]
 
 
 def test_what_counts_as_a_school_page() -> None:
@@ -60,6 +67,27 @@ def test_what_counts_as_a_school_page() -> None:
     assert not sentinel.is_school_page("ask/57726786056246.en.html")
     assert not sentinel.is_school_page("robots.txt")
     assert not sentinel.is_school_page("social-card.en.png")
+
+
+def test_the_browse_pages_rotate_rather_than_sitting_in_the_spine() -> None:
+    """2,234 of them, and they are not addressed like a school page.
+
+    `is_school_page` asks for a name with no directory in it, which every county
+    and district page fails. Left at that they would have counted as spine and
+    been fetched in full every morning, quietly undoing the bound this module
+    exists to keep -- the sentinel would still have passed, just slowly and at
+    the origin's expense.
+    """
+    assert sentinel.rotates("county/19.en.html")
+    assert sentinel.rotates("district/1964733.es.html")
+    assert not sentinel.rotates("ask/57726786056246.en.html")
+    assert not sentinel.rotates("index.html")
+    assert not sentinel.rotates("sitemap.xml")
+
+    relatives = corpus(200, browse=50)
+    selected = sentinel.comparison_set(relatives, 20, 2)
+    assert len(schools_in(selected)) == 20
+    assert len(selected) == 20 + len(SPINE)
 
 
 def test_the_spine_is_compared_on_every_run() -> None:

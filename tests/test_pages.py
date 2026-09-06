@@ -43,6 +43,7 @@ from homeroom.artifacts import (
     ENROLLMENT_ACCESS_DATE,
 )
 from homeroom.assignments import OUTCOME_NAMES
+from homeroom.browse import county_page_name, district_page_name
 from homeroom.context import (
     AbsenteeismAggregate,
     AggregateFigures,
@@ -1038,12 +1039,32 @@ def test_the_ask_pages_stay_out_of_the_index_and_out_of_the_sitemap(
 
 
 def test_the_sitemap_lists_every_indexable_page_and_nothing_else(hosted: Path) -> None:
+    """Every indexable page, which since 2026-09-05 includes the browse pages.
+
+    A county or district page missing here is a page a crawler is never told
+    about, and those two are now the only way into a school page from the root.
+    """
     listed = set(re.findall(r"<loc>(.*?)</loc>", (hosted / "sitemap.xml").read_text()))
-    expected = {f"{HOSTED_ORIGIN}/"} | {
-        f"{HOSTED_ORIGIN}/{page_name(cds, locale)}"
-        for cds in SCHOOLS
-        for locale in LOCALES
-    }
+    codes = {cds[:2] for cds in SCHOOLS}
+    district_codes = {cds[:7] for cds in SCHOOLS}
+    expected = (
+        {f"{HOSTED_ORIGIN}/"}
+        | {
+            f"{HOSTED_ORIGIN}/{page_name(cds, locale)}"
+            for cds in SCHOOLS
+            for locale in LOCALES
+        }
+        | {
+            f"{HOSTED_ORIGIN}/{county_page_name(code, locale)}"
+            for code in codes
+            for locale in LOCALES
+        }
+        | {
+            f"{HOSTED_ORIGIN}/{district_page_name(code, locale)}"
+            for code in district_codes
+            for locale in LOCALES
+        }
+    )
     assert listed == expected
 
 
@@ -1309,15 +1330,25 @@ A11Y_ROW = re.compile(r"^\| Pages the accessibility gate checks \| (\d+)\b", re.
 def test_the_roadmap_states_how_many_pages_the_accessibility_gate_reads() -> None:
     """The ledger said 6, meaning three fixture schools in two languages.
 
-    `make a11y` runs `tools/a11y.mjs` over two directories, and the checker
-    reads one directory with `readdirSync` and does not recurse, so the count
-    is both directories' own files: the school pages plus the landing page in
-    `build/site-offline`, and the ask pages in `build/site-offline/ask`. The
-    landing page and all six ask pages were being checked and not counted.
+    `make a11y` runs `tools/a11y.mjs` over one directory per run, and the
+    checker reads that directory with `readdirSync` and does not recurse, so
+    the count is every run's own files: the school pages plus the landing page
+    in `build/site-offline`, the ask pages, and since 2026-09-05 the county and
+    district pages the browse hierarchy added. The landing page and all six ask
+    pages were being checked and not counted.
+
+    Listing the directories here is the point rather than a detail. A page type
+    that gets its own directory and not its own `node tools/a11y.mjs` line is a
+    page type this gate quietly stops covering, and nothing else would say so.
     """
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     directories = A11Y_RUN.findall(makefile)
-    assert directories == ["build/site-offline", "build/site-offline/ask"], directories
+    assert directories == [
+        "build/site-offline",
+        "build/site-offline/ask",
+        "build/site-offline/county",
+        "build/site-offline/district",
+    ], directories
 
     checker = (ROOT / "tools" / "a11y.mjs").read_text(encoding="utf-8")
     assert "recursive" not in checker, (
@@ -1327,9 +1358,18 @@ def test_the_roadmap_states_how_many_pages_the_accessibility_gate_reads() -> Non
     recipe = next(
         line for line in makefile.splitlines() if "homeroom.site --fixture" in line
     )
-    schools = len(active_schools(DIRECTORY))
+    active = active_schools(DIRECTORY)
+    schools = len(active)
+    counties = len({school.cds_code[:2] for school in active})
+    districts = len({school.cds_code[:7] for school in active})
     assert "--landing" in recipe and "--ask-endpoint" in recipe, recipe
-    pages = schools * len(LOCALES) + 1 + schools * len(LOCALES)
+    pages = (
+        schools * len(LOCALES)  # the school pages
+        + 1  # the landing page
+        + schools * len(LOCALES)  # the ask pages
+        + counties * len(LOCALES)  # one county page per language
+        + districts * len(LOCALES)  # one district page per language
+    )
 
     row = A11Y_ROW.search((ROOT / "docs" / "ROADMAP.md").read_text(encoding="utf-8"))
     assert row, "docs/ROADMAP.md no longer states how many pages the gate checks"

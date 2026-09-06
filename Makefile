@@ -156,9 +156,15 @@ node-sync:
 htmlvalidate:
 	npx html-validate "build/site-offline/**/*.html"
 
+# One invocation per directory, because tools/a11y.mjs reads one directory and
+# does not recurse. A page type that gets its own directory and not its own line
+# here is a page type this gate silently stops covering, which is the failure
+# mode every check in this repository is written against.
 a11y:
 	node tools/a11y.mjs build/site-offline
 	node tools/a11y.mjs build/site-offline/ask
+	node tools/a11y.mjs build/site-offline/county
+	node tools/a11y.mjs build/site-offline/district
 
 # The ask page is the one page that carries a script. This loads each one in a
 # DOM with every network path stubbed and asserts zero requests on load and

@@ -241,11 +241,22 @@ UI: dict[Locale, dict[str, str]] = {
         # the whole state is here, because a front door that overstates its
         # contents is the first dishonest thing a family would read.
         "landing_status": (
-            "Homeroom is in development. The schools below are the ones published "
-            "so far, built from California Department of Education public files. "
-            "More are added as each source is acquired and checked."
+            "Homeroom is in development. The schools published so far are the ones "
+            "reached through the counties below, built from California Department "
+            "of Education public files. More are added as each source is acquired "
+            "and checked."
         ),
-        "landing_schools_heading": "Schools published so far",
+        # Browsing. A front door that lists every published school is not a front
+        # door: at 10,534 of them it is a wall of names nobody can find their own
+        # school in. So the site is walked the way a family already knows where
+        # it lives -- county, then district, then school -- and each step is its
+        # own page rather than a control the reader has to operate.
+        "landing_counties_heading": "Find a school by county",
+        "browse_county_heading": "{county} County",
+        "browse_districts_label": "School districts",
+        "browse_schools_label": "Schools published so far",
+        "browse_all_counties": "All counties",
+        "browse_in_county": "In {county} County",
         # The ask layer (ADR 0003). Fixed strings the model never writes: the
         # labels around its output and every refusal.
         "ask_label_ai": (
@@ -542,12 +553,24 @@ UI: dict[Locale, dict[str, str]] = {
         # que exagera su contenido sería lo primero deshonesto que leería una
         # familia.
         "landing_status": (
-            "Homeroom está en desarrollo. Las escuelas que aparecen abajo son las "
-            "publicadas hasta ahora, creadas a partir de archivos públicos del "
-            "Departamento de Educación de California. Se agregan más a medida que "
-            "cada fuente se obtiene y se verifica."
+            "Homeroom está en desarrollo. Las escuelas publicadas hasta ahora son "
+            "las que se alcanzan a través de los condados de abajo, creadas a "
+            "partir de archivos públicos del Departamento de Educación de "
+            "California. Se agregan más a medida que cada fuente se obtiene y se "
+            "verifica."
         ),
-        "landing_schools_heading": "Escuelas publicadas hasta ahora",
+        # Navegación. Una puerta de entrada que enumera todas las escuelas
+        # publicadas no es una puerta de entrada: con 10,534 es un muro de
+        # nombres donde nadie encuentra la suya. Por eso el sitio se recorre como
+        # una familia ya sabe dónde vive -- condado, luego distrito, luego
+        # escuela -- y cada paso es su propia página, no un control que el lector
+        # tenga que manejar.
+        "landing_counties_heading": "Busque una escuela por condado",
+        "browse_county_heading": "Condado de {county}",
+        "browse_districts_label": "Distritos escolares",
+        "browse_schools_label": "Escuelas publicadas hasta ahora",
+        "browse_all_counties": "Todos los condados",
+        "browse_in_county": "En el condado de {county}",
         # La capa de preguntas (ADR 0003). Cadenas fijas que el modelo nunca
         # escribe: las etiquetas alrededor de su respuesta y cada negativa.
         "ask_label_ai": (
