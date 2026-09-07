@@ -169,7 +169,13 @@ figures (30 counts and 6 genuine zeros) and stating in words, for the other four
 that the state published nothing.
 Every user-visible string exists in both languages: 217 keys per locale, zero
 present in one and missing from the other, enforced by test. The pages carry no
-script, no external asset, no account, and no tracking.
+script, no account, and no tracking, and reach nothing off this origin: since
+2026-09-07 each one links a single stylesheet this build wrote (`homeroom.css`,
+5,341 bytes at the root of the site), and that link is the only request a page
+makes. There is no font, no image, no CDN and no third party on any of them. The
+ask pages are the exception in the other direction — they keep their stylesheet
+inline, because ADR 0003 promises they fetch nothing at all until a question is
+submitted.
 
 Chronic absenteeism (D3) is the first measure Homeroom publishes that CDE masks
 at real scale, and it is now built end to end (M3). The 2024-25 file (341,490
@@ -304,12 +310,29 @@ page and so **184 MB** more, which is past the ceiling on its own
 ([#82](https://github.com/ChelseaKR/homeroom/issues/82)). Ask pages for all
 10,534 schools rather than two would add 303 MB and would not fit either. D4 and
 D6 will add measures to every one of the 23,310 pages. And the one large saving
-on offer is not available: lifting the ask page's inline CSS and script into
-shared files is 10,993 of its 14,206 bytes, about 216 MB across the projected
-layer, and those bytes being inline is exactly what makes
+*on the ask layer* is not available: lifting the ask page's inline CSS and script
+into shared files is 10,993 of its 14,206 bytes, about 216 MB across the
+projected layer, and those bytes being inline is exactly what makes
 `tools/ask-optin.mjs`'s zero-requests-on-load assertion true. So the scope of
 the ask layer is bounded twice over, by the spend envelope first and by this
 limit second, and `make publish` prints both counts when it finishes.
+
+That argument is about the ask pages and does not reach the other four page
+kinds, which carry no script, made no request before this, and have nothing
+whose timing an inline stylesheet protects. Taking the stylesheet off those —
+issue [#95](https://github.com/ChelseaKR/homeroom/issues/95), the renderer
+change landed 2026-09-07 — is **117.1 MB** the next `make publish` will not
+write: 118,190,092 bytes of `<style>` across 23,305 files, less 5,341 bytes of
+`homeroom.css` and 44 bytes of `<link>` a page. Stated with its own arithmetic
+rather than as a rescue, because it does not rescue the budget: it takes the
+tree to 750.5 MB (75.0% of the cap), and a D5 republish on top of that is
+934.3 MB — **93.4% of the ceiling, and over the 900 MB budget
+`tests/test_published_limits.py` holds**. What it buys is the difference
+between a publish that GitHub would refuse outright at 105% and one that is
+inside the host's limit and over this project's own, which is a decision that
+can be made rather than an artifact that cannot be uploaded. The saving is
+counted here and not yet in `site/`: republishing is the owner's step, and
+until she takes it the served tree is the 867.6 MB tree above.
 
 The owner's answer to the second bound is to move hosts rather than keep shaving
 bytes. `deploy/site/` holds the shape that would replace GitHub Pages — a

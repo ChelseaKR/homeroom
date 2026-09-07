@@ -44,7 +44,7 @@ from homeroom.artifacts import (
     ENROLLMENT_ACCESS_DATE,
 )
 from homeroom.assignments import OUTCOME_NAMES, OUTCOMES
-from homeroom.browse import county_page_name, district_page_name
+from homeroom.browse import BROWSE_STYLE, county_page_name, district_page_name
 from homeroom.context import (
     AbsenteeismAggregate,
     AggregateFigures,
@@ -55,6 +55,7 @@ from homeroom.context import (
 )
 from homeroom.directory import active_schools
 from homeroom.i18n import LOCALES, Locale, format_number, outcome_name, text
+from homeroom.landing import LANDING_STYLE
 from homeroom.measures import Measure, MeasureStatus
 from homeroom.profiles import SchoolProfile, assemble_profiles
 from homeroom.render import (
@@ -66,6 +67,8 @@ from homeroom.render import (
     LIGHT,
     OTHER_LOCALE,
     STATE_COLOURS,
+    STYLESHEET,
+    STYLESHEET_NAME,
     SiteCoverage,
     page_name,
     render_school,
@@ -366,31 +369,147 @@ FETCHING_ATTRIBUTES = frozenset(
 def test_no_page_carries_a_script_or_reaches_off_the_page_for_an_asset(
     built: Path,
 ) -> None:
-    """README's "no script, no external asset, no account, no tracking", checked.
+    """README's "no script, no account, no tracking, nothing off-origin", checked.
 
     Neither html-validate nor axe-core has an opinion about this: a page that
     loads a font from a CDN, an analytics beacon, or a tracking pixel is
     perfectly conformant and perfectly accessible. The claim is a privacy
     promise to families reading about their own children's schools, so it needs
-    a gate of its own, and this is it. The stylesheet has to be present and
-    inline, so the check cannot be satisfied by a page that stopped rendering.
+    a gate of its own, and this is it.
+
+    Until 2026-09-07 the stylesheet was inline and this asserted exactly one
+    ``<style>`` per page. It is now one file the same build wrote, so what is
+    asserted instead is that the page names exactly one stylesheet, that it is
+    ``homeroom.css`` by a relative href, and that the href resolves to a file
+    inside the tree this build produced. That last clause is the one doing the
+    new work: a stylesheet that 404s is silent in a browser, and a check that
+    only counted ``<link>`` elements would pass on a site with no CSS at all.
     """
     for _, _, path in every_page(built):
         source = path.read_text(encoding="utf-8")
         document = parse_markup(source)
-        styles = [attr for tag, attr in document.elements if tag == "style"]
-        assert len(styles) == 1, path.name
-        assert "--surface" in source, path.name
+        assert not [tag for tag, _ in document.elements if tag == "style"], path.name
+        assert_one_resolvable_stylesheet(built, path, document)
         for tag, attr in document.elements:
             assert tag not in SUBRESOURCE_TAGS, (path.name, tag)
             for name in attr:
                 assert name not in FETCHING_ATTRIBUTES, (path.name, tag, name)
                 assert not name.startswith("on"), (path.name, tag, name)
             if tag == "link":
-                assert attr.get("rel") == "alternate", (path.name, attr)
+                assert attr.get("rel") in LINK_RELATIONS, (path.name, attr)
         lowered = source.lower()
         for smell in ("@import", "url(", "javascript:", "<script"):
             assert smell not in lowered, (path.name, smell)
+
+
+#: What a ``<link>`` on a page that is not the ask page may say it is for.
+#: ``canonical`` and ``alternate`` name addresses; ``stylesheet`` is the only
+#: one that makes the browser fetch anything, and the check below is what keeps
+#: it from being joined by ``preconnect``, ``prefetch`` or an icon from a CDN.
+LINK_RELATIONS = frozenset({"alternate", "canonical", "stylesheet"})
+
+
+def assert_one_resolvable_stylesheet(
+    built: Path, path: Path, document: Document
+) -> None:
+    """The page names one stylesheet, relatively, and the file is really there."""
+    sheets = [
+        attr.get("href", "")
+        for tag, attr in document.elements
+        if tag == "link" and attr.get("rel") == "stylesheet"
+    ]
+    assert len(sheets) == 1, (path.name, sheets)
+    href = sheets[0]
+    assert not href.startswith(("http://", "https://", "//", "/")), (path.name, href)
+    assert href.endswith(STYLESHEET_NAME), (path.name, href)
+    target = (path.parent / href).resolve()
+    assert target.is_file(), (path.name, href)
+    assert target == (built.resolve() / STYLESHEET_NAME), (path.name, target)
+
+
+def test_the_stylesheet_the_pages_link_is_written_by_every_build(
+    tmp_path: Path,
+) -> None:
+    """Not under ``site_url``, the way the social cards are.
+
+    A card is only ever named by a build that was given an origin. The
+    stylesheet is named by every page in every build, so a build that wrote it
+    conditionally would emit pages reaching for a file that is not there --
+    which is exactly the shape `MissingAssetError` exists to refuse for cards.
+    Both of these builds name no origin, and the second renders one school with
+    no landing page, which is the smallest tree `build_site` can produce.
+    """
+    for out, kwargs in (
+        (tmp_path / "full", {"landing": True}),
+        (tmp_path / "one", {"cds_codes": [EXAMPLE], "landing": False}),
+    ):
+        build_site(
+            directory=DIRECTORY,
+            enrollment=ENROLLMENT,
+            out_dir=out,
+            is_fixture=True,
+            **kwargs,  # type: ignore[arg-type]
+        )
+        sheet = out / STYLESHEET_NAME
+        assert sheet.is_file(), out
+        assert "--surface" in sheet.read_text(encoding="utf-8"), out
+
+
+def test_the_published_stylesheet_reaches_nowhere_of_its_own(built: Path) -> None:
+    """The privacy promise moved into a file, so the check has to move with it.
+
+    A stylesheet may fetch: `@import` pulls in another sheet, and `url()` pulls
+    in a font or an image, either of them from anywhere. Those used to be
+    covered because the CSS was part of the page and the page was checked for
+    them. Nothing checked the file until this did, and a font from a CDN in
+    here would be exactly the tracking beacon the README says these pages do
+    not carry, with no page-level evidence of it at all.
+    """
+    css = (built / STYLESHEET_NAME).read_text(encoding="utf-8")
+    for smell in ("@import", "url(", "//", "http:", "https:"):
+        assert smell not in css, smell
+
+
+def test_the_stylesheet_carries_every_rule_the_pages_used_to_inline(
+    built: Path,
+) -> None:
+    """One file for four page kinds, so all four kinds' rules have to be in it.
+
+    The browse and landing blocks are 297 bytes of class-scoped rules that used
+    to be concatenated onto the base sheet at render time. Folding them into one
+    file is what lets a family's walk from the front door to a school page fetch
+    one stylesheet rather than three; dropping either on the way would leave a
+    county list unstyled with nothing to notice it.
+    """
+    css = (built / STYLESHEET_NAME).read_text(encoding="utf-8")
+    assert css == STYLESHEET + BROWSE_STYLE + LANDING_STYLE
+    for selector in (".browse-list", ".crumb", ".langs", ".county-list"):
+        assert selector in css, selector
+
+
+def test_a_page_whose_stylesheet_never_arrives_still_tells_the_truth(
+    built: Path,
+) -> None:
+    """The property that makes linking the stylesheet safe, asserted not believed.
+
+    A linked stylesheet can fail to arrive; an inline one cannot. So the trade
+    is only sound if a page with no styling at all still says the same thing,
+    and it does, because the four cell states are separated by words as well as
+    colour (WCAG 2.2 SC 1.4.1). What a reader loses without the sheet is the
+    visual separation. What they keep is the factual one: a withheld figure
+    reads "withheld to protect privacy" and never a digit, so an unstyled page
+    can be read as under-informative but never as wrong.
+
+    The markup below is literally what a browser has before it fetches the
+    sheet, because after 2026-09-07 the page carries no styling of its own.
+    """
+    for locale in LOCALES:
+        document = parse(page(built, CHARTER, locale))
+        withheld = cells_with(document, "m-withheld")
+        assert withheld, locale
+        for body in withheld + cells_with(document, "m-nothing"):
+            assert not any(character.isdigit() for character in body), (locale, body)
+        assert text(locale, "state_withheld_label") in document.body_text
 
 
 # ----------------------------------------------------------------------------------

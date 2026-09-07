@@ -230,6 +230,37 @@ footer p { color: var(--ink-2); font-size: .92rem; }
 """
 )
 
+#: The one stylesheet the published tree carries, at the root of the site.
+#:
+#: It was inline on every page until 2026-09-07, which cost 5,061 bytes on each
+#: of 21,068 school pages and 5,169 on each of 2,234 browse pages: 118,190,092
+#: bytes, 13.62% of the published tree, measured over `site/` rather than
+#: projected. `homeroom.publish_limits` describes what that share was deciding.
+#:
+#: One file rather than one per page kind. `BROWSE_STYLE` and `LANDING_STYLE`
+#: are 108 and 189 bytes of class-scoped rules for elements no other page kind
+#: carries (`.browse-list`, `.crumb`, `.langs`, `.county-list`), so folding them
+#: in costs 297 bytes once and buys a reader one stylesheet for the whole site:
+#: the walk a family actually makes -- front door, county, district, school --
+#: fetches it on the first page and none of the three after it.
+STYLESHEET_NAME = "homeroom.css"
+
+
+def stylesheet_link(prefix: str = "") -> str:
+    """The one element a page uses to reach the stylesheet, relative to itself.
+
+    ``prefix`` is what the page has to climb to reach the site root: nothing for
+    a school page or the landing page, ``../`` for a county or district page.
+    The pages already address each other this way, and a relative href is what
+    keeps the tree servable from a subpath and from `file://` both.
+
+    This is a same-origin file the build wrote. It is not a font, a CDN, a
+    tracker, or anything a reader's browser reports to anyone -- but it *is* a
+    second request, and it is the first time a Homeroom page has needed one, so
+    it is stated here rather than left to be inferred from the markup.
+    """
+    return f'<link rel="stylesheet" href="{prefix}{STYLESHEET_NAME}">'
+
 
 @dataclass(frozen=True)
 class SourceRef:
@@ -1006,7 +1037,7 @@ def _head(
         f'<meta name="description" content="{_esc(description)}">\n'
         f"{addressed}"
         f"{alternates}\n"
-        f"<style>\n{STYLESHEET}</style>\n"
+        f"{stylesheet_link()}\n"
         "</head>"
     )
 

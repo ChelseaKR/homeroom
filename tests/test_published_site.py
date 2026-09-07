@@ -131,6 +131,8 @@ class PageFacts:
     scripts: int
     script_srcs: frozenset[str]
     ask_blob: str | None
+    styles: int
+    stylesheet_hrefs: tuple[str, ...]
 
     @property
     def name(self) -> str:
@@ -171,6 +173,12 @@ def read_facts(path: Path) -> PageFacts:
             if tag == "script" and "src" in attr
         ),
         ask_blob=blob.group(1) if blob else None,
+        styles=sum(1 for tag, _ in document.elements if tag == "style"),
+        stylesheet_hrefs=tuple(
+            attr.get("href", "")
+            for tag, attr in document.elements
+            if tag == "link" and attr.get("rel") == "stylesheet"
+        ),
     )
 
 
@@ -308,6 +316,63 @@ def test_no_school_page_carries_a_script_or_reaches_off_the_page() -> None:
         assert not facts.fetching_attrs, (facts.name, sorted(facts.fetching_attrs))
         assert not facts.event_attrs, (facts.name, sorted(facts.event_attrs))
         assert not facts.carries_script_text, facts.name
+
+
+def test_every_published_page_has_exactly_one_stylesheet_and_it_arrives() -> None:
+    """Either shape, but one of them, and the same one across the whole tree.
+
+    `site/` is committed and republished by hand, so a change to the renderer
+    reaches it only when the owner runs `make publish`. Between those two events
+    the code emits `<link rel="stylesheet">` (2026-09-07, issue #95) and the
+    served tree still inlines `<style>`. A gate that demanded either shape would
+    be red for one of those trees, and the tree it would be red for is the one
+    families are actually being served.
+
+    So what is checked is the property that has to hold of both:
+
+    * exactly one stylesheet per page, inline or linked, never none and never
+      two -- a page with none renders as unstyled markup, and a page with two
+      is a half-applied publish;
+    * a linked one resolves to a file that was published, because a stylesheet
+      that 404s is silent in every browser and in every other check here;
+    * every indexable page in the tree is the *same* shape, which is what a
+      publish interrupted partway through would break and nothing else would.
+
+    The ask pages are excluded and checked separately: they are the one page
+    kind that must stay inline.
+    """
+    shapes = set()
+    for facts in indexable_facts():
+        linked = facts.stylesheet_hrefs
+        assert facts.styles + len(linked) == 1, (
+            facts.name,
+            facts.styles,
+            linked,
+        )
+        for href in linked:
+            assert not href.startswith(("http://", "https://", "//", "/")), (
+                facts.name,
+                href,
+            )
+            target = (facts.path.parent / href).resolve()
+            assert target.is_file(), (facts.name, href)
+            assert target.is_relative_to(SITE.resolve()), (facts.name, target)
+        shapes.add("linked" if linked else "inline")
+    assert len(shapes) == 1, sorted(shapes)
+
+
+def test_every_published_ask_page_still_carries_its_stylesheet_inline() -> None:
+    """The exception `tools/ask-optin.mjs` depends on, checked where it is served.
+
+    An ask page fetches nothing until a question is submitted. A linked
+    stylesheet is a fetch on load, so these pages keep theirs inline whatever
+    the rest of the tree does -- and that is a property of the published bytes,
+    not only of the renderer, because these two pages are deployed.
+    """
+    assert ask_facts(), "no ask page published"
+    for facts in ask_facts():
+        assert facts.styles == 1, (facts.name, facts.styles)
+        assert not facts.stylesheet_hrefs, (facts.name, facts.stylesheet_hrefs)
 
 
 def test_each_ask_page_names_exactly_one_endpoint_and_it_is_https() -> None:
