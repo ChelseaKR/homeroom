@@ -8,6 +8,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A page a reporter can read but not cite** (2026-09-07, issue #92). 21,069
+  school pages and no machine-readable statement of what any one of them says.
+  `python -m homeroom.explain --cds <code>` (or `make explain CDS=<code>`) prints
+  one school's record from `data/out/`: every cell's state, its unit, and the CDE
+  file and academic year it came from.
+
+  Four properties, each one a way the record could quietly differ from the page it
+  describes.
+
+  A cell carries a `value` key **only** where the status is `reported`. Not
+  `"value": 0` for a withheld cell, and not `"value": null` either -- a null is
+  something a consumer coerces to zero on the next line. The key is absent, so
+  reading it raises rather than answers.
+
+  The record carries the **four** states the page shows, not the three the data
+  has. `Measure` has three statuses; `render.py` renders four cells, because a
+  published zero is labelled in words as a genuine zero rather than left to look
+  like any other number. `rendered_state` is checked against `_measure_cell`
+  itself, so a record saying `withheld` where the page renders `m-nothing` is a
+  red build, not a wrong citation.
+
+  Cells are **discovered, not enumerated**: any object carrying a `status` is a
+  cell, wherever it appears in the artifact. Listing the blocks by hand is how a
+  record ends up describing a subset while presenting itself as a whole school,
+  and a test counts the cells in `schools.json` itself rather than trusting the
+  list.
+
+  And a source that was never supplied to the build yields **no cells at all**,
+  with `sources` recording it as unsupplied -- because "CDE published nothing for
+  this school" and "this build never opened that file" are different facts, and
+  filling the gap with `not_reported` would state the first while meaning the
+  second.
+
+  Three refusals rather than a comfortable answer: an unknown CDS code is an error
+  and not an empty record; a `coverage.json` that does not state `is_fixture` as a
+  boolean is refused rather than assumed real (the shape found in the eval harness
+  a day earlier); and a measure block with no declared unit is refused rather than
+  guessed -- which caught `teacher_assignments.total_assignments` on the first run.
+
 - **A results file could swear it read real school data because its bundle did not
   say otherwise** (2026-09-07). The eval harness recorded provenance as
   `bool(bundle_index.get("is_fixture"))` and `int(str(bundle_index.get("schools", 0)))`.

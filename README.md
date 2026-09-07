@@ -29,6 +29,7 @@ sample rows must never be mistakable for one about a real school.
 | `make verify` | The single local gate; run it before opening a PR. Needs Node 22 for the markup and accessibility stages, which run `npm ci`. See CONTRIBUTING.md. |
 | `make site-offline` | The school pages, from committed fixtures. |
 | `make data-offline` | The same pipeline's JSON artifacts (`data/out/`), from the same fixtures. |
+| `make explain CDS=<code>` | One school's record from `data/out/`: every cell's state, its unit, and the CDE file and year it came from. A withheld or unreported cell carries no number — the `value` key is absent, not zero and not null. This is what a reporter cites. |
 | `make site` | The pages for a real school. Needs the CDE extracts in `data/raw/`, which are not in git — PROVENANCE.md names each file and how to acquire it. |
 | `make publish` | Rebuilds the committed `site/` tree that is served at the live URL. Needs `data/raw/` and `ASK_ENDPOINT`. Renders into `build/publish-site/` and replaces `site/` only once that tree is inside the limits its deploy is subject to. |
 | `make publish-limits` | Weighs `site/` against those limits and prints what it weighs. `make publish` runs it over what it has just rendered. |
