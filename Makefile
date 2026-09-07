@@ -104,6 +104,15 @@ explain:
 	@test -n "$(CDS)" || { echo "usage: make explain CDS=<14-digit code>" >&2; exit 2; }
 	uv run --locked python -m homeroom.explain --artifacts data/out --cds $(CDS)
 
+# What changed between two publishes, over the artifacts rather than the markup.
+# Not part of `make verify`: it compares two outputs, it does not gate one.
+#   make diff OLD=data/out.previous NEW=data/out
+OLD ?=
+NEW ?=
+diff:
+	@test -n "$(OLD)" -a -n "$(NEW)" || { echo "usage: make diff OLD=<dir> NEW=<dir>" >&2; exit 2; }
+	uv run --locked python -m homeroom.diff --old $(OLD) --new $(NEW) $(if $(FORMAT),--format $(FORMAT),)
+
 # The school Homeroom renders from acquired data (ROADMAP M4: one real school,
 # both languages). Override to render another, or drop --cds to render them all:
 #   make site SCHOOL=01611190130229

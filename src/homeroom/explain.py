@@ -59,6 +59,7 @@ __all__ = [
     "load_artifacts",
     "main",
     "rendered_state",
+    "walk_cells",
 ]
 
 
@@ -134,10 +135,14 @@ def _unit_for(path: tuple[str, ...]) -> str:
     )
 
 
-def _walk(
+def walk_cells(
     node: Any, path: tuple[str, ...]
 ) -> list[tuple[tuple[str, ...], dict[str, Any]]]:
     """Every cell under ``node``, as ``(path, cell)`` pairs, in key order.
+
+    Public because :mod:`homeroom.diff` walks the same artifacts, and two walks that
+    disagreed about what counts as a cell would let a diff miss exactly the figures a
+    record reports.
 
     A cell is any object carrying a ``status``. Recursion stops there rather than
     descending into it, so a future ``status`` field inside a cell cannot be read as
@@ -148,7 +153,7 @@ def _walk(
         if "status" in node:
             return [(path, node)]
         for key in sorted(node):
-            found.extend(_walk(node[key], (*path, key)))
+            found.extend(walk_cells(node[key], (*path, key)))
     return found
 
 
@@ -220,7 +225,7 @@ def explain(
             continue
         source_key = SOURCE_OF_BLOCK[block]
         source = sources.get(source_key, {})
-        for path, cell in _walk(school[block], (block,)):
+        for path, cell in walk_cells(school[block], (block,)):
             entry: dict[str, Any] = {
                 "measure": ".".join(path),
                 "status": cell["status"],
