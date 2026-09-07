@@ -1,5 +1,23 @@
 # Contributing
 
+## If you are not here to write code
+
+The thing this project is most stuck on does not need code. Nobody has ever
+walked a page of this site with a screen reader or a keyboard, in either
+language, and no test can do it: `tools/a11y.mjs` runs in jsdom, which does no
+layout and paints no pixels. One page type in one language, in one sitting, is
+a complete contribution and gets your name and the date in the record.
+
+[`docs/HELP-WANTED.md`](docs/HELP-WANTED.md) says what is open, roughly what
+each row costs in real minutes, and what you get. The
+[session template](.github/ISSUE_TEMPLATE/screen-reader-session.md) is how to
+report one.
+
+If you know a California school and a page about it says something wrong, that
+is the other one: [school page looks
+wrong](.github/ISSUE_TEMPLATE/school-page-looks-wrong.md), five minutes, no
+setup.
+
 ## Local gate
 
 ```sh
