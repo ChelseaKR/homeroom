@@ -107,6 +107,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bundle_schools` is not a positive integer, which was the half of the hole no
   assertion reached.
 
+- **Every page carried the whole stylesheet, 23,305 times over** (2026-09-07,
+  issue #95). The school, county, district and landing pages inlined it: 5,061
+  bytes on each of 21,068 school pages, 5,169 on each of 2,234 browse pages --
+  118,190,092 bytes across the published tree, **13.62% of it**, measured over
+  `site/` rather than projected from a sample.
+
+  That mattered because the byte budget had become the thing deciding what
+  Homeroom may publish. `site/` is 867.6 MB against the 1 GB GitHub Pages
+  allows, and the D5 republish decided in ADR 0005 is a further 184 MB, which
+  is 105% of the ceiling: an artifact GitHub refuses.
+
+  Those four page kinds now link one file the build writes, `homeroom.css`, at
+  the root of the site. The next `make publish` writes **117.1 MB less**: 750.5
+  MB, 75.0% of the cap. Said plainly, because the arithmetic is the point --
+  **that does not put a D5 republish under this project's own 900 MB budget.**
+  867.6 - 117.1 + 184 is 934.3 MB, 93.4% of the ceiling. What it buys is the
+  difference between a publish that cannot be uploaded and one that is inside
+  the host's limit and over ours, which is a decision that can be made.
+
+  **The ask pages keep their stylesheet inline**, and a test now asserts it.
+  README's "the one large saving is not available" is about them and only them:
+  `tools/ask-optin.mjs` proves an ask page issues no request until a question is
+  submitted, and a linked stylesheet is a request on load. The other four page
+  kinds carry no script and made no request, so there is no timing an inline
+  block protects there.
+
+  The gates moved with the change rather than around it. `tests/test_pages.py`
+  resolves each page's stylesheet href against the page's own directory instead
+  of counting `<style>` elements, so a link to a file that was not published
+  fails rather than passing as one more `<link>`; it also refuses an `@import`
+  or a `url()` inside the stylesheet file, which is where an off-origin fetch
+  could now hide with no page-level evidence. The county and district pages get
+  a fetch gate they never had -- they are the only pages that reach the
+  stylesheet as `../homeroom.css`, so a prefix right at the root and wrong there
+  would leave 2,234 pages unstyled. `tests/test_published_site.py` accepts
+  either shape but demands exactly one of them, the same one across the whole
+  tree, and a linked one that resolves: `site/` is republished by hand and is
+  not republished here, so between the two events the served tree still inlines.
+
+  Linking a stylesheet is safe only because a page that never receives it still
+  tells the truth, and that is now asserted rather than believed: the four cell
+  states are separated by words as well as colour, so a withheld figure reads
+  "withheld to protect privacy" and never a digit. ADR 0001, README and
+  `docs/RESPONSIBLE-TECH-AUDITS.md` are restated rather than quietly
+  contradicted, and html-validate's `require-sri` is retargeted from its default
+  `all` to `crossorigin`, with the reason and the 1.96 MB it would have cost
+  written beside it in `.htmlvalidate.mjs`.
+
 - **Nothing said when CDE published a newer file than the one acquired**
   (2026-09-06, issue #89). Every number on a school page is copied out of a
   file a person downloaded from CDE in a browser and recorded in
