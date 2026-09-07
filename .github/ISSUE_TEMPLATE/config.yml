@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security or privacy concern
+    url: https://github.com/ChelseaKR/homeroom/security/advisories/new
+    about: Please report privately first rather than opening a public issue. See SECURITY.md.
+  - name: What one hour of your time would unblock
+    url: https://github.com/ChelseaKR/homeroom/blob/main/docs/HELP-WANTED.md
+    about: What is not done here, why no amount of code closes it, and what you would get for helping.
