@@ -89,6 +89,53 @@ PROVENANCE_FIELDS: tuple[str, ...] = (
     "bundle_schools",
 )
 
+
+def bundle_provenance(bundle_index: dict[str, object]) -> dict[str, object]:
+    """The two facts a results file claims about the evidence the run actually read.
+
+    These were read as ``bool(bundle_index.get("is_fixture"))`` and
+    ``int(str(bundle_index.get("schools", 0)))``, and both defaulted rather than refused.
+    ``.get`` on a missing ``is_fixture`` is ``None``, ``bool(None)`` is ``False``, and
+    ``tests/test_ask_evals.py`` asserts ``provenance["bundle_is_fixture"] is False`` under the
+    comment "real data only". So a bundle index that did not say what it was produced a results
+    file swearing it was real, and the gate that exists to keep fixture answers out of the
+    published evidence would have accepted it -- a check that cannot fail, guarding the one
+    thing this project says it must never do (`README.md`: "a page built from sample rows must
+    never be mistakable for one about a real school").
+
+    ``bool`` is the other half of it. Every non-empty string is truthy in Python, so an index
+    carrying ``"is_fixture": "false"`` read as a *fixture* run, and one carrying
+    ``"is_fixture": ""`` read as a real one.
+
+    ``schools`` defaulted to ``0``, and nothing rejected a run claiming to have read a real
+    bundle of no schools. Zero schools is not a small bundle; it is a bundle that was not read.
+
+    Neither has fired. ``homeroom.ask.evidence.build_bundle`` writes ``index.json`` from a
+    dataclass, so ``is_fixture`` is always a real bool and ``schools`` a real count, and every
+    committed results file is correct. What makes them live is a hand-assembled or partially
+    written bundle, or an index from an older revision -- and the cost of being wrong here is
+    fixture answers published as evidence about real California schools.
+
+    So the harness refuses instead of defaulting. Provenance is a claim about what a run read;
+    a claim it cannot substantiate must not be written down, and a run that cannot describe its
+    own inputs has nothing to record.
+    """
+    is_fixture = bundle_index.get("is_fixture")
+    if not isinstance(is_fixture, bool):
+        raise ValueError(
+            f"bundle index says is_fixture is {is_fixture!r}, which is not true or false. "
+            f"Read as a truthiness test it would default to a real-data claim, and "
+            f"tests/test_ask_evals.py accepts a committed results file on exactly that field."
+        )
+    schools = bundle_index.get("schools")
+    if isinstance(schools, bool) or not isinstance(schools, int) or schools < 1:
+        raise ValueError(
+            f"bundle index says schools is {schools!r}, which is not a count of schools read. "
+            f"Zero is not a small bundle, it is a bundle nothing was read from."
+        )
+    return {"bundle_is_fixture": is_fixture, "bundle_schools": schools}
+
+
 SUITE_MAX_FAILURES: dict[str, int] = {
     # The ceiling on scored failures a recorded run may carry and still count as
     # having met its target. ``regressions()`` reads this, ``main()`` sets its
@@ -795,8 +842,7 @@ def run_suite(
             "prompt_version": PROMPT_VERSION,
             "commit": git_commit(),
             "date": today,
-            "bundle_is_fixture": bool(bundle_index.get("is_fixture")),
-            "bundle_schools": int(str(bundle_index.get("schools", 0))),
+            **bundle_provenance(bundle_index),
         },
         "summary": {
             "cases": total,
