@@ -19,6 +19,7 @@ from homeroom.ask.evalharness import (
     SUITES,
     Case,
     Score,
+    bundle_provenance,
     load_cases,
     main,
     model_dir,
@@ -155,6 +156,15 @@ def test_every_results_file_either_ran_with_provenance_or_says_not_run() -> None
             assert len(provenance["commit"]) == 40
             assert provenance["date"][:2] == "20"
             assert provenance["bundle_is_fixture"] is False, "real data only"
+            # `is False`, above, already refuses a string; this refuses the other half of
+            # the same hole. A results file claiming a real run over a bundle of no schools
+            # is claiming a run that read nothing, and until now nothing rejected it.
+            schools = provenance["bundle_schools"]
+            assert isinstance(schools, int) and not isinstance(schools, bool), (
+                suite,
+                schools,
+            )
+            assert schools > 0, (suite, schools)
             summary = result["summary"]
             assert summary["cases"] == len(result["cases"]) == len(load_cases(suite))
             # What this used to assert was `passed + failed + errors == cases`,
@@ -1243,3 +1253,45 @@ def test_the_metrics_ledger_states_the_suite_failures_the_results_record() -> No
             f"docs/ROADMAP.md no longer states 'measured {failures} of {cases}' for the "
             f"{suite} suite; evals/results records {passed} of {cases} passing."
         )
+
+
+def test_a_bundle_that_does_not_say_what_it_is_cannot_be_recorded_as_real() -> None:
+    """The gate two functions up reads `bundle_is_fixture`; this is where it comes from.
+
+    Defaulted, a bundle index with no `is_fixture` produced `False` -- a published claim that
+    the run read real California school data -- and `test_every_committed_result_is_a_real_run`
+    accepted it. That is a check that cannot fail, guarding the thing this project says it must
+    never do.
+    """
+    for index in (
+        {"schools": 3},
+        {"is_fixture": None, "schools": 3},
+        {"is_fixture": "false", "schools": 3},
+        {"is_fixture": "", "schools": 3},
+        {"is_fixture": 0, "schools": 3},
+    ):
+        with pytest.raises(ValueError, match="is_fixture"):
+            bundle_provenance(index)
+
+
+def test_a_run_that_read_no_schools_cannot_claim_a_bundle() -> None:
+    for index in (
+        {"is_fixture": False},
+        {"is_fixture": False, "schools": 0},
+        {"is_fixture": False, "schools": "3"},
+        {"is_fixture": False, "schools": True},
+        {"is_fixture": False, "schools": -1},
+    ):
+        with pytest.raises(ValueError, match="schools"):
+            bundle_provenance(index)
+
+
+def test_a_bundle_that_does_say_what_it_is_records_it_unchanged() -> None:
+    assert bundle_provenance({"is_fixture": True, "schools": 3}) == {
+        "bundle_is_fixture": True,
+        "bundle_schools": 3,
+    }
+    assert bundle_provenance({"is_fixture": False, "schools": 10534}) == {
+        "bundle_is_fixture": False,
+        "bundle_schools": 10534,
+    }

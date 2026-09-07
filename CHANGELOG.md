@@ -8,6 +8,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A results file could swear it read real school data because its bundle did not
+  say otherwise** (2026-09-07). The eval harness recorded provenance as
+  `bool(bundle_index.get("is_fixture"))` and `int(str(bundle_index.get("schools", 0)))`.
+  A bundle index with no `is_fixture` gave `None`, `bool(None)` gave `False`, and
+  `tests/test_ask_evals.py` asserts `provenance["bundle_is_fixture"] is False` under
+  the comment "real data only". So an index that did not say what it was produced a
+  results file claiming it was real, and the gate that exists to keep fixture answers
+  out of the published evidence accepted it. A check that cannot fail, guarding the
+  one thing this project says it must never do.
+
+  Truthiness was the other half: every non-empty string is truthy in Python, so
+  `"is_fixture": "false"` read as a fixture run and `"is_fixture": ""` read as a real
+  one. And `schools` defaulted to `0`, with nothing rejecting a run that claimed to
+  have read a real bundle of no schools -- which is not a small bundle, it is a bundle
+  nothing was read from.
+
+  Neither has fired: `evidence.build_bundle` writes `index.json` from a dataclass, so
+  every committed results file is correct. What makes them live is a hand-assembled or
+  partially written bundle, or an index from an older revision.
+
+  `evalharness.bundle_provenance` now **refuses rather than defaults**. Provenance is a
+  claim about what a run read, and a claim the harness cannot substantiate is not
+  written down. `tests/test_ask_evals.py` also now rejects a committed real run whose
+  `bundle_schools` is not a positive integer, which was the half of the hole no
+  assertion reached.
+
 - **Nothing said when CDE published a newer file than the one acquired**
   (2026-09-06, issue #89). Every number on a school page is copied out of a
   file a person downloaded from CDE in a browser and recorded in
