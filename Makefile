@@ -96,6 +96,14 @@ data:
 data-offline:
 	uv run python -m homeroom.artifacts --fixture --directory fixtures/pubschls.sample.txt --enrollment fixtures/cdenroll.sample.txt --assignments fixtures/tamo.sample.txt --absenteeism fixtures/chronicabsenteeism.sample.txt --out data/out
 
+# One school's record, cell by cell, from the artifacts `data`/`data-offline` write.
+# Not part of `make verify`: it reads an output, it does not gate one.
+#   make explain CDS=01100170112345
+CDS ?=
+explain:
+	@test -n "$(CDS)" || { echo "usage: make explain CDS=<14-digit code>" >&2; exit 2; }
+	uv run --locked python -m homeroom.explain --artifacts data/out --cds $(CDS)
+
 # The school Homeroom renders from acquired data (ROADMAP M4: one real school,
 # both languages). Override to render another, or drop --cds to render them all:
 #   make site SCHOOL=01611190130229
