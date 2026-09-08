@@ -21,8 +21,13 @@ carries its own words, so colour is never the only signal. That gate has been at
 zero violations since M4.
 
 It cannot look at, or listen to, a page. `tools/a11y.mjs` runs in jsdom, which
-does no layout and paints no pixels; it excludes `color-contrast` and
-`target-size` by name rather than letting an unrunnable rule report as a pass.
+does no layout and paints no pixels; it names every rule axe cannot decide there
+— `color-contrast`, `target-size`, `landmark-one-main`, `page-has-heading-one` —
+rather than letting an unrunnable rule report as a pass, and an undetermined
+rule that is *not* named fails the gate. The last two were undetermined on all
+seventeen pages and were named nowhere until 2026-09-08, because the gate read
+only axe's violations list; they are now decided directly instead (exactly one
+`<main>` and one `<h1>` per page, asserted on the same DOM axe was handed).
 No headless DOM decides whether a seven-column table inside a horizontally
 scrolling region is usable on a phone, whether a focus ring is visible against
 the surface it lands on, whether a Spanish page is announced with Spanish
