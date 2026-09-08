@@ -223,12 +223,18 @@ def showcase_disagreements(rows: dict, measure: dict) -> list[str]:
     problems = []
     for code, (with_row, published, withheld, _) in rows.items():
         if code not in live:
-            problems.append(f"{code}: the showcase publishes a row coverage.json has no counts for")
+            problems.append(
+                f"{code}: the showcase publishes a row coverage.json has no counts for"
+            )
             continue
         if live[code]["reported"] != published:
-            problems.append(f"{code}: showcase publishes {published}, coverage.json {live[code]['reported']}")
+            problems.append(
+                f"{code}: showcase publishes {published}, coverage.json {live[code]['reported']}"
+            )
         if live[code]["suppressed"] != withheld:
-            problems.append(f"{code}: showcase withholds {withheld}, coverage.json {live[code]['suppressed']}")
+            problems.append(
+                f"{code}: showcase withholds {withheld}, coverage.json {live[code]['suppressed']}"
+            )
         if live[code]["reported"] + live[code]["suppressed"] != with_row:
             problems.append(
                 f"{code}: showcase denominator {with_row}, coverage.json "
