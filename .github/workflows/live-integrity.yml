@@ -54,17 +54,43 @@ jobs:
           python-version: "3.12"
 
       - name: Compare the live surface with what this checkout publishes
+        # No `shell:` on purpose, so GitHub runs this with `bash -e {0}`. The body
+        # below is written for errexit and tests/test_live_sentinel.py runs it under
+        # that exact shell; adding a `shell:` here would change what ships out from
+        # under the harness, which is why the harness also asserts this key is absent.
         run: |
           set -uo pipefail
           expected_sha="$(git rev-parse HEAD)"
-          python3 tools/verify_live_site.py
-          verify_rc="$?"
-          # A deploy for a newer commit may have landed while this ran, in which case
-          # the live surface differing from THIS commit is the deploy working. Only
-          # that exact case is excused, and only by re-reading the remote afterwards.
-          remote_sha="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
-          if [ "$remote_sha" != "$expected_sha" ]; then
-            echo "::warning::main moved to ${remote_sha} while this ran; re-run once its deploy finishes"
+
+          # `if <command>` is exempt from errexit BY LANGUAGE RULE, which is what makes
+          # this the only portable way to read an exit code here. Written as a bare
+          # `python3 …` followed by `verify_rc="$?"` until 2026-09-08, the step ended at
+          # the python line the instant it failed: `verify_rc` was never assigned and
+          # the whole deploy-race block below was unreachable in exactly the case it
+          # exists for. Measured on the shipped shell — verify=1 with the remote read
+          # also failing exited 1 with no warning annotation, and verify=0 with a
+          # failing remote read exited 128, reddening an already-green run with git's
+          # own code.
+          if python3 tools/verify_live_site.py; then
+            verify_rc=0
+          else
+            verify_rc=$?
+          fi
+
+          if [ "$verify_rc" -eq 0 ]; then
             exit 0
+          fi
+
+          # Only now is there anything to excuse. A deploy for a newer commit may have
+          # landed while this ran, in which case the live surface differing from THIS
+          # commit is the deploy working. Taking this read unconditionally is what let
+          # a network blip fail a run that had nothing wrong with it.
+          if remote_sha="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"; then
+            if [ "$remote_sha" != "$expected_sha" ]; then
+              echo "::warning::main moved to ${remote_sha} while this ran; re-run once its deploy finishes"
+              exit 0
+            fi
+          else
+            echo "::warning::could not re-read origin/main, so a concurrent deploy could not be ruled out; reporting the difference"
           fi
           exit "$verify_rc"
