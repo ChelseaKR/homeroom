@@ -13,8 +13,16 @@ rotation reaches every page are checked here rather than assumed.
 from __future__ import annotations
 
 import importlib.util
+import os
+import re
+import shutil
+import stat
+import subprocess
 import sys
+import textwrap
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = importlib.util.spec_from_file_location(
@@ -145,3 +153,200 @@ def test_a_sample_wider_than_the_corpus_compares_all_of_it() -> None:
     selected = sentinel.comparison_set(relatives, 10_000, 4)
     assert selected == sorted(relatives)
     assert len(selected) == len(set(selected))
+
+
+# ----------------------------------------------------------------------------------
+# The workflow step that runs the sentinel, executed under the shell that ships
+# ----------------------------------------------------------------------------------
+#
+# A sentinel is only as good as the step that reports its verdict, and that step is
+# shell, in YAML, run by a shell nobody names. GitHub's default for a `run:` block
+# that declares no `shell:` is `bash -e {0}` -- errexit ON -- and `set -uo pipefail`
+# does NOT turn it off (that needs `set +e`). Reading the body under plain `bash`
+# gives the opposite answer on the rows that matter, so this lifts the real body out
+# of the YAML, runs it under `bash -e` with both commands stubbed, and asserts the
+# step still declares no `shell:` -- or the fixture quietly stops being what ships.
+#
+# Measured against origin/main on 2026-09-08, before the fix:
+#
+#   verify_rc  ls-remote   step exit
+#   0          ok          0
+#   0          fails       128   <- an already-green run reddened by a read it did
+#                                   not need, with git's own code
+#   1          ok          1
+#   1          fails       1     <- the deploy-race warning is UNREACHABLE: errexit
+#                                   ends the step at the python line, so `verify_rc`
+#                                   is never assigned and the excuse never runs in
+#                                   the one case it was written for
+#   4          fails       4     <- same, for "could not run"
+
+WORKFLOW = ROOT / ".github" / "workflows" / "live-integrity.yml"
+STEP_NAME = "Compare the live surface with what this checkout publishes"
+
+
+def _step_lines() -> list[str]:
+    """The lines of the one step this module is about, read as bytes, not as YAML.
+
+    A YAML parser would be tidier and would need a dependency this repository does
+    not have. It would also read `shell: bash` and `shell:  bash` the same, which is
+    fine, and would let a `<<:` merge or an anchor hide the key, which is not. So the
+    step is sliced out of the file textually and both checks below read those lines.
+    """
+    lines = WORKFLOW.read_text(encoding="utf-8").splitlines()
+    starts = [i for i, line in enumerate(lines) if re.match(r"^\s*-\s", line)]
+    for index, start in enumerate(starts):
+        end = starts[index + 1] if index + 1 < len(starts) else len(lines)
+        block = lines[start:end]
+        if any(f"name: {STEP_NAME}" in line for line in block):
+            return block
+    raise AssertionError(f"no step named {STEP_NAME!r} in {WORKFLOW.name}")
+
+
+def _step_body() -> str:
+    """The `run:` block scalar, dedented exactly as the runner would receive it."""
+    block = _step_lines()
+    for index, line in enumerate(block):
+        if line.strip() == "run: |":
+            indent = len(line) - len(line.lstrip())
+            body = []
+            for following in block[index + 1 :]:
+                if (
+                    following.strip()
+                    and (len(following) - len(following.lstrip())) <= indent
+                ):
+                    break
+                body.append(following)
+            return textwrap.dedent("\n".join(body)) + "\n"
+    raise AssertionError("the step no longer carries a `run: |` block")
+
+
+def test_the_step_declares_no_shell_so_the_harness_below_is_what_ships() -> None:
+    """The fixture pins `bash -e`; this pins that `bash -e` is what GitHub will use.
+
+    Without this the harness can go on passing while the shipped step runs under a
+    different shell, which is the failure mode that makes a lifted-out `run:` body a
+    worse test than none.
+    """
+    lines = _step_lines()
+    named = [line for line in lines if line.strip().startswith("shell:")]
+    assert not named, (
+        "the step now names a shell, so GitHub no longer runs it with `bash -e {0}` "
+        f"and the harness below is testing something else: {named}"
+    )
+    assert _step_body().strip(), "the step carries no body"
+
+
+def _harness(
+    tmp_path: Path,
+    *,
+    verify_rc: int,
+    ls_remote_fails: bool = False,
+    remote_moved: bool = False,
+) -> tuple[int, str]:
+    """Run the shipped step body under the shell GitHub uses, with both tools stubbed.
+
+    Returns the exit code AND the output. On the row that actually separates the two
+    bodies they agree on the code and differ only in whether the warning was printed,
+    so a harness that returned the code alone would report a control as having fired
+    when it had not.
+    """
+    body = tmp_path / "body.sh"
+    body.write_text(_step_body(), encoding="utf-8")
+
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    head = "a" * 40
+    remote = "b" * 40 if remote_moved else head
+    (binaries / "git").write_text(
+        "#!/bin/bash\n"
+        'case "$1" in\n'
+        f'  rev-parse) echo "{head}";;\n'
+        "  ls-remote)\n"
+        '    if [ "${LS_REMOTE_FAILS:-0}" = 1 ]; then echo "fatal" >&2; exit 128; fi\n'
+        f'    printf "{remote}\\trefs/heads/main\\n";;\n'
+        "esac\n",
+        encoding="utf-8",
+    )
+    (binaries / "python3").write_text(
+        '#!/bin/bash\nexit "${VERIFY_RC:-0}"\n', encoding="utf-8"
+    )
+    for name in ("git", "python3"):
+        path = binaries / name
+        path.chmod(path.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    environment = dict(os.environ)
+    environment["PATH"] = f"{binaries}:{environment['PATH']}"
+    environment["VERIFY_RC"] = str(verify_rc)
+    environment["LS_REMOTE_FAILS"] = "1" if ls_remote_fails else "0"
+    bash = shutil.which("bash")
+    assert bash, "no bash on this machine, so this harness would prove nothing"
+    completed = subprocess.run(  # noqa: S603 - a fixture script we just wrote
+        [bash, "-e", str(body)],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return completed.returncode, completed.stdout + completed.stderr
+
+
+@pytest.mark.parametrize("ls_remote_fails", [False, True])
+def test_a_passing_sentinel_is_green_whatever_the_remote_read_does(
+    tmp_path: Path, ls_remote_fails: bool
+) -> None:
+    """The 128 row. A read the step does not need must not be able to fail the run.
+
+    With the remote read taken unconditionally, `git`'s own 128 propagated under
+    errexit and a green sentinel reported as a broken one.
+    """
+    assert _harness(tmp_path, verify_rc=0, ls_remote_fails=ls_remote_fails)[0] == 0
+
+
+@pytest.mark.parametrize("verify_rc", [sentinel.EXIT_DIFFERS, sentinel.EXIT_CANNOT_RUN])
+def test_a_failing_sentinel_still_reaches_the_deploy_race_excuse(
+    tmp_path: Path, verify_rc: int
+) -> None:
+    """The unreachable-excuse row: the remote agrees, so the verdict stands.
+
+    Reaching this at all is the fix. Before it, errexit ended the step at the
+    `python3` line and nothing below ever ran.
+    """
+    assert _harness(tmp_path, verify_rc=verify_rc)[0] == verify_rc
+
+
+def test_a_failing_remote_read_reports_the_difference_rather_than_excusing_it(
+    tmp_path: Path,
+) -> None:
+    """Failing open on the excuse would turn a network blip into a suppressed verdict.
+
+    The other direction is the one to refuse: if the remote cannot be re-read, a
+    concurrent deploy cannot be ruled out, and the honest answer is the difference the
+    sentinel actually found -- not silence.
+    """
+    code, output = _harness(
+        tmp_path, verify_rc=sentinel.EXIT_DIFFERS, ls_remote_fails=True
+    )
+    assert code == sentinel.EXIT_DIFFERS, output
+    assert "could not re-read origin/main" in output
+
+
+@pytest.mark.parametrize("verify_rc", [sentinel.EXIT_DIFFERS, sentinel.EXIT_CANNOT_RUN])
+def test_a_genuine_deploy_race_is_excused_and_says_so(
+    tmp_path: Path, verify_rc: int
+) -> None:
+    """The ONE row that separates the two bodies, and the reason this file exists.
+
+    The sentinel found a difference AND the remote has moved: that is the deploy
+    working, and the step is meant to warn and pass. Under the old body errexit ended
+    the step at the `python3` line, so `verify_rc` was never assigned and this block
+    never ran -- it exited 1 with no annotation, in exactly the situation it was
+    written to handle.
+
+    The first control on this fix caught only the 128 row, because the old and new
+    bodies produce the SAME exit code when the remote agrees. This is the case where
+    they differ, and it is asserted on the annotation as well as the code.
+    """
+    code, output = _harness(tmp_path, verify_rc=verify_rc, remote_moved=True)
+    assert code == 0, output
+    assert "::warning::main moved to" in output
