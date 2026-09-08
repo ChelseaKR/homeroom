@@ -1,6 +1,6 @@
 .PHONY: verify sync lint format typecheck test audit data data-offline \
         site site-offline pages node-sync htmlvalidate a11y ask-optin node-audit \
-        ask-bundle ask-serve publish publish-limits determinism secret-scan sast \
+        ask-bundle ask-serve publish publish-limits dataset determinism secret-scan sast \
         workflow-audit verify-ci
 
 # The gate. Every stage CI runs is a target here, and every CI step runs one of
@@ -112,6 +112,21 @@ NEW ?=
 diff:
 	@test -n "$(OLD)" -a -n "$(NEW)" || { echo "usage: make diff OLD=<dir> NEW=<dir>" >&2; exit 2; }
 	uv run --locked python -m homeroom.diff --old $(OLD) --new $(NEW) $(if $(FORMAT),--format $(FORMAT),)
+
+# The artifacts as a citable dataset release: schools.csv where every measure is a
+# state and a value, a Table Schema, one JSON record per school, and a manifest of
+# SHA-256 digests, plus the whole directory as a deterministic tar.gz.
+#
+# Not part of `make verify`: it reads an output, it does not gate one. And not a CI
+# job either -- `data/raw/` is in .gitignore and never reaches a runner, so the real
+# dataset can only be built on the machine that acquired the files. Uploading it to a
+# release is a step the owner takes.
+#
+# Refuses a fixture build unless asked: `make dataset ALLOW_FIXTURE=1`.
+DATASET_OUT ?= dist/dataset
+ALLOW_FIXTURE ?=
+dataset:
+	uv run --locked python -m homeroom.export --artifacts data/out --out $(DATASET_OUT) $(if $(ALLOW_FIXTURE),--allow-fixture,)
 
 # The school Homeroom renders from acquired data (ROADMAP M4: one real school,
 # both languages). Override to render another, or drop --cds to render them all:
