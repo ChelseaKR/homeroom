@@ -30,6 +30,7 @@ sample rows must never be mistakable for one about a real school.
 | `make site-offline` | The school pages, from committed fixtures. |
 | `make data-offline` | The same pipeline's JSON artifacts (`data/out/`), from the same fixtures. |
 | `make explain CDS=<code>` | One school's record from `data/out/`: every cell's state, its unit, and the CDE file and year it came from. A withheld or unreported cell carries no number — the `value` key is absent, not zero and not null. This is what a reporter cites. |
+| `make diff OLD=<dir> NEW=<dir>` | What changed between two publishes, by school and by cell state, over the artifacts rather than the 23,310-file markup diff. A cell that went from a number to withheld is its own event, never a value that changed to nothing; a source nobody supplied is one event, not thousands. |
 | `make site` | The pages for a real school. Needs the CDE extracts in `data/raw/`, which are not in git — PROVENANCE.md names each file and how to acquire it. |
 | `make publish` | Rebuilds the committed `site/` tree that is served at the live URL. Needs `data/raw/` and `ASK_ENDPOINT`. Renders into `build/publish-site/` and replaces `site/` only once that tree is inside the limits its deploy is subject to. |
 | `make publish-limits` | Weighs `site/` against those limits and prints what it weighs. `make publish` runs it over what it has just rendered. |

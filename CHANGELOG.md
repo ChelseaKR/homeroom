@@ -8,6 +8,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A publish was a 23,310-file diff of markup** (2026-09-07, issue #84). The event
+  this project must never ship unnoticed is a state flip on a real school's page --
+  a figure that was published and is now withheld, or the reverse -- and a git diff
+  of HTML buries it among reflowed tags. `python -m homeroom.diff --old <dir> --new
+  <dir>` (or `make diff OLD=... NEW=...`) compares the `data/out` artifacts instead,
+  where the states are the data. JSON or Markdown.
+
+  Four ways a diff of this kind normally misleads, each refused.
+
+  **"Value changed to nothing" is not a change of value.** Every transition between
+  the four rendered states is named, so `withheld -> number` cannot be lumped in with
+  `number -> number` as "changed", and a number is carried into an event only from a
+  side that actually published one.
+
+  **A source nobody supplied is one event, not thousands.** A build run without
+  `--assignments` has no teacher-assignment cells at all. Reported cell by cell that
+  is every school's worth of "withheld -> nothing", which reads as CDE withdrawing a
+  dataset. It is not: nobody opened the file. One `source_unsupplied` event per
+  block, carrying the number of per-cell events it is suppressing, so the
+  suppression is a stated fact rather than a silent one.
+
+  **A school that appears or disappears is stated, never inferred.** A CDS on one
+  side only is one `school_added` or `school_removed` event; diffing its cells
+  against a school that is not there would report every cell as a change and none of
+  them would be one. A school entry with no `cds_code` is refused rather than matched
+  by position, because two files' nth entries are not the same school.
+
+  **A fixture run and an acquired run are refused, not diffed.** `coverage.json` says
+  which each side is, and the report otherwise would be a very large list of changes
+  to real schools that describes nothing that happened to them.
+
+  The Markdown never prints a bare blank where a number is absent -- a blank cell in
+  a table of numbers reads as a zero -- and prints the state's own word instead.
+
 - **A page a reporter can read but not cite** (2026-09-07, issue #92). 21,069
   school pages and no machine-readable statement of what any one of them says.
   `python -m homeroom.explain --cds <code>` (or `make explain CDS=<code>`) prints
