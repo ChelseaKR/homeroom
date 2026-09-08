@@ -31,6 +31,7 @@ sample rows must never be mistakable for one about a real school.
 | `make data-offline` | The same pipeline's JSON artifacts (`data/out/`), from the same fixtures. |
 | `make explain CDS=<code>` | One school's record from `data/out/`: every cell's state, its unit, and the CDE file and year it came from. A withheld or unreported cell carries no number — the `value` key is absent, not zero and not null. This is what a reporter cites. |
 | `make diff OLD=<dir> NEW=<dir>` | What changed between two publishes, by school and by cell state, over the artifacts rather than the 23,310-file markup diff. A cell that went from a number to withheld is its own event, never a value that changed to nothing; a source nobody supplied is one event, not thousands. |
+| `make dataset` | The artifacts as a citable dataset release under `dist/dataset/`: `schools.csv` where every measure is a **state column and a value column**, a Table Schema generated from the same header, one JSON record per school, and a `manifest.json` of SHA-256 digests — plus the whole directory as a byte-reproducible `.tar.gz`. Refuses a fixture build unless asked (`ALLOW_FIXTURE=1`). |
 | `make site` | The pages for a real school. Needs the CDE extracts in `data/raw/`, which are not in git — PROVENANCE.md names each file and how to acquire it. |
 | `make publish` | Rebuilds the committed `site/` tree that is served at the live URL. Needs `data/raw/` and `ASK_ENDPOINT`. Renders into `build/publish-site/` and replaces `site/` only once that tree is inside the limits its deploy is subject to. |
 | `make publish-limits` | Weighs `site/` against those limits and prints what it weighs. `make publish` runs it over what it has just rendered. |
@@ -91,6 +92,56 @@ reaches a package index or an advisory database at `uv sync`, `npm ci`, `pip-aud
 `npm audit`, and the pinned `uvx` runs of semgrep and zizmor. What never crosses the
 network is the data. This mirrors the Afterward project's
 answer to the same provenance problem with federal endpoints.
+
+## The dataset release
+
+The pages are for families. The dataset is for the readers who check them, and it
+carries the same rule: **no blank means anything.** Every measure in `schools.csv` is
+two columns —
+
+| column | value |
+|---|---|
+| `grades.GR_03__state` | `reported`, `zero`, `suppressed` or `not_reported`, never empty |
+| `grades.GR_03__value` | the number CDE published, filled **exactly when** the state is `reported` or `zero` |
+
+so a blank value cell cannot be read as a zero: the word beside it says which of the two
+absences it is. Those are the four cells the school pages render, mapped through one
+table, so the CSV cannot come to say something different from the markup. A published
+zero is `zero`, not `reported`, for the same reason the page labels it in words.
+
+`make dataset` writes `schools.csv`, `schools.schema.json` (a Frictionless Table Schema
+generated in the same pass as the header, so a column cannot exist without a
+declaration), one `schools/<cds>.json` per school — byte-for-byte what `make explain`
+prints, from the same function — `coverage.json` verbatim, and `manifest.json` listing
+every file with its size and SHA-256. The whole directory is packed as
+`homeroom-dataset-<date>.tar.gz`, and two runs over one set of artifacts produce the
+same bytes and the same digest: members sorted, every mtime, uid and gid zeroed, and
+gzip's own timestamp zeroed too. A citable dataset whose digest moves is not citable.
+
+The `<date>` is the **latest access date in `coverage.json`** — when the files were
+taken from CDE, which is the dataset's identity. Never a build clock, which would give
+two names to one dataset. A fixture build has no access date at all and is named
+`homeroom-dataset-fixture`; a made-up vintage on a file is worse than no vintage.
+
+It refuses rather than publishes: a fixture build without `ALLOW_FIXTURE=1`, artifacts
+that do not state `is_fixture` as a boolean, a row count that is not exactly the
+`profiles` figure the build recorded (a truncated dataset presenting itself as a
+complete one), a school with no CDS code or a duplicated one, and schools that disagree
+about which measures they carry.
+
+**Citing it.** Cite the tarball's file name and its SHA-256, both of which the manifest
+carries, together with the acquired file names, academic years and access dates it
+copies from `coverage.json`. A figure cited from this dataset should be quoted with its
+state: "23 students (`reported`)" and "withheld under CDE's small-cell rule
+(`suppressed`)" are different claims, and "no figure was published" (`not_reported`) is
+a third. Counts are what California published, not what is true of a school.
+
+`make dataset` is not a CI job and cannot be one: `data/raw/` is in `.gitignore` and
+never reaches a runner, so the real dataset is built on the machine that acquired the
+files. Uploading it to a release is a step the owner takes.
+
+None of this touches `site/`. The dataset travels in a release, not on Pages, which is
+why it can be built while the published tree is at 86.8% of its 1 GB ceiling.
 
 ## Status
 
