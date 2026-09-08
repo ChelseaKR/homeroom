@@ -31,6 +31,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from homeroom.profiles import (
     ABSENTEEISM_CATEGORY_NAMES,
     ABSENTEEISM_SUBGROUP_CODES,
@@ -197,31 +199,120 @@ def test_the_documents_do_not_share_one_denominator_between_categories() -> None
     assert rows["GX"][0] != rows["RI"][0], rows
 
 
+def coverage_rows(measure: dict) -> dict[str, dict]:
+    """`coverage.json`'s counts, keyed the way the showcase table keys them.
+
+    `TA` is the whole-school row and lives at `total`, not among `subgroups`.
+    The comparison below used to be `if code not in live: continue`, so `TA`
+    was silently dropped: the check was 7 of 8 rows on its best day.
+    """
+    rows = dict(measure["subgroups"])
+    rows["TA"] = measure["total"]
+    return rows
+
+
+def showcase_disagreements(rows: dict, measure: dict) -> list[str]:
+    """Every way the committed table and a coverage measure disagree.
+
+    Split out of the test below so the comparison itself is exercised on every
+    machine, by `test_the_showcase_comparison_can_tell_agreement_from_drift`.
+    The test that reads the real artifact can only run where the acquired files
+    are; this function is the part that must be known to work when it does.
+    """
+    live = coverage_rows(measure)
+    problems = []
+    for code, (with_row, published, withheld, _) in rows.items():
+        if code not in live:
+            problems.append(f"{code}: the showcase publishes a row coverage.json has no counts for")
+            continue
+        if live[code]["reported"] != published:
+            problems.append(f"{code}: showcase publishes {published}, coverage.json {live[code]['reported']}")
+        if live[code]["suppressed"] != withheld:
+            problems.append(f"{code}: showcase withholds {withheld}, coverage.json {live[code]['suppressed']}")
+        if live[code]["reported"] + live[code]["suppressed"] != with_row:
+            problems.append(
+                f"{code}: showcase denominator {with_row}, coverage.json "
+                f"{live[code]['reported'] + live[code]['suppressed']}"
+            )
+    ranked = {
+        code: value["suppressed"] / (value["reported"] + value["suppressed"])
+        for code, value in measure["subgroups"].items()
+        if value["reported"] + value["suppressed"]
+    }
+    if ranked:
+        worst = max(ranked, key=lambda code: ranked[code])
+        if worst != most_withheld()[0]:
+            problems.append(
+                f"most-withheld subgroup: documents say {most_withheld()[0]}, coverage.json says {worst}"
+            )
+    return problems
+
+
+def test_the_showcase_comparison_can_tell_agreement_from_drift() -> None:
+    """The comparison above, exercised everywhere, on a measure built from the table.
+
+    `test_the_showcase_table_matches_coverage_json_where_it_can_be_read` needs
+    the acquired files, and this repository's own numbers say how rare that is:
+    it examined 0 of 8 rows in CI (no `data/out/`) and 0 of 8 here as well,
+    because the local `coverage.json` carries `is_fixture: true` and the second
+    guard returns on it. A bare `return` reports as PASSED, so the module
+    docstring's "checked three ways" had a third way that has never run
+    anywhere. The skips are now visible, and the arithmetic is covered here.
+    """
+    rows = showcase_table()
+    agreeing = {
+        "subgroups": {
+            code: {"reported": published, "suppressed": withheld}
+            for code, (_, published, withheld, _) in rows.items()
+            if code != "TA"
+        },
+        "total": {"reported": rows["TA"][1], "suppressed": rows["TA"][2]},
+    }
+    assert showcase_disagreements(rows, agreeing) == []
+
+    # And it must be able to fail. One count off by one, on the row that the
+    # old `if code not in live: continue` could never have reached.
+    drifted = json.loads(json.dumps(agreeing))
+    drifted["total"]["suppressed"] += 1
+    found = showcase_disagreements(rows, drifted)
+    assert any(problem.startswith("TA:") for problem in found), found
+
+    # A subgroup row too, so the TA wiring is not the only thing proven.
+    drifted = json.loads(json.dumps(agreeing))
+    drifted["subgroups"]["GX"]["reported"] += 1
+    found = showcase_disagreements(rows, drifted)
+    assert any(problem.startswith("GX:") for problem in found), found
+
+
 def test_the_showcase_table_matches_coverage_json_where_it_can_be_read() -> None:
     """The committed table against the artifact, on a machine that has the files.
 
     CI has neither `data/raw/` nor `data/out/`, so this cannot be the only check
     and is not: everything above runs everywhere. This one runs where the
     acquired files are, which is where the table is edited.
+
+    Both guards were bare `return`s until 2026-09-08, which pytest reports as a
+    PASS -- so the run said this check had held when it had compared nothing.
+    They are skips now, and they name the row count they did not compare.
     """
     if not COVERAGE.is_file():
-        return
+        pytest.skip(
+            f"{COVERAGE.relative_to(ROOT)} is absent, so 0 of "
+            f"{len(showcase_table())} showcase rows were compared"
+        )
     coverage = json.loads(COVERAGE.read_text(encoding="utf-8"))
     if coverage.get("is_fixture", True):
-        return
-    live = coverage["measures"]["chronic_absenteeism"]["subgroups"]
-    for code, (with_row, published, withheld, _) in showcase_table().items():
-        if code not in live:
-            continue
-        assert live[code]["reported"] == published, (code, live[code])
-        assert live[code]["suppressed"] == withheld, (code, live[code])
-        assert live[code]["reported"] + live[code]["suppressed"] == with_row, code
-    ranked = {
-        code: value["suppressed"] / (value["reported"] + value["suppressed"])
-        for code, value in live.items()
-        if value["reported"] + value["suppressed"]
-    }
-    assert max(ranked, key=lambda code: ranked[code]) == most_withheld()[0], ranked
+        pytest.skip(
+            f"{COVERAGE.relative_to(ROOT)} is the fixture rather than an acquired run, "
+            f"so 0 of {len(showcase_table())} showcase rows were compared"
+        )
+    rows = showcase_table()
+    measure = coverage["measures"]["chronic_absenteeism"]
+    assert set(rows) <= set(coverage_rows(measure)), (
+        "the showcase publishes rows coverage.json cannot answer for: "
+        f"{sorted(set(rows) - set(coverage_rows(measure)))}"
+    )
+    assert showcase_disagreements(rows, measure) == []
 
 
 # The "scale this matters at" table, two columns wide. `SHOWCASE_ROW` needs four
