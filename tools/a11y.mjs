@@ -108,6 +108,75 @@ if (!dir) {
   process.exit(2);
 }
 
+// How one page's axe result becomes findings. Extracted so the self-test below can
+// exercise it without a DOM, and so the two lists are classified in one place rather
+// than at two call sites that can drift apart.
+//
+//   violations  -> always a finding, DECLARED OR NOT. A rule that returned a violation
+//                  is a rule that ran.
+//   incomplete  -> a finding only when the rule is NOT declared undecidable here.
+//                  Declared, it is counted and printed but does not fail.
+function classify(results) {
+  return {
+    violations: results.violations,
+    undeclared: results.incomplete
+      .map((entry) => entry.id)
+      .filter((id) => !UNDETERMINED_UNDER_JSDOM.has(id)),
+  };
+}
+
+// Run on every invocation, because a suppression that has quietly widened prints the
+// same green line as one that never fired. Costs nothing; it is four objects.
+//
+// The second case is the one this exists for: until 2026-09-08 the violations list was
+// filtered by UNDETERMINED_UNDER_JSDOM too, so a real, DECIDED violation of a declared
+// rule was dropped and the page printed `ok`.
+function selfTest() {
+  const declared = [...UNDETERMINED_UNDER_JSDOM.keys()][0];
+  const cases = [
+    [
+      "an undeclared violation fails",
+      { violations: [{ id: "image-alt" }], incomplete: [] },
+      1,
+      0,
+    ],
+    [
+      "a violation of a DECLARED rule still fails",
+      { violations: [{ id: declared }], incomplete: [] },
+      1,
+      0,
+    ],
+    [
+      "an undeclared undetermined rule fails",
+      { violations: [], incomplete: [{ id: "image-alt" }] },
+      0,
+      1,
+    ],
+    [
+      "a declared undetermined rule does not fail",
+      { violations: [], incomplete: [{ id: declared }] },
+      0,
+      0,
+    ],
+  ];
+  for (const [what, results, expectedViolations, expectedUndeclared] of cases) {
+    const got = classify(results);
+    if (
+      got.violations.length !== expectedViolations ||
+      got.undeclared.length !== expectedUndeclared
+    ) {
+      console.error(
+        `self-test failed: ${what} \u2014 got ${got.violations.length} violation(s) and ` +
+          `${got.undeclared.length} undeclared undetermined rule(s), expected ` +
+          `${expectedViolations} and ${expectedUndeclared}`,
+      );
+      process.exit(2);
+    }
+  }
+}
+
+selfTest();
+
 const pages = readdirSync(dir)
   .filter((name) => name.endsWith(".html"))
   .sort();
@@ -140,11 +209,10 @@ for (const name of pages) {
 
   // Undetermined is not a pass. An undetermined rule nobody declared is a rule this
   // gate silently stopped checking, which is the failure the declaration exists for.
-  const undeclared = [];
   for (const entry of results.incomplete) {
     undetermined.set(entry.id, (undetermined.get(entry.id) ?? 0) + 1);
-    if (!UNDETERMINED_UNDER_JSDOM.has(entry.id)) undeclared.push(entry.id);
   }
+  const { undeclared } = classify(results);
 
   // The backstop for the two structural rules declared above.
   if (structure.main !== 1 || structure.h1 !== 1) {
@@ -153,9 +221,13 @@ for (const name of pages) {
     );
   }
 
-  const violations = results.violations.filter(
-    (v) => !UNDETERMINED_UNDER_JSDOM.has(v.id),
-  );
+  // `classify` does NOT filter violations by UNDETERMINED_UNDER_JSDOM. That map is a
+  // declaration about rules axe cannot DECIDE here, and until 2026-09-08 it was also
+  // applied to the list of rules axe HAD decided \u2014 so a real `color-contrast` or
+  // `target-size` violation would have been dropped and the page printed `ok`. A rule
+  // that returns a violation is a rule that ran; that it was expected to be
+  // undecidable makes the finding more interesting, not less, and the declaration stale.
+  const { violations } = classify(results);
   if (violations.length === 0 && undeclared.length === 0) {
     console.log(`ok   ${name}  (${TAGS.join(", ")})`);
     continue;
@@ -177,6 +249,13 @@ for (const name of pages) {
   console.error(`FAIL ${name}`);
   for (const v of violations) {
     console.error(`  [${v.impact}] ${v.id}: ${v.help}`);
+    if (UNDETERMINED_UNDER_JSDOM.has(v.id)) {
+      console.error(
+        `    NOTE: ${v.id} is declared in UNDETERMINED_UNDER_JSDOM as a rule axe ` +
+          "cannot decide here, and axe has just decided it. Fix the page, then remove " +
+          "the declaration \u2014 it is describing a gap that no longer exists.",
+      );
+    }
     console.error(`    ${v.helpUrl}`);
     for (const node of v.nodes.slice(0, 5)) {
       console.error(`    at ${node.target.join(" ")}`);
