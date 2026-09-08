@@ -19,6 +19,7 @@ import os
 import subprocess
 import sys
 import tarfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -317,11 +318,40 @@ def test_rows_are_one_per_school_sorted_by_cds_code(
 # ----------------------------------------------------------------------------------
 
 
+def test_the_gzip_header_carries_no_timestamp(
+    artifacts_dir: Path, tmp_path: Path
+) -> None:
+    """Bytes 4-8 of a gzip stream are an mtime, and by default they are the build clock.
+
+    This is asserted structurally rather than left to the byte-identity test below,
+    and the reason is measured: with ``mtime=0`` removed from ``GzipFile``, that test
+    stayed **green**, because both of its exports finished inside the same second and
+    gzip's timestamp has one-second resolution. A determinism test whose two runs
+    cannot straddle a clock tick is not testing the clock.
+    """
+    write_dataset(artifacts_dir, tmp_path, allow_fixture=True)
+    blob = (tmp_path / "homeroom-dataset-fixture.tar.gz").read_bytes()
+    assert blob[:2] == b"\x1f\x8b", (
+        "not a gzip stream; this assertion would prove nothing"
+    )
+    assert blob[4:8] == b"\x00\x00\x00\x00", "gzip's MTIME field holds the build clock"
+
+
 def test_two_exports_produce_byte_identical_files_and_tarballs(
     artifacts_dir: Path, tmp_path: Path
 ) -> None:
+    """Across a clock tick, deliberately.
+
+    Two exports in the same second are byte-identical for a reason that has nothing to
+    do with determinism -- see the gzip-header test above, where that is measured. The
+    wait is bounded by one second and is not a sleep of a fixed duration: it ends the
+    moment the whole-second clock moves.
+    """
     first, second = tmp_path / "a", tmp_path / "b"
     write_dataset(artifacts_dir, first, allow_fixture=True)
+    started = int(time.time())
+    while int(time.time()) == started:
+        time.sleep(0.05)
     write_dataset(artifacts_dir, second, allow_fixture=True)
     name = "homeroom-dataset-fixture"
     assert (first / f"{name}.tar.gz").read_bytes() == (
