@@ -152,6 +152,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Two gates reported a pass over a corpus they had not read** (2026-09-09,
+  issues #107 and #108). Neither was wrong about what it examined; both were
+  silent about how little that was, and their output over a corpus they had read
+  in full was identical to their output over one they had barely touched.
+
+  `tests/test_adr_citations.py` walked five hand-typed directory names, and the
+  repository root was not one of them. 52 ADR citations in nine tracked files
+  were therefore outside the walk -- ten of them in `README.md`, the document an
+  auditor opens first, which is the one place a citation pointing at an ADR that
+  does not exist does the most damage. The tell was `SKIP_FILES`, which named
+  `CHANGELOG.md`: a repository-root file the walk could never have reached, so
+  the entry had never skipped anything. The universe is now `git ls-files` minus
+  declared exclusions -- the published output directory, read out of the
+  Makefile's own `PUBLISH_DIR` rather than typed here, plus `docs/plans/` and the
+  two retrospective files -- and every exclusion is held to two rules: it must
+  name a file the derivation would otherwise reach, and it must be load-bearing,
+  re-read on every run and required to contain something one of the checks would
+  refuse. Both skipped files pass the second. 132 of 135 candidate files are now
+  walked and the two numbers are printed and carried in every failure message,
+  so a later narrowing is legible rather than silent.
+
+  `tests/test_ask_evals.py` skipped the body of its results check for any file
+  whose status is `not_run`, and everything the check exists for -- the
+  provenance fields, `bundle_is_fixture`, `bundle_schools`, `regressions` --
+  sits after that branch. Five of the ten committed results files are `not_run`,
+  because Bedrock has never authorised this account for the second model, so the
+  gate was verifying half the tree and reporting on all of it. It now counts
+  examined against examinable, prints the census and names every unexamined file
+  on every run, and refuses `0 of N`.
+
+  Both negative controls were run against unmodified `origin/main`. A citation of
+  a non-existent ADR planted in `README.md` leaves the old gate green across all
+  seven of its tests and turns exactly one of the new ones red, naming the file
+  and the number. Marking every results file `not_run` leaves the old results
+  check green -- four sibling tests do go red, but all four are cross-checks
+  holding the published documents to figures the run recorded, so they report a
+  documentation disagreement rather than an unevaluated ask layer; the new check
+  fails on its own terms with `examined 0 of 10`.
+
 - **`make publish` deleted the site being served before it knew whether the
   replacement could be deployed** (2026-09-06). The recipe opened with
   `rm -rf site` and then spent about a quarter of an hour rendering into the
