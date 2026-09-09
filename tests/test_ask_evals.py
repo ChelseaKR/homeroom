@@ -131,12 +131,25 @@ def test_every_results_file_either_ran_with_provenance_or_says_not_run() -> None
     Results live one directory per model. Every directory carries every suite,
     each either a recorded run with full provenance naming that same model, or
     an honest ``not_run`` with a reason. No loose files at the root.
+
+    Issue #108: everything this check exists for sits after the ``not_run``
+    branch, so a directory of honest ``not_run`` files walks straight past the
+    provenance rules, ``bundle_is_fixture``, ``bundle_schools`` and
+    ``regressions``. Five of the ten committed files are ``not_run`` today, and
+    until now the gate's output over those five was identical to its output over
+    five that passed. It now carries the two numbers -- how many files it
+    examined against how many it could have -- and refuses ``0 of N``, which is
+    a suite that has stopped being evaluated wearing a green tick.
     """
     dirs = result_dirs()
     assert dirs, "no per-model results directory"
     assert not list(RESULTS_DIR.glob("*.json")), "results belong under a model dir"
+    examinable = 0
+    examined = 0
+    unexamined: list[str] = []
     for directory in dirs:
         for suite in SUITES:
+            examinable += 1
             path = directory / f"{suite}.json"
             assert path.is_file(), (directory.name, suite)
             result = json.loads(path.read_text(encoding="utf-8"))
@@ -144,7 +157,13 @@ def test_every_results_file_either_ran_with_provenance_or_says_not_run() -> None
             if result["status"] == "not_run":
                 assert "summary" not in result and "cases" not in result
                 assert result["reason"]
+                reason = " ".join(str(result["reason"]).split())
+                unexamined.append(
+                    f"{directory.name}/{suite}: {reason[:90]}"
+                    + ("..." if len(reason) > 90 else "")
+                )
                 continue
+            examined += 1
             assert result["status"] == "run"
             provenance = result["provenance"]
             for field in PROVENANCE_FIELDS:
@@ -173,6 +192,21 @@ def test_every_results_file_either_ran_with_provenance_or_says_not_run() -> None
             # the suite failed. It could not fail, so it gated nothing. What the
             # file has to survive now is the same check the harness exits on.
             assert regressions(result) == [], (directory.name, suite)
+
+    census = (
+        f"ask-eval results gate: examined {examined} of {examinable} committed "
+        f"results files across {len(dirs)} model directories; "
+        f"{len(unexamined)} are not_run and were checked only for a reason string"
+    )
+    print(census)
+    for entry in sorted(unexamined):
+        print(f"  not_run  {entry}")
+    assert examined, (
+        f"{census}. Every rule this check exists for -- provenance, "
+        f"bundle_is_fixture, bundle_schools, regressions -- sits after the "
+        f"not_run branch, so 0 of {examinable} is a pass over nothing. Record a "
+        f"live run, or say in the issue that the ask layer is no longer evaluated."
+    )
 
 
 def recorded(
