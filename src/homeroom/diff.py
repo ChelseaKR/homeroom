@@ -53,6 +53,7 @@ from homeroom.explain import (
     SOURCE_OF_BLOCK,
     ExplainError,
     load_artifacts,
+    registered_blocks,
     rendered_state,
     walk_cells,
 )
@@ -154,6 +155,28 @@ def _school_events(
     return events
 
 
+def _blocks_across(
+    old_by_cds: dict[str, dict[str, Any]], new_by_cds: dict[str, dict[str, Any]]
+) -> tuple[str, ...]:
+    """Every measure block either side carries, discovered from the artifacts.
+
+    Issue #109. Reading ``SOURCE_OF_BLOCK`` here meant a block present in both
+    builds but absent from that dict produced **zero events**: no
+    ``source_supplied``, no per-cell transitions, no count in the summary. A
+    figure could flip from published to withheld for every school in California
+    and ``make diff`` would print nothing and exit 0.
+
+    :func:`homeroom.explain.registered_blocks` refuses an unregistered block, so
+    the failure is now a named error on both sides rather than a silent omission
+    from one report.
+    """
+    blocks: set[str] = set()
+    for by_cds in (old_by_cds, new_by_cds):
+        for school in by_cds.values():
+            blocks.update(registered_blocks(school))
+    return tuple(sorted(blocks))
+
+
 def _source_events(
     old_by_cds: dict[str, dict[str, Any]], new_by_cds: dict[str, dict[str, Any]]
 ) -> tuple[list[dict[str, Any]], set[str]]:
@@ -165,7 +188,7 @@ def _source_events(
     """
     events: list[dict[str, Any]] = []
     suppressed: set[str] = set()
-    for block in sorted(SOURCE_OF_BLOCK):
+    for block in _blocks_across(old_by_cds, new_by_cds):
         in_old = any(block in school for school in old_by_cds.values())
         in_new = any(block in school for school in new_by_cds.values())
         if in_old == in_new:
@@ -267,8 +290,9 @@ def diff(
     source_events, suppressed = _source_events(old_by_cds, new_by_cds)
     events += source_events
 
+    blocks = _blocks_across(old_by_cds, new_by_cds)
     for cds in sorted(set(old_by_cds) & set(new_by_cds)):
-        for block in sorted(SOURCE_OF_BLOCK):
+        for block in blocks:
             if block not in suppressed:
                 events += _block_events(cds, old_by_cds[cds], new_by_cds[cds], block)
 

@@ -30,6 +30,18 @@ record that presents itself as complete -- a subset published as the whole thing
 which is this project's own failure mode. A new block appears in ``explain`` the day
 it appears in the artifact.
 
+That paragraph was true of the *cells* and false of the *blocks* until issue #109.
+The walk was reached once per entry of ``SOURCE_OF_BLOCK``, five keys typed by hand
+and derived from nothing, so discovery began one level below the place a measure is
+actually added. A sixth block in ``schools.json`` was dropped from the record, from
+the citable dataset release and from ``make diff``, all three exiting 0 -- and the
+test written to catch exactly that summed *over the same hand-written list*, so both
+sides of its equality shrank together. The blocks are now discovered too, by
+:func:`measure_blocks`, and a block nobody registered is refused rather than
+skipped: a record that omits a measure while presenting itself as the whole school
+is the failure this file exists to prevent, and it must not be reachable by
+forgetting to edit a dict.
+
 **A fixture record says so, and an artifact that does not say is refused.** The
 ``is_fixture`` flag is read from ``coverage.json`` and required to be a real boolean.
 An absent flag is not ``False``: it is an artifact that does not state what it is,
@@ -58,6 +70,8 @@ __all__ = [
     "explain",
     "load_artifacts",
     "main",
+    "measure_blocks",
+    "registered_blocks",
     "rendered_state",
     "walk_cells",
 ]
@@ -157,6 +171,50 @@ def walk_cells(
     return found
 
 
+def measure_blocks(school: dict[str, Any]) -> tuple[str, ...]:
+    """The measure blocks this school entry actually carries, in key order.
+
+    A measure block is a top-level key whose subtree holds at least one cell, so
+    this is the same structural test :func:`walk_cells` applies one level down
+    rather than a second list to keep in step with it. The identity fields
+    (``cds_code``, ``name``, ``grades_served`` and the rest) carry no ``status``
+    anywhere beneath them and are not blocks.
+
+    A block present but *empty* is not reported, because there is no cell in it to
+    lose. That is the one case this cannot see, and it is the case where seeing it
+    would change nothing.
+    """
+    return tuple(key for key in sorted(school) if walk_cells(school[key], (key,)))
+
+
+def registered_blocks(school: dict[str, Any]) -> tuple[str, ...]:
+    """:func:`measure_blocks`, refusing any block no consumer knows about.
+
+    Issue #109. Every consumer of ``schools.json`` -- the record, the dataset
+    release, the manifest, ``measure_paths`` and ``make diff`` -- reads the blocks
+    through here, so a measure added to ``artifacts.py`` and not registered in
+    ``SOURCE_OF_BLOCK`` and ``CELL_UNITS`` fails loudly in all of them instead of
+    disappearing from all of them.
+
+    Refusing is the right direction and it is worth saying why. The alternative --
+    carry the block with its source and unit left blank -- publishes a figure whose
+    provenance nobody stated into a dataset whose entire argument is that every
+    figure carries its file, its year and its access date. There is no honest blank
+    for that, so the build stops and names the block.
+    """
+    blocks = measure_blocks(school)
+    unregistered = [block for block in blocks if block not in SOURCE_OF_BLOCK]
+    if unregistered:
+        raise ExplainError(
+            f"schools.json carries the measure block(s) {', '.join(unregistered)}, "
+            f"which nothing registers. Add each one to SOURCE_OF_BLOCK (which CDE "
+            f"file it came from) and to CELL_UNITS (what its figures are counted "
+            f"in). Until then the record, the dataset release and the diff would "
+            f"each omit it while presenting themselves as the whole school."
+        )
+    return blocks
+
+
 def load_artifacts(directory: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     """``schools.json`` and ``coverage.json`` from an artifacts directory.
 
@@ -216,13 +274,12 @@ def explain(
     record["is_fixture"] = is_fixture
 
     cells: list[dict[str, Any]] = []
-    for block in sorted(SOURCE_OF_BLOCK):
-        if block not in school:
-            # The block is absent because the source was not supplied to the build.
-            # `artifacts.py` omits it rather than emitting a school-shaped set of
-            # zeros, and this omits it for the same reason. `sources` below records
-            # the file as unsupplied, so the absence is stated, not implied.
-            continue
+    # Discovered from the entry, not enumerated from `SOURCE_OF_BLOCK` (issue #109).
+    # A block the school does not carry is simply not in this tuple: `artifacts.py`
+    # omits a block whose source was not supplied to the build rather than emitting
+    # a school-shaped set of zeros, and `sources` below records the file as
+    # unsupplied, so the absence is stated rather than implied.
+    for block in registered_blocks(school):
         source_key = SOURCE_OF_BLOCK[block]
         source = sources.get(source_key, {})
         for path, cell in walk_cells(school[block], (block,)):

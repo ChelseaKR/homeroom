@@ -19,6 +19,7 @@ from typing import Any
 import pytest
 
 from homeroom import artifacts
+from homeroom.diff import diff
 from homeroom.explain import (
     CELL_UNITS,
     PERCENT_UNITS,
@@ -27,8 +28,11 @@ from homeroom.explain import (
     explain,
     load_artifacts,
     main,
+    measure_blocks,
+    registered_blocks,
     rendered_state,
 )
+from homeroom.export import _cells_of
 from homeroom.measures import Measure
 from homeroom.render import _measure_cell
 
@@ -235,6 +239,64 @@ def test_every_measure_block_declares_a_unit_and_a_source() -> None:
         assert block in keys
 
 
+def test_every_measure_block_the_build_writes_is_registered(
+    loaded: tuple[dict[str, Any], dict[str, Any]],
+) -> None:
+    """The floor issue #109 asks for, and it reads the artifact rather than the list.
+
+    `test_every_measure_block_declares_a_unit_and_a_source` compares
+    `SOURCE_OF_BLOCK` with `CELL_UNITS` -- two hand-written dicts held to each other,
+    and neither ever held to what `artifacts.py` actually writes. A sixth block would
+    satisfy it by being in neither.
+
+    This walks every school the build produced and states the two numbers: how many
+    distinct measure blocks the artifact carries, and how many of them anything
+    knows the source of.
+    """
+    schools, _ = loaded
+    entries = schools["schools"]
+    assert entries, "the build produced no schools; this floor reads nothing"
+
+    discovered: set[str] = set()
+    for entry in entries:
+        discovered.update(measure_blocks(entry))
+    assert discovered, "no school carries a measure block; the walk found nothing"
+
+    unregistered = sorted(discovered - set(SOURCE_OF_BLOCK))
+    assert not unregistered, (
+        f"{len(discovered) - len(unregistered)} of {len(discovered)} measure blocks "
+        f"in schools.json are registered; {unregistered} are not, and would be "
+        f"dropped from the record, the dataset release and the diff."
+    )
+
+
+def test_a_measure_block_nobody_registered_is_refused_by_every_consumer(
+    loaded: tuple[dict[str, Any], dict[str, Any]],
+) -> None:
+    """Issue #109: a sixth block used to disappear from four places, all exiting 0.
+
+    The synthetic block is shaped exactly like a real one -- a dict of cells, each
+    with a ``status`` -- because that is what `artifacts.py` would write for a new
+    measure and it is what the walk has to notice.
+    """
+    schools, coverage = loaded
+    mutated = json.loads(json.dumps(schools))
+    for entry in mutated["schools"]:
+        entry["suspensions"] = {"total": {"status": "reported", "value": 3}}
+
+    school = next(s for s in mutated["schools"] if s["cds_code"] == EXAMPLE)
+    assert "suspensions" in measure_blocks(school)
+
+    with pytest.raises(ExplainError, match="suspensions"):
+        registered_blocks(school)
+    with pytest.raises(ExplainError, match="suspensions"):
+        explain(mutated, coverage, EXAMPLE)
+    with pytest.raises(ExplainError, match="suspensions"):
+        _cells_of(school)
+    with pytest.raises(ExplainError, match="suspensions"):
+        diff((schools, coverage), (mutated, coverage))
+
+
 def test_a_block_with_no_declared_unit_is_refused_rather_than_guessed(
     loaded: tuple[dict[str, Any], dict[str, Any]],
     monkeypatch: pytest.MonkeyPatch,
@@ -331,6 +393,13 @@ def test_every_cell_in_the_artifact_reaches_the_record(
 
     Enumerating the blocks by hand is how a record ends up describing a subset while
     presenting itself as the whole school.
+
+    Issue #109: this test used to do that itself. The sum was taken over
+    `SOURCE_OF_BLOCK` -- the same hand-written list `explain` iterated -- so an
+    unregistered block shrank **both** sides of the equality and the assertion held
+    by construction rather than by agreement. Measured on the fixture school: 74
+    cells in total and 74 in registered blocks, which is what made it look sound.
+    The count is now taken over the school entry with no list consulted at all.
     """
     schools, _ = loaded
     school = next(s for s in schools["schools"] if s["cds_code"] == EXAMPLE)
@@ -342,9 +411,8 @@ def test_every_cell_in_the_artifact_reaches_the_record(
             return sum(count(v) for v in node.values())
         return 0
 
-    in_artifact = sum(
-        count(school[block]) for block in SOURCE_OF_BLOCK if block in school
-    )
+    in_artifact = count(school)
+    assert in_artifact, "the fixture school carries no cells; this compares nothing"
     assert len(example_record["cells"]) == in_artifact
 
 
