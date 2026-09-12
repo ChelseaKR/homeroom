@@ -1979,3 +1979,41 @@ def test_the_roadmap_states_how_many_pages_the_accessibility_gate_reads() -> Non
     row = A11Y_ROW.search((ROOT / "docs" / "ROADMAP.md").read_text(encoding="utf-8"))
     assert row, "docs/ROADMAP.md no longer states how many pages the gate checks"
     assert int(row.group(1)) == pages, (row.group(1), pages)
+
+
+# ----------------------------------------------------------------------------------
+# What the accessibility gate is allowed to suppress
+# ----------------------------------------------------------------------------------
+
+
+def test_the_a11y_gate_does_not_suppress_a_violation_it_declared_undecidable() -> None:
+    """A declaration about what axe CANNOT decide must not filter what it DID decide.
+
+    `UNDETERMINED_UNDER_JSDOM` names the rules jsdom cannot run, so that an unrunnable
+    rule is reported rather than counted as a pass. Until 2026-09-08 the same map was
+    also applied to `results.violations`, so a real, decided violation of
+    `color-contrast`, `target-size`, `landmark-one-main` or `page-has-heading-one`
+    would have been dropped and the page printed `ok`.
+
+    Asserted on the source rather than by running the gate, because `make test` runs
+    before `make pages` in `verify-ci` and therefore before `npm ci`: a test that shelled
+    out to node would be a test that could not run in CI. The gate's own four-case
+    self-test (`selfTest()` below) is the check that executes the logic, and it runs on
+    every invocation.
+    """
+    checker = (ROOT / "tools" / "a11y.mjs").read_text(encoding="utf-8")
+    assert "results.violations.filter" not in checker, (
+        "tools/a11y.mjs filters the violations list again. A rule that returned a "
+        "violation is a rule that ran; only `incomplete` may be measured against "
+        "UNDETERMINED_UNDER_JSDOM."
+    )
+    assert "function classify(results)" in checker, (
+        "the single classification seam is gone, so the two result lists can be "
+        "treated differently at two call sites again"
+    )
+    assert "\nselfTest();\n" in checker, (
+        "tools/a11y.mjs no longer runs its classification self-test on every "
+        "invocation, so a suppression that widens prints the same green line"
+    )
+    # The self-test has to cover the case this defect was, or it is decoration.
+    assert "a violation of a DECLARED rule still fails" in checker

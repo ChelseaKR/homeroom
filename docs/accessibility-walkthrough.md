@@ -30,8 +30,15 @@ M4.
 
 What it cannot do is look at, or listen to, a page. `tools/a11y.mjs` runs in
 jsdom, which does no layout and paints no pixels: it says so in its own header,
-and it excludes `color-contrast` and `target-size` by name rather than letting
-an unrunnable rule report as a pass. No headless DOM decides whether a
+and it names every rule axe returns undetermined there — `color-contrast`,
+`target-size`, `landmark-one-main`, `page-has-heading-one` — rather than letting
+an unrunnable rule report as a pass. An undetermined rule that is not named
+fails the gate, and every run prints which rules were undetermined and on how
+many pages. (Until 2026-09-08 the gate read only axe's `violations` list, so an
+undetermined rule was dropped whether or not it was declared: `landmark-one-main`
+and `page-has-heading-one` were undetermined on all seventeen pages and appeared
+in no list anywhere. Both are now decided directly, on the same DOM axe was
+handed — exactly one `<main>` and one `<h1>` per page.) No headless DOM decides whether a
 seven-column table inside a horizontally scrolling region is usable on a phone,
 whether a focus ring is visible against the surface it lands on, whether a
 Spanish page is announced with Spanish phonemes, or whether "withheld to protect

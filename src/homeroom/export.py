@@ -206,17 +206,23 @@ def _cells_of(school: dict[str, Any]) -> dict[str, dict[str, Any]]:
     :mod:`homeroom.explain` and :mod:`homeroom.diff` use: three walks that disagreed
     about what counts as a cell would let this file omit exactly the figures the pages
     show, while presenting itself as the whole school.
+
+    Until issue #109 the sentence above was true of the cells and false of the
+    blocks: the walk was entered once per hand-written entry of ``SOURCE_OF_BLOCK``,
+    so a sixth measure block in ``schools.json`` was excluded from the release, the
+    manifest and ``measure_paths`` with ``make dataset`` exiting 0. Both levels are
+    discovered now, and :func:`homeroom.explain.registered_blocks` refuses a block
+    nobody registered rather than dropping it.
     """
-    from homeroom.explain import SOURCE_OF_BLOCK, walk_cells
+    from homeroom.explain import registered_blocks, walk_cells
 
     found: dict[str, dict[str, Any]] = {}
-    for block in sorted(SOURCE_OF_BLOCK):
-        if block not in school:
-            # The source was never supplied to the build, so `artifacts.py` omitted the
-            # block rather than emitting a school-shaped set of zeros. Omit it here for
-            # the same reason; `coverage.json` records the file as unsupplied, so the
-            # absence is stated in the release rather than implied by empty columns.
-            continue
+    # A block the school does not carry is absent from this tuple: the source was
+    # never supplied to the build, so `artifacts.py` omitted it rather than emitting
+    # a school-shaped set of zeros, and `coverage.json` records the file as
+    # unsupplied, so the absence is stated in the release rather than implied by
+    # empty columns.
+    for block in registered_blocks(school):
         for path, cell in walk_cells(school[block], (block,)):
             found[".".join(path)] = cell
     return found
