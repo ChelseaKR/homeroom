@@ -12,7 +12,8 @@ and this directory is what was applied.
 | Function URL | `https://vlbgna342rtuvkikbuwuwgosuu0jgvdp.lambda-url.us-west-2.on.aws/` |
 | Model | Bedrock `global.anthropic.claude-sonnet-4-6` |
 | Site origin | `https://homeroom.chelseakr.com` |
-| Alarm topic | `arn:aws:sns:us-west-2:014248889144:homeroom-ask-alarms` (**no subscriber yet**) |
+| Alarm topic | `arn:aws:sns:us-west-2:014248889144:homeroom-ask-alarms` (**still no subscriber**, re-measured 2026-09-12) |
+| Alarm relay | `.github/workflows/ask-alarm-relay.yml` -> a GitHub issue (needs the `ASK_ALARM_RELAY_ROLE_ARN` repository variable; see below) |
 
 Parameters as applied: `DeployFunction=true`, `SiteOrigin=https://homeroom.chelseakr.com`,
 `Provider=bedrock`, `Model=global.anthropic.claude-sonnet-4-6`,
@@ -165,9 +166,43 @@ S3 and read one school per request -- a small change to
 
 ## Still open
 
-- **Nobody is subscribed to the alarm topic.** The CloudWatch alarm at 400
-  daily invocations fires into `homeroom-ask-alarms` and reaches no one. An
-  address is the owner's to give; subscribing needs no stack change.
+- **Nobody is subscribed to the alarm topic.** Re-measured against the live
+  account on 2026-09-12: zero subscriptions, confirmed or pending, since the
+  stack was applied on 2026-08-22. The CloudWatch alarm at 400 daily
+  invocations fires into `homeroom-ask-alarms` and, on the SNS side, still
+  reaches no one. An address is the owner's to give; subscribing needs no stack
+  change.
+
+  What changed is that this is no longer the *only* path.
+  `.github/workflows/ask-alarm-relay.yml` reads the alarm's state and the
+  topic's subscriber count directly, once a day, and reports into a GitHub
+  issue -- a channel that needs no address and cannot be unsubscribed from by
+  accident. It reports the missing subscriber as a finding in its own right, so
+  this bullet stops depending on somebody remembering to re-check it.
+
+  Two owner steps switch it on, and until both are done the workflow fails
+  loudly every day rather than skipping quietly:
+
+  1. Add one parameter to your local `params.json` (it is gitignored, so it is
+     not in this diff) and redeploy:
+
+     ```json
+     { "ParameterKey": "AlarmRelayRepository", "ParameterValue": "ChelseaKR/homeroom" }
+     ```
+
+     That creates `AlarmRelayRole` -- a role whose entire policy is
+     `cloudwatch:DescribeAlarms` and `sns:GetTopicAttributes`, assumable only
+     from this repository's `main` branch. Leaving the parameter out creates no
+     role and no trust, which is the default on purpose: a default value here
+     would let a fork of this template hand read access to a repository its
+     deployer does not control.
+  2. Set the repository variable `ASK_ALARM_RELAY_ROLE_ARN` to the stack's
+     `AlarmRelayRoleArn` output (Settings > Secrets and variables > Actions >
+     Variables). It is a variable, not a secret: a role ARN is not a
+     credential, and OIDC means there is no long-lived key to store.
+
+  No GitHub token grant is needed. The workflow files the issue with the
+  built-in `GITHUB_TOKEN` under `issues: write`.
 - **No account budget.** Budgets are account-level and touch other projects, so
   this stack does not create one. At Bedrock Sonnet 4.6 list prices and the
   measured token counts (roughly 1.5k uncached input, 7.8k cached, 500 output
