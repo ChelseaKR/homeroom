@@ -117,6 +117,81 @@ def test_the_alarm_has_somewhere_to_fire() -> None:
     assert "AlarmActions: [!Ref AlarmTopic]" in uncommented(resource("InvocationAlarm"))
 
 
+def test_the_alarm_also_has_a_reader_that_needs_no_address() -> None:
+    """Somewhere to fire is not somewhere that reaches a person.
+
+    The topic above has had zero subscriptions since the stack was applied
+    (`README.md` in this directory, "Still open"; re-measured against the live
+    account 2026-09-12). `AlarmRelayRole` is what lets
+    `.github/workflows/ask-alarm-relay.yml` read the alarm's state and report
+    it into a GitHub issue instead, so the alarm has a destination that does
+    not depend on anyone having given an address.
+    """
+    role = uncommented(resource("AlarmRelayRole"))
+    assert "AWS::IAM::Role" in role
+    assert "oidc-provider/token.actions.githubusercontent.com" in role
+    assert "AlarmRelayRoleArn" in TEMPLATE.read_text(encoding="utf-8"), (
+        "the role's ARN must be an output, or nobody can wire the workflow to it"
+    )
+
+
+def test_the_relay_role_can_only_read_and_only_from_one_branch() -> None:
+    """A role that exists to read must not be able to do anything else.
+
+    Two independent failures are asserted, because they fail independently: a
+    policy that grew a write action, and a trust policy that stopped naming one
+    repository and one branch (which would let a pull request, or a fork,
+    assume it).
+    """
+    role = uncommented(resource("AlarmRelayRole"))
+    # The grants only. The trust policy legitimately names an IAM ARN (the OIDC
+    # provider), so scanning the whole role for "iam:" would fail on it.
+    grants = role.split("Policies:", 1)[1]
+
+    assert "Action: cloudwatch:DescribeAlarms" in grants
+    assert "Action: sns:GetTopicAttributes" in grants
+    for forbidden in (
+        "sns:Publish",
+        "sns:Subscribe",
+        "lambda:",
+        "s3:",
+        "bedrock:",
+        "iam:",
+        "logs:",
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:*",
+        "sns:*",
+        'Action: "*"',
+    ):
+        assert forbidden not in grants, f"the read-only relay role grants {forbidden}"
+
+    # cloudwatch:DescribeAlarms has no resource-level permissions, so its
+    # Resource is "*" and must be the ONLY one that is: the topic read is
+    # pinned to this stack's own topic.
+    assert grants.count('Resource: "*"') == 1
+    assert "Resource: !Ref AlarmTopic" in grants
+
+    trust = role.split("Policies:", 1)[0]
+    assert "repo:${AlarmRelayRepository}:ref:refs/heads/main" in trust
+    assert '"token.actions.githubusercontent.com:aud": sts.amazonaws.com' in trust
+
+
+def test_the_relay_role_is_not_created_without_a_repository_to_trust() -> None:
+    """An empty AlarmRelayRepository must create no role and no trust.
+
+    A default here would let a fork of this template hand read access to a
+    repository its deployer does not control, which is the same reasoning
+    `BedrockModelArns` carries for having no default.
+    """
+    body = TEMPLATE.read_text(encoding="utf-8")
+    assert 'RelayEnabled: !Not [!Equals [!Ref AlarmRelayRepository, ""]]' in body
+    assert "Condition: RelayEnabled" in uncommented(resource("AlarmRelayRole"))
+    params = body.split("Conditions:")[0]
+    block = params.split("  AlarmRelayRepository:")[1]
+    assert 'Default: ""' in block.split("\n\n")[0]
+
+
 def test_the_logs_expire() -> None:
     assert "RetentionInDays:" in resource("LogGroup")
 

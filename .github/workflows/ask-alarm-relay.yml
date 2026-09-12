@@ -1,0 +1,222 @@
+# Can the ask service's alarm reach a person?
+#
+# `deploy/ask/template.yaml` points the daily-invocation alarm at an SNS topic
+# and creates no subscription for it, and `deploy/ask/README.md` has carried
+# "Nobody is subscribed to the alarm topic" under "Still open" since the stack
+# was applied on 2026-08-22. Measured against the live account on 2026-09-12,
+# that is still exactly true: `homeroom-ask-alarms` has zero subscriptions,
+# confirmed or pending. The alarm has recorded its state faithfully for three
+# weeks and has never been able to tell anyone.
+#
+# The README's answer was "an address is the owner's to give". This is a
+# different answer, and it needs no address: read the alarm's state directly
+# and report it into a GitHub issue, where the source-freshness and
+# live-integrity findings already land. It does not replace an SNS subscriber
+# -- one is still worth adding -- but it fails independently of one, which is
+# the property that was missing.
+#
+# Like the live integrity sentinel and the source-freshness check, this reads
+# outside the repository, so it is NOT a required check and `make verify` does
+# not call it; tests/test_ci_parity.py holds ci.yml, not this file, to the
+# Makefile. The part of it that a merge gate CAN run -- everything that decides
+# what may be said -- is `tools/alarm_relay.py`, and tests/test_alarm_relay.py
+# runs in the normal suite.
+#
+# It creates and changes nothing in AWS: two read-only calls, through a role
+# whose entire policy is `cloudwatch:DescribeAlarms` and
+# `sns:GetTopicAttributes`.
+#
+# A run that cannot read is never a run that found nothing. Every failure below
+# exits non-zero with a reason, because a relay that reports success when it
+# could not look is the same defect it exists to remove, one layer up.
+name: ask alarm relay
+
+on:
+  schedule:
+    # Daily. The alarm's own period is 86400 seconds, so a finer cadence would
+    # re-read the same datapoint; 08:12 UTC is after the daily live-integrity
+    # read and before the working day here.
+    - cron: "12 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never cancel: a cancelled run is neither a finding nor a clean read, and
+  # this is a check whose silence has to mean "looked, nothing new".
+  group: ask-alarm-relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    name: The ask alarm's state, reported where it can be read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # OIDC into the stack's read-only AlarmRelayRole
+      issues: write # file and update the one relay issue
+    steps:
+      # Checked FIRST, and it fails rather than skipping. A notification path
+      # that quietly does nothing when its configuration is missing is the
+      # exact shape this workflow exists to remove; `if: vars.X != ''` here
+      # would rebuild it. An unset variable means the relay is not wired, and
+      # the run says so in red.
+      - name: The relay must be wired, or say that it is not
+        env:
+          ROLE_ARN: ${{ vars.ASK_ALARM_RELAY_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ROLE_ARN}" ]; then
+            echo "::error::repository variable ASK_ALARM_RELAY_ROLE_ARN is unset, so this relay cannot read the alarm and the ask alarm currently reaches nobody at all. Add AlarmRelayRepository=ChelseaKR/homeroom to params.json, redeploy deploy/ask/template.yaml, then set the variable to the stack's AlarmRelayRoleArn output. deploy/ask/README.md, 'Still open', has both steps."
+            exit 1
+          fi
+
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Assume the read-only relay role
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.ASK_ALARM_RELAY_ROLE_ARN }}
+          aws-region: us-west-2
+
+      # The account id is resolved here rather than written down in this public
+      # repository, and it is used only to address the API call: the report
+      # builder takes the topic NAME and drops the ARN.
+      - name: Read the alarm state and the topic's subscriber count
+        run: |
+          set -euo pipefail
+          aws cloudwatch describe-alarms --region us-west-2 \
+            --alarm-name-prefix homeroom-ask \
+            --output json > "${RUNNER_TEMP}/alarms.json"
+          account_id="$(aws sts get-caller-identity --query Account --output text)"
+          aws sns get-topic-attributes --region us-west-2 \
+            --topic-arn "arn:aws:sns:us-west-2:${account_id}:homeroom-ask-alarms" \
+            --output json > "${RUNNER_TEMP}/topic.json"
+
+      - name: Build the redacted report
+        id: report
+        run: |
+          set -uo pipefail
+          python3 tools/alarm_relay.py \
+            --alarms "${RUNNER_TEMP}/alarms.json" \
+            --topic "${RUNNER_TEMP}/topic.json" \
+            --out "${RUNNER_TEMP}/report.md"
+          echo "rc=$?" >> "${GITHUB_OUTPUT}"
+
+      # The exit code alone is not trusted, for the reason source-freshness
+      # gives: a crashed script also exits non-zero, and an issue opened from a
+      # crash would assert a finding on no evidence at all. The report has to
+      # carry the verdict, and the two have to agree.
+      - name: Decide what the exit code and the report actually say
+        id: verdict
+        env:
+          RC: ${{ steps.report.outputs.rc }}
+        run: |
+          set -euo pipefail
+          report="${RUNNER_TEMP}/report.md"
+          if [ ! -s "${report}" ]; then
+            echo "::error::the relay wrote no report, so this run is not evidence of anything"
+            exit 1
+          fi
+          cat "${report}" >> "${GITHUB_STEP_SUMMARY}"
+
+          if grep -q '<!-- alarm-relay-verdict: report -->' "${report}"; then
+            found=report
+          elif grep -q '<!-- alarm-relay-verdict: clear -->' "${report}"; then
+            found=clear
+          else
+            echo "::error::the report carries no verdict marker; treat this as the relay failing, not as a clean read"
+            exit 1
+          fi
+          echo "found=${found}" >> "${GITHUB_OUTPUT}"
+
+          case "${RC}:${found}" in
+            0:clear) echo "the alarm is quiet and its topic has a confirmed subscriber" ;;
+            1:report) echo "there is a finding; the issue step will record it" ;;
+            *)
+              echo "::error::the relay exited ${RC} and its report says '${found}': the two disagree, so this run is not evidence of anything"
+              exit 1 ;;
+          esac
+
+      - name: Open or update the one relay issue
+        if: steps.verdict.outputs.found == 'report'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # One issue, reused. A relay that files a duplicate every night trains
+          # its reader to close them unread, which has the same outcome as not
+          # having the relay. It is never closed here either: "the alarm
+          # cleared" and "a person knows the alarm cleared" are different facts,
+          # and only the second one is worth having.
+          title="The ask service alarm is not reaching a person"
+          {
+            cat "${RUNNER_TEMP}/report.md"
+            echo
+            echo "Read by [this run](${RUN_URL}) on $(date -u +%Y-%m-%d)."
+          } > "${RUNNER_TEMP}/issue.md"
+
+          existing="$(gh issue list --state open --label ask-alarm-relay \
+            --json number,title \
+            --jq "[.[] | select(.title == \"${title}\")] | .[0].number // empty")"
+
+          if [ -n "${existing}" ]; then
+            # The body is rewritten every run, which notifies nobody; a comment
+            # is added only when the state actually changed, so a condition
+            # standing for a month does not produce a month of comments.
+            previous="$(gh issue view "${existing}" --json body --jq '.body' \
+              | sed -n 's/.*<!-- alarm-relay-state: \(.*\) -->.*/\1/p' | head -n 1)"
+            current="$(sed -n 's/.*<!-- alarm-relay-state: \(.*\) -->.*/\1/p' "${RUNNER_TEMP}/report.md" | head -n 1)"
+            gh issue edit "${existing}" --body-file "${RUNNER_TEMP}/issue.md"
+            if [ "${previous}" != "${current}" ]; then
+              {
+                echo "State changed."
+                echo
+                echo "Was: \`${previous:-(no previous state recorded)}\`"
+                echo "Now: \`${current}\`"
+                echo
+                echo "The issue body has been updated to match. Relay run: ${RUN_URL}"
+              } > "${RUNNER_TEMP}/comment.md"
+              gh issue comment "${existing}" --body-file "${RUNNER_TEMP}/comment.md"
+            fi
+            echo "updated issue #${existing}" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            gh label create ask-alarm-relay \
+              --description "The ask service's CloudWatch alarm state, relayed here because its SNS topic reaches nobody" \
+              --color B60205 2>/dev/null || true
+            gh issue create --title "${title}" --label ask-alarm-relay \
+              --body-file "${RUNNER_TEMP}/issue.md"
+          fi
+
+          # Read the result back rather than trusting the exit codes above. A
+          # report that silently failed to land is precisely the defect this
+          # workflow removes.
+          open_now="$(gh issue list --state open --label ask-alarm-relay --json number --jq 'length')"
+          if [ "${open_now}" -lt 1 ]; then
+            echo "::error::there is a finding and no open relay issue exists"
+            exit 1
+          fi
+
+      # A red run is the second, weaker signal (GitHub emails the repository
+      # owner when a scheduled workflow on the default branch fails) and the
+      # only one available when the steps above could not run at all. Keeping
+      # the conclusion consistent with the finding means there is never a green
+      # run with an open finding behind it.
+      - name: Fail the run while there is a finding
+        if: steps.verdict.outputs.found == 'report'
+        run: |
+          echo "::error::the ask alarm relay has a finding — see the open 'ask-alarm-relay' issue"
+          exit 1

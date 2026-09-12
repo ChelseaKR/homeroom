@@ -81,10 +81,22 @@ Parameters:
     Type: Number
     Default: 400
     Description: Alarm when invocations in 24h exceed this (the daily cap).
+  AlarmRelayRepository:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    Description: >-
+      owner/repo whose GitHub Actions may READ this stack's alarm state
+      (.github/workflows/ask-alarm-relay.yml). Empty creates no role and no
+      trust. No default on purpose, for the same reason BedrockModelArns has
+      none: a default here would let a fork of this template hand read access
+      to a repository its deployer does not control. Set it to
+      ChelseaKR/homeroom in params.json.
 
 Conditions:
   UsesAnthropic: !Equals [!Ref Provider, anthropic]
   FunctionPhase: !Equals [!Ref DeployFunction, "true"]
+  RelayEnabled: !Not [!Equals [!Ref AlarmRelayRepository, ""]]
 
 Resources:
   CodeBucket:
@@ -110,6 +122,51 @@ Resources:
       # No subscription is created here: an alert address is the owner's to
       # give. Until one is subscribed, the alarm still records its state in
       # CloudWatch; subscribing later needs no stack change.
+      #
+      # Measured against the live account on 2026-09-12: still zero
+      # subscriptions, confirmed or pending, since the stack was applied on
+      # 2026-08-22. The alarm below has therefore never been able to reach a
+      # person. AlarmRelayRole is the answer to that which needs no address --
+      # it lets .github/workflows/ask-alarm-relay.yml READ the alarm's state
+      # and report it into a GitHub issue. An SNS subscriber is still worth
+      # adding; the two are independent and both can be wrong separately.
+
+  # Read-only. It can describe alarms and read one topic's attributes, and it
+  # can do nothing else -- no publish, no subscribe, no write of any kind, and
+  # no access to the function, the bucket, or Bedrock. cloudwatch:DescribeAlarms
+  # does not support resource-level permissions, so its Resource is "*"; that is
+  # an AWS limitation on a read action, not a widened grant.
+  AlarmRelayRole:
+    Type: AWS::IAM::Role
+    Condition: RelayEnabled
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-alarm-relay"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                "token.actions.githubusercontent.com:aud": sts.amazonaws.com
+              # Bound to one repository and one branch. A pull request, a fork,
+              # or any other ref cannot assume it, so a workflow change has to
+              # be merged before it can read anything.
+              StringLike:
+                "token.actions.githubusercontent.com:sub": !Sub "repo:${AlarmRelayRepository}:ref:refs/heads/main"
+      Policies:
+        - PolicyName: read-alarm-state
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: cloudwatch:DescribeAlarms
+                Resource: "*"
+              - Effect: Allow
+                Action: sns:GetTopicAttributes
+                Resource: !Ref AlarmTopic
   Role:
     Type: AWS::IAM::Role
     Condition: FunctionPhase
@@ -258,6 +315,12 @@ Outputs:
   AlarmTopicArn:
     Value: !Ref AlarmTopic
     Description: Subscribe an owner address to receive the daily-invocation alarm.
+  AlarmRelayRoleArn:
+    Condition: RelayEnabled
+    Value: !GetAtt AlarmRelayRole.Arn
+    Description: >-
+      Put this in the repository variable ASK_ALARM_RELAY_ROLE_ARN so
+      .github/workflows/ask-alarm-relay.yml can read the alarm's state.
   FunctionUrl:
     Condition: FunctionPhase
     Value: !GetAtt Url.FunctionUrl
