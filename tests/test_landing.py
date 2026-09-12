@@ -37,9 +37,11 @@ from tests.test_pages import (
     DIRECTORY,
     ENROLLMENT,
     FETCHING_ATTRIBUTES,
+    LINK_RELATIONS,
     NUMBER,
     SCHOOLS,
     SUBRESOURCE_TAGS,
+    assert_one_resolvable_stylesheet,
     parse,
     parse_markup,
 )
@@ -197,17 +199,28 @@ def test_the_landing_page_carries_the_two_notices_every_page_carries(
         assert text(locale, "footer_no_ranking") in markup, locale
 
 
-def test_the_landing_page_carries_no_script_and_reaches_nowhere(index: Path) -> None:
+def test_the_landing_page_carries_no_script_and_reaches_nowhere(
+    built: Path, index: Path
+) -> None:
+    """The front door reaches exactly one file, and this build wrote it.
+
+    It stopped carrying its stylesheet inline on 2026-09-07. What replaced the
+    "exactly one `<style>`" assertion is stricter about the thing that matters:
+    the one resource this page names has to resolve to a file in the tree, so a
+    front door pointing at a stylesheet that is not published fails here rather
+    than rendering unstyled for every reader who arrives first at the site.
+    """
     source = index.read_text(encoding="utf-8")
     document = parse_markup(source)
-    styles = [attr for tag, attr in document.elements if tag == "style"]
-    assert len(styles) == 1
-    assert "--surface" in source
+    assert not [tag for tag, _ in document.elements if tag == "style"]
+    assert_one_resolvable_stylesheet(built, index, document)
     for tag, attr in document.elements:
         assert tag not in SUBRESOURCE_TAGS, tag
         for name in attr:
             assert name not in FETCHING_ATTRIBUTES, (tag, name)
             assert not name.startswith("on"), (tag, name)
+        if tag == "link":
+            assert attr.get("rel") in LINK_RELATIONS, attr
     for smell in ("@import", "url(", "javascript:", "<script"):
         assert smell not in source.lower(), smell
 

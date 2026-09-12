@@ -187,7 +187,20 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
   the Spanish page is an afterthought.
 - Commitments: WCAG 2.2 AA on every page in both languages, semantic HTML with
   real landmarks and real table headers, no reliance on colour alone, no script
-  and no external asset, and equal capability in both languages.
+  and nothing fetched off this origin, and equal capability in both languages.
+  (Restated 2026-09-07: "no external asset" said what was true when every page
+  carried its stylesheet inline. The school, county, district and landing pages
+  now link one same-origin file this build wrote, `homeroom.css`. The commitment
+  the phrase was protecting -- that a family reading about their own child's
+  school fetches nothing from anyone but this site, and that no font, image, CDN
+  or beacon appears on any page -- is unchanged and is checked by
+  `tests/test_pages.py`, which now also refuses an `@import` or a `url()` inside
+  the stylesheet file itself. The *accessibility* consequence is the new one and
+  is why this is restated here rather than only in the README: a linked
+  stylesheet can fail to arrive, so a reader can be served the markup unstyled.
+  That costs the visual separation of the four cell states and not the factual
+  one, because each state is worded as well as coloured -- which is the
+  no-reliance-on-colour commitment two lines up, now doing a second job.)
 - Enforcement:
   - AUTO (in place): `make pages`, inside `make verify` and merge-blocking in CI,
     builds the pages from committed fixtures and runs `html-validate` (with

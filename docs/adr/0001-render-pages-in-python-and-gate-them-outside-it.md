@@ -43,6 +43,29 @@ toolchain lives outside the product and never ships in it.
 - **The pages carry no script, no external stylesheet, no font, and no image.**
   The stylesheet is inlined and the palettes are Python dictionaries, which is
   what lets a test measure WCAG contrast without a browser.
+  (**Amended 2026-09-07**, and unlike the note on "No deployment" below this one
+  does change the bullet it sits under: the stylesheet is no longer inlined on
+  the school, county, district and landing pages. It was 5,061 bytes on each of
+  21,068 school pages and 5,169 on each of 2,234 browse pages — 118,190,092
+  bytes, 13.62% of `site/`, measured over the published tree — and the byte
+  budget in `src/homeroom/publish_limits.py` had become the thing deciding what
+  Homeroom may publish at all. Those pages now link one file the same build
+  wrote, `homeroom.css`, at the root of the site.
+  Three parts of the bullet are unchanged and are load-bearing: **no font, no
+  image and no third party** — the linked file is same-origin, written by this
+  build, and `tests/test_pages.py` fails on an `@import` or a `url()` inside it;
+  and **the palettes stay Python dictionaries**, so the contrast tests still
+  measure them without a browser. What did change is that a page now makes one
+  request it did not make before, and can be served before its stylesheet
+  arrives. That is safe only because the four cell states are separated by words
+  as well as colour — a withheld figure reads "withheld to protect privacy" and
+  never a digit — so an unstyled page is less legible and not less true;
+  `test_a_page_whose_stylesheet_never_arrives_still_tells_the_truth` asserts it
+  rather than trusting it.
+  **The ask pages are excluded and stay inline.** `tools/ask-optin.mjs` proves an
+  ask page issues no request until a question is submitted, and a linked
+  stylesheet is a request on load, so the saving that is right for the other four
+  page kinds is exactly wrong for that one. Issue #95 carries the measurements.)
 - **Strings live in typed Python dictionaries** (`src/homeroom/i18n.py`), keyed by
   locale, not in gettext or ICU catalogs. A missing key raises instead of falling
   back to English, and the parity gate in `tests/test_i18n.py` fails on a key
