@@ -225,10 +225,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   8.30.1 and checks it against the checksum file published with the release before
   running it, and is a no-op on a machine that already has gitleaks.
 
-  `timeout-minutes` goes 15 to 60. Measured locally on 2026-09-13, 10 cores: 199
-  commits across all refs, 24 of them merges, 175 non-merge commits scanned, 874.22
-  MB in 3m26s of wall time and 973s of CPU. A timeout under a job's runtime reads as
-  `cancelled` rather than `failed`.
+  `timeout-minutes` stays 15, which was never a measured number while the job read
+  one commit and finished in under a second. It is one now: the first full-history
+  run on this PR read 873 MB across 129 commits in 31.2s, a 41-second job, and the
+  same walk takes 3m26s locally on 10 cores (874.22 MB, 973s of CPU, 175 non-merge
+  commits of 199 across all refs). The comment at the line says so, and says to
+  revisit if the history grows an order of magnitude -- a timeout under a job's
+  runtime reads as `cancelled` rather than `failed`.
 
   Negative-controlled in a throwaway clone with its remote removed: a random,
   real-shaped AWS key planted in one commit and deleted in the next left

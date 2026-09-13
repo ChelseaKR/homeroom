@@ -25,9 +25,11 @@ kept, as the necessary precondition it actually is and nothing more.
 
 `make secret-scan-history` runs `gitleaks git .` with no `--log-opts`. With no
 range, gitleaks walks `git log -p --full-history --all`: every commit on every
-ref the checkout has, on every event. Measured here on 2026-09-13, that is 199
+ref the checkout has, on every event. Measured locally on 2026-09-13, that is 199
 commits across all refs, 24 of them merges, and gitleaks reported exactly the 175
-non-merge commits -- 874.22 MB in 3m26s. It is the same history pass
+non-merge commits -- 874.22 MB in 3m26s. On the runner, where the ref set is
+narrower, the first such run read 873 MB across 129 commits. It is the same
+history pass
 `make secret-scan` has always run locally, so CI and the local gate now run the
 same command instead of two different ones.
 

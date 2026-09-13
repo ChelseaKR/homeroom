@@ -84,13 +84,17 @@ jobs:
 
   secret-scan:
     runs-on: ubuntu-latest
-    # A full-history walk of this repository is not a 15-minute job. `site/`
-    # holds 21,069 published pages, so the patch volume is large even though
-    # `main` is only 138 commits. Measured locally on 2026-09-13, 10 cores:
-    # 874.22 MB read in 3m26s wall, 973s of CPU. This was 15, and a timeout
-    # under a job's runtime reads as `cancelled` rather than `failed`, which is
-    # easy to mistake for a flake.
-    timeout-minutes: 60
+    # 15 is unchanged, and now it is a checked number rather than an assumed
+    # one. This job used to read one commit and finish in under a second, so
+    # nothing here had been measured against a real scan. It has been:
+    # `site/` holds 21,069 published pages, so the patch volume is large even
+    # though `main` is only 138 commits, and the first full-history run on this
+    # runner read 873 MB across 129 commits in 31.2s (the whole job, 41s). The
+    # same walk takes 3m26s locally on 10 cores. 15 minutes is ~29x the measured
+    # cost; revisit it if the history grows by an order of magnitude, because a
+    # timeout under a job's runtime reads as `cancelled` rather than `failed`
+    # and is easy to mistake for a flake.
+    timeout-minutes: 15
     permissions:
       contents: read
     env:
