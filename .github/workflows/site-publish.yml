@@ -143,8 +143,8 @@ jobs:
           CACHING: public, max-age=300, s-maxage=86400
         # Six passes, written out rather than looped. A shell `for` loop exits
         # with only its last iteration's status and would swallow a failed
-        # upload in any earlier one -- the same reason `make secret-scan` runs
-        # its two scans as two commands.
+        # upload in any earlier one -- the same reason `make secret-scan` keeps
+        # its history pass and its working-tree pass as two separate targets.
         #
         # `--delete` is scoped by each pass's own filters, which apply to the
         # bucket listing as well as the local tree, so each pass removes the

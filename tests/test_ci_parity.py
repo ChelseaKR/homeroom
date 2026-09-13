@@ -28,6 +28,13 @@ setup or reporting action named in `SETUP_AND_REPORTING` or a gating action
 registered in `GATING_ACTIONS` against the make target that runs the same check
 locally. An unrecognised action fails the build that adds it.
 
+`GATING_ACTIONS` is empty as of 2026-09-13. Its one entry mapped
+`gitleaks/gitleaks-action` to `secret-scan` and asserted, by existing, that the
+two ran the same check. They did not: the action chose its scan range from the
+triggering event and read a single commit on a single-commit push. A registry
+entry is a claim of equivalence that nothing here can verify, so the job runs
+`make secret-scan-history` and is seen as a `run:` step instead.
+
 The workflow is read as text. `PyYAML` is not a dependency of this project, and
 `tests/test_deploy_template.py` already records the same trade for the same
 reason.
@@ -67,10 +74,18 @@ SETUP_AND_REPORTING = frozenset(
 )
 
 # Actions that are gates, mapped to the target that runs the same check locally.
-# `gitleaks/gitleaks-action` scans history; `make secret-scan` runs that pass and
-# a second one over the working tree, which is the superset the Makefile explains.
-# This is the registration an action-only job needs in order to be visible here.
-GATING_ACTIONS = {"gitleaks/gitleaks-action": "secret-scan"}
+# This registry is empty, and that is the fix rather than an omission. It held
+# one entry, `gitleaks/gitleaks-action` -> `secret-scan`, and the mapping was
+# wrong in the way a mapping can be: the action and the target did not run the
+# same check. `make secret-scan` walked every commit; the action chose its range
+# from the triggering event and degraded to `--log-opts=-1`, one commit, on the
+# single-commit push that every squash merge into `main` is. Registering an
+# action against a target asserts the two are equivalent, and nothing here could
+# check that they were. The `secret-scan` job runs `make secret-scan-history`
+# now, so it is visible to this file as a `run:` step like every other gate, and
+# there is no equivalence left to take on trust. The mechanism stays for the next
+# action-only gate; see `tests/test_secret_scan_reads_history.py`.
+GATING_ACTIONS: dict[str, str] = {}
 
 # A job header: two spaces of indent under `jobs:`, a name, a colon, nothing else.
 JOB_HEADER = re.compile(r"^  ([a-z][a-z0-9-]*):\s*$", re.M)
@@ -201,7 +216,7 @@ def test_verify_still_reaches_the_gates_that_used_to_be_ci_only() -> None:
 def test_the_workflow_is_read_as_jobs_and_steps_not_just_as_run_lines() -> None:
     """The floor under everything below: the parse has to see the whole file.
 
-    ci.yml has three jobs and eleven steps, only three of which are `run:`
+    ci.yml has three jobs and eleven steps, only four of which are `run:`
     lines. If this parse ever sees fewer jobs than the file has, every check
     below silently narrows.
     """
@@ -256,14 +271,20 @@ def test_every_ci_job_runs_something_the_local_gate_can_run() -> None:
 def test_the_secret_scan_job_is_the_one_this_gate_used_to_miss() -> None:
     """Named so that losing sight of it again fails here rather than nowhere.
 
-    The job runs a gitleaks action and no command. Under the old `run:`-only
-    parse it contributed nothing and was indistinguishable from not existing.
+    The job used to run a gitleaks action and no command. Under the old
+    `run:`-only parse it contributed nothing and was indistinguishable from not
+    existing; it was then made visible by registering the action in
+    `GATING_ACTIONS` against `secret-scan`. That registration claimed the two
+    ran the same check, and on 2026-09-13 they were measured and did not: the
+    action read one commit. The job runs `make secret-scan-history` now, which
+    is a `run:` step the original parse would have seen, so the claim is a
+    command this file can read rather than a mapping it has to be told.
     """
     block = ci_jobs()["secret-scan"]
-    assert not [c for c in RUN_STEP.findall(block) if c.strip()], (
-        "the secret-scan job now runs a command; check it calls a make target"
+    assert targets_a_job_runs(block) == {"secret-scan-history"}, (
+        "the secret-scan job must run `make secret-scan-history` and nothing "
+        "else; that target is the full-history walk `make verify` also reaches"
     )
-    assert targets_a_job_runs(block) == {"secret-scan"}
 
 
 # ----------------------------------------------------------------------------------
