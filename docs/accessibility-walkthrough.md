@@ -18,8 +18,9 @@ stops living only in prose.
 
 ## Why this is a document rather than a gate
 
-The automated half of this project's accessibility gate is real, wired, and
-merge-blocking, and it is not what this document is about. `make pages` builds
+The automated half of this project's accessibility gate is real and wired, and it
+is not what this document is about. (It fails the run rather than warning; it is
+not merge-blocking, because `main` requires no status check — RR-12.) `make pages` builds
 every page type from committed fixtures and runs `html-validate` and `axe-core`
 over the WCAG 2.0/2.1/2.2 A and AA rule sets plus best-practice, in both
 languages, on every built page; `tests/test_pages.py` measures colour contrast

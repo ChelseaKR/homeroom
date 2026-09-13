@@ -12,7 +12,8 @@ That last rule is the whole project, and it is the rule this document is about.
 
 **Nobody has ever listened to this site.**
 
-The automated half of the accessibility gate is real and merge-blocking. `make
+The automated half of the accessibility gate is real, and it fails the run rather
+than warning — though nothing on GitHub makes it block a merge (RR-12). `make
 pages` builds every page type from committed fixtures and runs `html-validate`
 and `axe-core` over WCAG 2.0/2.1/2.2 A and AA plus best-practice, in both
 languages, on every built page. `tests/test_pages.py` measures colour contrast
