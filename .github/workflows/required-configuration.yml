@@ -1,0 +1,70 @@
+# Are the repository variables the workflows need actually set?
+#
+# On 2026-09-12 #116 merged `ask-alarm-relay.yml`, which reads the ask service's
+# CloudWatch alarm through an OIDC role named by the repository variable
+# `ASK_ALARM_RELAY_ROLE_ARN`. Setting that variable needs a stack redeploy the
+# merge could not perform, so the workflow shipped unable to run and has failed
+# every night since in an eight-second run. It failed correctly and said exactly
+# what was missing. Nothing connected that to the merge that caused it.
+#
+# `site-publish.yml` is the same fact with the sound turned off: four variables,
+# none of them set, behind an `if:` that skips rather than fails -- deliberately,
+# and the comment there argues it well, since an unarmed deploy is not a broken
+# build. Every run of it has skipped. Unarmed and idle look identical from
+# outside.
+#
+# `make config-audit` holds the workflows to the declarations in
+# tools/config_audit.py and is part of the merge gate. It cannot check the half
+# that matters most -- whether the owner has actually set them -- because that
+# means reading repository settings, which a test cannot do and which a token
+# would have to be granted. `toJSON(vars)` renders exactly that, to a workflow,
+# with no token at all, so the reconciliation runs here.
+#
+# Like live-integrity.yml, source-freshness.yml and ask-alarm-relay.yml, this
+# reads state outside the repository, so it is NOT a required check and
+# `make verify` does not call it; tests/test_ci_parity.py holds ci.yml to the
+# Makefile, not this file. A red run here never means a bad commit. It means a
+# workflow in this repository cannot do its job, which is worth saying out loud
+# on the day it becomes true rather than on the morning somebody notices.
+name: required configuration
+
+on:
+  # On every push to main, so a merge that creates a requirement reports on that
+  # merge instead of at the next scheduled hour.
+  push:
+    branches: [main]
+  # And daily, because a variable can be deleted without any commit at all.
+  schedule:
+    - cron: "40 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never cancel. A cancelled run is not a clean read, and a check whose silence
+  # is supposed to mean "looked, everything is set" cannot afford one.
+  group: required-configuration
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Every variable the workflows need, against the ones that exist
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Read the declarations against the repository's variables
+        env:
+          # Every repository variable visible to this workflow, by name. No
+          # secret is in this context and none is wanted: the check reads names
+          # and emptiness, never a value, and prints neither.
+          REPO_VARIABLES: ${{ toJSON(vars) }}
+        run: uv run --locked python tools/config_audit.py --reconcile
