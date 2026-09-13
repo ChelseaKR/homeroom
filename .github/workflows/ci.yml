@@ -84,20 +84,47 @@ jobs:
 
   secret-scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A full-history walk of this repository is not a 15-minute job. `site/`
+    # holds 21,069 published pages, so the patch volume is large even though
+    # `main` is only 138 commits. Measured locally on 2026-09-13, 10 cores:
+    # 874.22 MB read in 3m26s wall, 973s of CPU. This was 15, and a timeout
+    # under a job's runtime reads as `cancelled` rather than `failed`, which is
+    # easy to mistake for a flake.
+    timeout-minutes: 60
     permissions:
       contents: read
+    env:
+      # The runner image carries no gitleaks, which is why this job ran an
+      # action instead of the target `make verify` has always run. The
+      # `gitleaks-binary` prerequisite fetches the pinned release to this path
+      # and checks it against the SHA-256 file published with it; on a developer
+      # machine `GITLEAKS` stays `gitleaks` and nothing is downloaded.
+      GITLEAKS: build/gitleaks
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Necessary for a history scan and NOT sufficient for one. This
+          # decides how much history actions/checkout puts on disk; how much of
+          # it gets read is decided by how the scanner is invoked. This line was
+          # already here, unchanged, through every run that read one commit.
           fetch-depth: 0
           persist-credentials: false
-      # The action scans history only. `make secret-scan` runs that pass and a
-      # second one over the working tree, which is where an uncommitted key
-      # sits; see the target's comment for the demonstration.
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # `gitleaks/gitleaks-action@v3.0.0` ran here until 2026-09-13. It picks
+      # its scan range from the triggering event: a push of N commits becomes
+      # `--log-opts=--no-merges --first-parent BASE^..HEAD`, a push of ONE
+      # commit becomes `--log-opts=-1`, and a pull request becomes the pull
+      # request's own commits. Only `schedule` and `workflow_dispatch` drop
+      # `--log-opts` and walk the whole history, and this workflow has neither
+      # trigger. Every squash merge into `main` is a one-commit push, so the
+      # check read 1 of `main`'s 138 commits and reported success. A credential
+      # added in one commit and deleted in the next was invisible to it.
+      #
+      # `make secret-scan-history` runs `gitleaks git .` with no `--log-opts`.
+      # With no range, gitleaks walks `git log -p --full-history --all`: every
+      # commit on every ref the checkout has, on every event. It is the same
+      # history pass `make secret-scan` has always run locally, so the two gates
+      # are now the same command rather than two different ones.
+      - run: make secret-scan-history
 
   sast:
     runs-on: ubuntu-latest

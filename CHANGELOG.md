@@ -190,6 +190,57 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The `secret-scan` job read 1 of `main`'s 138 commits, and said so in its own logs**
+  (2026-09-13). The job was one step, `gitleaks/gitleaks-action@v3.0.0`, and that
+  action does not scan a repository -- it scans the range the triggering event hands
+  it. A push of one commit becomes `--log-opts=-1`; a pull request becomes the pull
+  request's own commits; only `schedule` and `workflow_dispatch` drop the range and
+  walk the history, and `ci.yml` has neither trigger. Every squash merge into `main`
+  is a one-commit push.
+
+  This is not read off the action's source. The five most recent `ci` runs on `main`
+  each logged `--log-opts=-1` and `1 commits scanned`, and the most recent
+  `pull_request` run logged `--log-opts=--no-merges --first-parent <sha>^..<sha>` and
+  `1 commits scanned`. A credential added in one commit and deleted in the next was
+  invisible in both lanes: the push lane saw only the deletion, the pull request lane
+  saw a diff that nets to nothing.
+
+  `fetch-depth: 0` was on that checkout the whole time and could not have prevented
+  it. It decides how much history `actions/checkout` puts on disk; how much gets read
+  is decided by how the scanner is invoked, and a checkout deep enough to scan
+  alongside an invocation that declines to is exactly the state this job was in.
+
+  The job runs `make secret-scan-history` now, which is `gitleaks git .` with no
+  `--log-opts` -- and with no range gitleaks walks `git log -p --full-history --all`,
+  every commit on every ref the checkout has, on every event. It is a `make` target
+  rather than inline script because `tests/test_ci_parity.py` requires that, which is
+  also how CI and `make verify` stop being two different commands. `make secret-scan`
+  is now `secret-scan-history` plus `secret-scan-tree`; CI runs the history half,
+  because in CI the working tree is the committed tree.
+
+  The missing binary was the stated reason this stage was local-only, and the
+  Makefile named the way out -- "a pinned download this repository would then have to
+  keep verifying" -- and declined it. Declining did not avoid the supply-chain
+  surface; it bought a scan that read one commit. `gitleaks-binary` fetches gitleaks
+  8.30.1 and checks it against the checksum file published with the release before
+  running it, and is a no-op on a machine that already has gitleaks.
+
+  `timeout-minutes` goes 15 to 60. Measured locally on 2026-09-13, 10 cores: 199
+  commits across all refs, 24 of them merges, 175 non-merge commits scanned, 874.22
+  MB in 3m26s of wall time and 973s of CPU. A timeout under a job's runtime reads as
+  `cancelled` rather than `failed`.
+
+  Negative-controlled in a throwaway clone with its remote removed: a random,
+  real-shaped AWS key planted in one commit and deleted in the next left
+  `--log-opts=-1` exiting 0 and `gitleaks git .` exiting 1, and the tree came back
+  byte-identical. `tests/test_secret_scan_reads_history.py` asserts the invocation
+  rather than the checkout depth, reading both files with comments stripped, and each
+  of its assertions was checked by sabotaging the thing it guards.
+
+  `tests/test_ci_parity.py`'s `GATING_ACTIONS` registry is now empty. Its one entry
+  mapped this action to `make secret-scan` and asserted, by existing, that the two
+  ran the same check; they did not, and nothing there could have noticed.
+
 - **An equality gate on a hand-kept number serialised every lane in the repository**
   (2026-09-13). `tests/test_ci_parity.py` checked that the test count in
   pyproject.toml's `fail_under` justification equalled what the suite collects. That

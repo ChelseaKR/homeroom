@@ -1,6 +1,7 @@
 .PHONY: verify sync lint format typecheck test audit data data-offline \
         site site-offline pages node-sync htmlvalidate a11y ask-optin node-audit \
-        ask-bundle ask-serve publish publish-limits dataset determinism secret-scan sast \
+        ask-bundle ask-serve publish publish-limits dataset determinism sast \
+        secret-scan secret-scan-history secret-scan-tree gitleaks-binary \
         workflow-audit verify-ci config-audit
 
 # The gate. Every stage CI runs is a target here, and every CI step runs one of
@@ -18,20 +19,28 @@
 verify: verify-ci secret-scan
 	@echo "make verify: every stage CI runs, plus the working-tree secret scan."
 
-# Everything CI runs, and the target CI's verify job calls. `verify` is this
-# plus `secret-scan`, so the local gate is a strict superset: `make verify`
-# green implies CI green, never the other way round.
+# Everything CI's `verify` job calls. `verify` is this plus `secret-scan`, so
+# the local gate is a strict superset: `make verify` green implies CI green,
+# never the other way round.
 #
-# `secret-scan` is the one stage that is local-only, and the reason is
-# specific rather than a shrug. It needs the `gitleaks` binary, which is not on
-# the GitHub runner image, and the honest ways to put it there are a pinned
-# download this repository would then have to keep verifying or a container it
-# would have to keep pinning -- both of which add supply-chain surface to a
-# workflow whose whole point is to have less of it. What that stage adds over
-# the `secret-scan` job's gitleaks action is the *working-tree* pass, and in CI
-# the working tree is the committed tree: there is no uncommitted file there for
-# it to find. The pass earns its keep on a developer's machine, before the
-# commit exists, which is where `make verify` runs. So it runs there.
+# `secret-scan-tree` is the one stage that is local-only, and the reason is
+# about the tree rather than about the tool: in CI the working tree *is* the
+# committed tree, so there is no uncommitted file there for that pass to find.
+# It earns its keep on a developer's machine, before the commit exists, which is
+# where `make verify` runs.
+#
+# `secret-scan-history` is not local-only, as of 2026-09-13. This comment used
+# to cover both halves and gave the tool as the reason: gitleaks "is not on the
+# GitHub runner image, and the honest ways to put it there are a pinned download
+# this repository would then have to keep verifying or a container it would have
+# to keep pinning -- both of which add supply-chain surface to a workflow whose
+# whole point is to have less of it". What it did not weigh is what CI ran
+# instead. `gitleaks/gitleaks-action` picks its scan range from the triggering
+# event and passes `--log-opts=-1` -- one commit -- on a single-commit push,
+# which is what a squash merge into `main` is; measured on the five most recent
+# `ci` runs on `main`, every one logged `1 commits scanned`. Declining the
+# pinned download did not avoid the surface, it bought a scan that read 1 of 138
+# commits. The download is taken, and checksum-verified, in `gitleaks-binary`.
 verify-ci: sync lint format typecheck test audit pages determinism sast workflow-audit \
            config-audit
 
@@ -353,14 +362,70 @@ determinism:
 #
 # Two commands, each with its own exit status, deliberately not a loop: a shell
 # `for` loop exits with only its last iteration's status and would swallow a
-# finding from the first.
+# finding from the first. They are two targets now, for the same reason and one
+# more: CI runs the history pass and only the history pass, because in CI the
+# working tree *is* the committed tree and the second pass would re-scan what
+# the first already read.
 SECRET_SCAN_TREE ?= build/secret-scan-tree
-secret-scan:
-	gitleaks git . --no-banner --redact
+
+# Where the scanner comes from.
+#
+# `gitleaks` on PATH on a developer machine -- pre-commit's gitleaks hook means
+# there already is one. CI overrides `GITLEAKS` to a path under `build/`,
+# because the runner image carries no gitleaks. That absence is the whole reason
+# this stage used to be local-only and CI ran `gitleaks/gitleaks-action`
+# instead, and the comment above `verify` named the two honest ways out -- "a
+# pinned download this repository would then have to keep verifying or a
+# container it would have to keep pinning" -- and took neither.
+#
+# The pinned download is taken now. It cost one target, and what it bought is
+# that CI stopped running a different command from this one: the action chose
+# its scan range from the triggering event and degraded to `--log-opts=-1`, a
+# single commit, on a single-commit push, which is every squash merge into
+# `main`.
+GITLEAKS ?= gitleaks
+GITLEAKS_VERSION ?= 8.30.1
+
+# A no-op wherever gitleaks is already installed, which is every machine a
+# person works on. On a runner it is not installed, so fetch the pinned release
+# and check it against the SHA-256 file published alongside it before running
+# it. The fetch is Linux/x64 only and uses GNU `sha256sum`: that is the only
+# platform that ever reaches it, and anywhere else it fails loudly rather than
+# scanning with something unverified.
+gitleaks-binary:
+	@if command -v $(GITLEAKS) >/dev/null 2>&1; then exit 0; fi; \
+	set -eu; \
+	base="https://github.com/gitleaks/gitleaks/releases/download/v$(GITLEAKS_VERSION)"; \
+	archive="gitleaks_$(GITLEAKS_VERSION)_linux_x64.tar.gz"; \
+	dir="$$(dirname "$(GITLEAKS)")"; \
+	mkdir -p "$$dir"; \
+	curl -sSfL -o "/tmp/$$archive" "$$base/$$archive"; \
+	curl -sSfL -o /tmp/gitleaks_checksums.txt "$$base/gitleaks_$(GITLEAKS_VERSION)_checksums.txt"; \
+	(cd /tmp && grep "  $$archive$$" gitleaks_checksums.txt | sha256sum --check --strict); \
+	tar -xzf "/tmp/$$archive" -C "$$dir" gitleaks; \
+	$(GITLEAKS) version
+
+# History. No `--log-opts`, on every event -- which is the property the CI job
+# did not have. Handing gitleaks a range is how a scan comes to read one commit
+# and report success; there is no range here to get wrong.
+#
+# With no `--log-opts`, gitleaks runs `git log -p --full-history --all`, so the
+# walk is every ref the checkout has, not just HEAD. Measured here 2026-09-13:
+# 199 commits across all refs, 24 of them merges, and gitleaks reported exactly
+# the 175 non-merge commits, reading 874.22 MB in 3m26s (10 cores, 973s of CPU).
+# That is why `fetch-depth: 0` on the CI checkout is load-bearing: it is what
+# puts those refs on disk for this line to reach.
+secret-scan-history: gitleaks-binary
+	$(GITLEAKS) git . --no-banner --redact --exit-code 1
+
+# The working tree, which the pass above cannot see. Local-only: see above.
+secret-scan-tree: gitleaks-binary
 	rm -rf $(SECRET_SCAN_TREE) && mkdir -p $(SECRET_SCAN_TREE)
 	git ls-files -co --exclude-standard -z | rsync -a --files-from=- --from0 . $(SECRET_SCAN_TREE)/
 	@test "$$(find $(SECRET_SCAN_TREE) -type f | wc -l)" -gt 0 || { echo "secret-scan: copied zero files; nothing was scanned" >&2; exit 1; }
-	gitleaks dir $(SECRET_SCAN_TREE) --no-banner --redact
+	$(GITLEAKS) dir $(SECRET_SCAN_TREE) --no-banner --redact --exit-code 1
+
+secret-scan: secret-scan-history secret-scan-tree
 
 # Static analysis. `.semgrepignore` in the repository root is load-bearing:
 # semgrep's built-in ignore list drops tests/ from every scan, which on this
