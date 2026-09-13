@@ -37,13 +37,18 @@ by `class:note`/`class:note-title` (the fixture banner), `class:ask` (the fixtur
 gives every school an ask link; the publish target gives it to one school in 10,534) and
 the measure-state tokens `class:m-zero`/`class:m-withheld` that a school's own data may
 not produce. Containment of a subset is containment of every co-occurrence inside it, so
-the co-occurrence claim is now measured rather than disclaimed, at four granularities:
+the co-occurrence claim is now measured rather than disclaimed. Re-measured
+2026-09-13, every figure derived by the checks below rather than typed here:
 
-    published shapes contained in a sample shape       8 of 8
-    heading-level transitions published, in the sample 3 of 3
-    landmark sequences published, in the sample        4 of 4
-    element nestings published, in the sample          9 of 9
-    pages the gate examines / pages published          17 of 23,305
+    pages the gate examines / pages published            17 of 23,305
+    published shapes contained in a shape it reads        8 of 8   (1 of them exactly)
+    markup features published, present in the sample     84 of 84
+    heading-level transitions published, in the sample    6 of 6
+    landmark sequences published, in the sample           4 of 4
+    element nestings published, in the sample            56 of 56
+
+Nothing below asserts those numbers — a hand-kept count gated on equality is its own
+failure mode — so they are a record of one run and the checks are the live claim.
 
 **Why the sample is not extended until the 8 shapes match exactly.** It cannot be, and
 should not be. Every page the gate reads carries the fixture banner and no published page

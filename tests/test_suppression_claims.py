@@ -29,10 +29,12 @@ from __future__ import annotations
 
 import json
 import re
+from html import unescape
 from pathlib import Path
 
 import pytest
 
+from homeroom.i18n import absenteeism_category_name
 from homeroom.profiles import (
     ABSENTEEISM_CATEGORY_NAMES,
     ABSENTEEISM_SUBGROUP_CODES,
@@ -300,17 +302,27 @@ def test_the_showcase_table_matches_coverage_json_where_it_can_be_read() -> None
     Both guards were bare `return`s until 2026-09-08, which pytest reports as a
     PASS -- so the run said this check had held when it had compared nothing.
     They are skips now, and they name the row count they did not compare.
+
+    They also no longer mean the rows go unchecked. Since 2026-09-13 the same eight
+    rows are compared against the counts `site/` publishes, on every machine, by
+    `test_every_showcase_row_is_the_count_the_site_publishes` below. This one remains
+    because it is the only check that ties the table to the artifact rather than to
+    another rendering of it, and that is worth running where it can be.
     """
+    everywhere = (
+        "`test_every_showcase_row_is_the_count_the_site_publishes` compares them"
+    )
     if not COVERAGE.is_file():
         pytest.skip(
             f"{COVERAGE.relative_to(ROOT)} is absent, so 0 of "
-            f"{len(showcase_table())} showcase rows were compared"
+            f"{len(showcase_table())} showcase rows were compared here; {everywhere}"
         )
     coverage = json.loads(COVERAGE.read_text(encoding="utf-8"))
     if coverage.get("is_fixture", True):
         pytest.skip(
             f"{COVERAGE.relative_to(ROOT)} is the fixture rather than an acquired run, "
-            f"so 0 of {len(showcase_table())} showcase rows were compared"
+            f"so 0 of {len(showcase_table())} showcase rows were compared here; "
+            f"{everywhere}"
         )
     rows = showcase_table()
     measure = coverage["measures"]["chronic_absenteeism"]
@@ -395,4 +407,212 @@ def test_the_scale_table_accounts_for_every_active_school() -> None:
         scale,
         schools,
         with_row,
+    )
+
+
+# ----------------------------------------------------------------------------------
+# The table against the site that publishes its numbers.
+#
+# `test_the_showcase_table_matches_coverage_json_where_it_can_be_read` skips on every
+# machine that does not hold the acquired CDE files, and says so honestly: "0 of 8
+# showcase rows were compared". CI is one of those machines and always will be --
+# `data/raw/` is never in git, `data/out/` is gitignored, and the local artifact is a
+# fixture build whose `is_fixture` flag the second guard returns on. So the one check
+# that reads the table against a measurement has never run anywhere, and the table's
+# eight rows were held only to their own arithmetic.
+#
+# They do not have to be. The same counts are rendered into `site/`, three columns wide
+# -- "Schools publishing it", "Schools withholding it", "Schools publishing nothing" --
+# on every one of the 21,068 published school pages, in both languages, from the same
+# `coverage.json` the table was typed from. Those pages are committed, so the comparison
+# runs on every machine, and it examines 8 of 8 rows instead of 0.
+#
+# What it is and is not: this is not an independent re-derivation from the CDE file. It
+# is the check that the document and the pages tell a family the same thing, which is
+# the disagreement a reader can actually be hurt by, and it is strictly more than the
+# nothing that ran before. The acquired-run comparison above still runs where the files
+# are, and is still the one that ties both to the source.
+# ----------------------------------------------------------------------------------
+
+SITE = ROOT / "site"
+
+#: The chronic-absenteeism half of a school page. `absenteeism` is an HTML id, so the
+#: slice is the same in both locales; the captions are not.
+ABSENTEEISM_SECTION = re.compile(r'<h2 id="absenteeism">.*?(?=<h2 id="|\Z)', re.S)
+TABLE_ROW = re.compile(r"<tr>(.*?)</tr>", re.S)
+ROW_LABEL = re.compile(r'<th scope="row">(.*?)</th>', re.S)
+COUNT_CELL = re.compile(r'<td class="count">([\d,]+)</td>')
+
+
+def published_school_pages() -> list[Path]:
+    """Every school page, both locales.
+
+    `index.html` carries no locale suffix and the county, district and ask pages are in
+    their own directories, so the glob selects exactly the pages with an absenteeism
+    table on them.
+    """
+    return sorted(
+        page
+        for page in SITE.glob("*.html")
+        if page.suffixes[:2] in ([".en", ".html"], [".es", ".html"])
+    )
+
+
+def coverage_counts_on_one_page(
+    markup: str, locale: str
+) -> dict[str, tuple[int, int, int]]:
+    """The three coverage columns a published page renders, keyed by category code.
+
+    The labels are the rendered, localized category names, so this reads the page the
+    way a family does and maps back to the code the showcase table keys on.
+    """
+    section = ABSENTEEISM_SECTION.search(markup)
+    if section is None:
+        return {}
+    names = {
+        unescape(absenteeism_category_name(locale, code)): code
+        for code in ABSENTEEISM_CATEGORY_NAMES
+    }
+    counts: dict[str, tuple[int, int, int]] = {}
+    for row in TABLE_ROW.findall(section.group(0)):
+        label = ROW_LABEL.search(row)
+        cells = COUNT_CELL.findall(row)
+        if label is None or len(cells) != 3:
+            continue
+        code = names.get(unescape(label.group(1)))
+        if code is None:
+            continue
+        publishing, withholding, absent = (int(cell.replace(",", "")) for cell in cells)
+        counts[code] = (publishing, withholding, absent)
+    return counts
+
+
+@pytest.fixture(scope="module")
+def coverage_as_published() -> dict[str, tuple[int, int, int]]:
+    """The coverage counts the site serves, read off every school page in both locales.
+
+    Every page carries the same counts, because they describe the whole file rather than
+    the school whose page they are on. Reading all of them rather than one asserts that:
+    a page rendered in a different run, or left behind by a partial publish, would
+    disagree with the rest, and this is where that shows up.
+    """
+    pages = published_school_pages()
+    assert len(pages) > 1000, (
+        f"only {len(pages)} school pages were found under {SITE}; this comparison would "
+        "prove nothing"
+    )
+    agreed: dict[str, tuple[int, int, int]] | None = None
+    for page in pages:
+        locale = page.suffixes[0].lstrip(".")
+        counts = coverage_counts_on_one_page(page.read_text(encoding="utf-8"), locale)
+        assert counts, f"{page.name} publishes no chronic-absenteeism coverage counts"
+        if agreed is None:
+            agreed = counts
+            continue
+        assert counts == agreed, (
+            f"{page.name} renders coverage counts that disagree with the rest of the "
+            f"site: {sorted(set(counts.items()) ^ set(agreed.items()))[:6]}"
+        )
+    assert agreed is not None
+    return agreed
+
+
+@pytest.mark.slow
+def test_the_published_pages_carry_coverage_counts_at_all(
+    coverage_as_published: dict[str, tuple[int, int, int]],
+) -> None:
+    """The floor. Every check below reads this mapping, and an empty one is a pass.
+
+    Both rendered subgroup families and the whole-school total have to be in it, because
+    a regex that matched only the total would make the eight-row comparison a one-row
+    comparison without failing.
+    """
+    assert "TA" in coverage_as_published, sorted(coverage_as_published)
+    assert set(ABSENTEEISM_SUBGROUP_CODES) <= set(coverage_as_published), sorted(
+        set(ABSENTEEISM_SUBGROUP_CODES) - set(coverage_as_published)
+    )
+
+
+@pytest.mark.slow
+def test_every_showcase_row_is_the_count_the_site_publishes(
+    coverage_as_published: dict[str, tuple[int, int, int]],
+) -> None:
+    """8 of 8 showcase rows, against the pages families read, on every machine.
+
+    The showcase table and the published pages are two renderings of one `make data`
+    run. If they disagree, one was regenerated and the other was not, and a reader has
+    no way to tell which number is the state's.
+    """
+    rows = showcase_table()
+    assert rows, "the showcase table did not parse"
+    disagreements = []
+    for code, (with_row, published, withheld, _) in rows.items():
+        if code not in coverage_as_published:
+            disagreements.append(
+                f"{code}: the showcase publishes a row no published page carries counts for"
+            )
+            continue
+        page_published, page_withheld, _page_absent = coverage_as_published[code]
+        if page_published != published:
+            disagreements.append(
+                f"{code}: showcase publishes {published}, the site publishes {page_published}"
+            )
+        if page_withheld != withheld:
+            disagreements.append(
+                f"{code}: showcase withholds {withheld}, the site withholds {page_withheld}"
+            )
+        if page_published + page_withheld != with_row:
+            disagreements.append(
+                f"{code}: showcase denominator {with_row}, the site's is "
+                f"{page_published + page_withheld}"
+            )
+    assert not disagreements, (
+        f"{len(rows) - len(disagreements)} of {len(rows)} showcase rows match what "
+        f"`site/` publishes: {disagreements}"
+    )
+
+
+@pytest.mark.slow
+def test_the_scale_table_is_the_split_the_site_publishes(
+    coverage_as_published: dict[str, tuple[int, int, int]],
+) -> None:
+    """The third bucket, which the row table does not carry and the pages do.
+
+    "Not published (no row for this school)" is the one number in the showcase that no
+    other figure in the document can be derived from, and the published pages state it
+    in their own third column.
+    """
+    published, withheld, absent = coverage_as_published["TA"]
+    scale = scale_table()
+    assert scale["Published (reported, including genuine zeros)"] == published, (
+        scale,
+        published,
+    )
+    assert scale["Withheld (`*`, small-cell suppression)"] == withheld, (
+        scale,
+        withheld,
+    )
+    assert scale["Not published (no row for this school)"] == absent, (scale, absent)
+
+
+@pytest.mark.slow
+def test_the_most_withheld_subgroup_is_the_most_withheld_the_site_publishes(
+    coverage_as_published: dict[str, tuple[int, int, int]],
+) -> None:
+    """The project's own thesis, against the pages rather than the table it is typed in.
+
+    Every document is held to the showcase table, and the table is a hand-kept file. This
+    is the one place the claim is checked against a rendering of the measurement itself,
+    over every subgroup the pages carry rather than only the eight the table lists.
+    """
+    ranked = {
+        code: withheld / (published + withheld)
+        for code, (published, withheld, _) in coverage_as_published.items()
+        if code in ABSENTEEISM_SUBGROUP_CODES and published + withheld
+    }
+    assert ranked, "no subgroup on the published pages has a row anywhere"
+    worst = max(ranked, key=lambda code: ranked[code])
+    assert worst == most_withheld()[0], (
+        f"the documents name `{most_withheld()[0]}` as the most-withheld subgroup; the "
+        f"published pages rank `{worst}` first, at {ranked[worst] * 100:.1f}%"
     )
