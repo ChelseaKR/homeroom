@@ -13,7 +13,8 @@ below claims an audit that did not happen.
 - B Bias:          applies (the product exists to refuse a biased ranking practice; EN/ES is a first-class segment)
 - C Privacy:       applies, narrowly (no PII collected; the duty is suppression fidelity for the students inside CDE's aggregates)
 - D Transparency:  applies
-- E Accessibility: applies as of M4; gates wired and merge-blocking (see E)
+- E Accessibility: applies as of M4; gates wired and failing the run, though not
+  required on `main` and so not merge-blocking (see E and RR-12)
 - F Security:      applies (threat model not yet written; see F)
 - AI-EVAL:         applies as of ADR 0003 (2026-08-21). An optional runtime question-answering layer (`src/homeroom/ask/`) carries a prompt, a retrieval corpus, and a model version. AI-assisted development is separately disclosed in the README (see AI-EVAL)
 - I18N:            applies. EN/ES is a launch requirement; every user-visible string exists in both, parity gated (see B)
@@ -189,7 +190,9 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
   real landmarks and real table headers, no reliance on colour alone, no script
   and no external asset, and equal capability in both languages.
 - Enforcement:
-  - AUTO (in place): `make pages`, inside `make verify` and merge-blocking in CI,
+  - AUTO (in place): `make pages`, inside `make verify` and run in CI on every
+    pull request (reporting, not merge-blocking: `main` requires no status check,
+    RR-12),
     builds the pages from committed fixtures and runs `html-validate` (with
     `scope` required on every table header) and `axe-core` in a headless jsdom DOM
     over the WCAG 2.0/2.1/2.2 A and AA rule sets plus best-practice, on every page
