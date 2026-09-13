@@ -28,6 +28,8 @@ from urllib.parse import urlsplit
 
 import pytest
 
+from homeroom.render import REPOSITORY_URL
+
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "fixtures" / "cde-index"
 PROVENANCE = ROOT / "PROVENANCE.md"
@@ -422,9 +424,16 @@ def test_every_registered_page_is_one_the_fetcher_would_open() -> None:
 
 
 def test_the_tool_identifies_itself_rather_than_a_browser() -> None:
+    """And it points at the same repository the front door does.
+
+    `REPOSITORY_URL` rather than the literal this line used to carry: the site's
+    front door links that constant (DISC-02), and an address that is right in
+    one place and stale in the other is the failure a second copy of a literal
+    exists to produce.
+    """
     agent = sources_check.USER_AGENT
     assert "homeroom" in agent
-    assert "github.com/ChelseaKR/homeroom" in agent
+    assert REPOSITORY_URL in agent
     for impersonation in ("Mozilla", "Chrome", "Safari", "AppleWebKit"):
         assert impersonation not in agent, (
             "a check that has to claim to be a browser has no business running "

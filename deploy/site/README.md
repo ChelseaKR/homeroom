@@ -454,7 +454,10 @@ still the live one.
 
 ## Cost, measured
 
-The byte counts here were measured on `site/` on 2026-09-05. The rates are
+The byte counts here were measured on `site/` on 2026-09-05 and re-measured
+2026-09-13, when the front door gained the 436-byte line linking this
+repository (DISCOVERY-AND-ADOPTION-STANDARD DISC-02) and the tree went from
+867,639,523 bytes to 867,639,959 over the same 23,310 files. The rates are
 AWS's published list prices for `us-west-2` as understood when this was
 written; re-read the pricing pages before relying on a total. The distinction
 matters the way PROVENANCE.md's does: the arithmetic is measured, the unit
@@ -463,7 +466,7 @@ prices are not.
 | | Measured | At list price |
 |---|---|---|
 | Objects | 23,310 | — |
-| Bytes of content | 867,639,523 (0.808 GiB) | **$0.019/month** S3 Standard @ $0.023/GB-month |
+| Bytes of content | 867,639,959 (0.808 GiB) | **$0.019/month** S3 Standard @ $0.023/GB-month |
 | Superseded versions, worst case | one full generation for 30 days | +$0.019/month |
 | A full republish | 23,310 PUTs | **$0.117** @ $0.005/1,000 |
 | An invalidation | 1 path (`/*`) | **$0.000** — 1,000 paths/month are free |
@@ -475,7 +478,7 @@ The steady state is **about two cents a month plus twelve cents per full
 republish**, and CloudFront's always-free tier (1 TB out and 10,000,000
 requests per month, not a 12-month trial) absorbs the serving.
 
-`du -sm site` says 857 and the table says 867,639,523 bytes, and both are
+`du -sm site` says 857 and the table says 867,639,959 bytes, and both are
 right: `du` counts 4 KiB filesystem blocks, and 23,310 small files carry about
 30 MiB of block slack that does not exist in a bucket. S3 bills content.
 

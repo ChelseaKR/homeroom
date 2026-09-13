@@ -31,6 +31,7 @@ from functools import cache
 from pathlib import Path
 
 from homeroom.i18n import LOCALES, text
+from homeroom.render import REPOSITORY_URL
 from tests.test_pages import FETCHING_ATTRIBUTES, SUBRESOURCE_TAGS, parse_markup
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -725,3 +726,44 @@ def test_the_unmet_precondition_for_deploying_is_still_written_down() -> None:
     assert "Nobody has." in audits, (
         "the AI-EVAL REVIEW item no longer admits nobody has read a sample"
     )
+
+
+# ----------------------------------------------------------------------------------
+# Whether the bytes being served say where they came from
+#
+# `tests/test_landing.py` checks that the renderer emits the backlink. This
+# checks that the front door GitHub Pages is uploading carries it, which is a
+# different fact about a different tree: `site/` is committed and republished by
+# hand, so a renderer change reaches families only when the owner runs
+# `make publish`. That gap is the hazard this whole module exists for, and on
+# 2026-09-13 it was the live state -- `site/index.html` on `origin/main` held no
+# occurrence of the string `github`.
+# ----------------------------------------------------------------------------------
+
+
+def test_the_published_front_door_links_the_repository_it_was_built_from() -> None:
+    """DISC-02, over the bytes rather than over the renderer.
+
+    The site's own address is `homeroom.chelseakr.com`, which carries no
+    owner's name a stranger could resolve to a repository, so this link is the
+    only thing on the published tree that connects the pages to the code that
+    made them and to the record of the decisions behind them.
+
+    Both locales are asserted for the reason the renderer test gives: the front
+    door is one page in two languages, and a single English label would pass a
+    URL-only check for ever. The strings come from the catalog the renderer
+    reads, so this fails when the published tree falls behind a wording change
+    -- which is the same coupling
+    `test_every_published_page_carries_the_notices_this_project_promises`
+    already accepts for the two notices beside it.
+    """
+    index = next((f for f in pages() if f.path == SITE / "index.html"), None)
+    assert index is not None, "site/index.html is not published; there is no front door"
+    assert REPOSITORY_URL in index.hrefs, (
+        "the published front door links no repository, so nothing served at "
+        f"{DOMAIN} says where these pages come from: {sorted(index.hrefs)[:5]}"
+    )
+    markup = (SITE / "index.html").read_text(encoding="utf-8")
+    for locale in LOCALES:
+        assert text(locale, "landing_source_link") in markup, locale
+        assert text(locale, "landing_source_body") in markup, locale
