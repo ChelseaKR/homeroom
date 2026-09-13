@@ -8,6 +8,44 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A workflow shipped that could not run, and only a nightly red build said so**
+  (2026-09-13). #116 merged `ask-alarm-relay.yml`, which reads the ask service's
+  CloudWatch alarm through an OIDC role named by the repository variable
+  `ASK_ALARM_RELAY_ROLE_ARN`. Setting that variable needs a stack redeploy the merge
+  could not perform, so the workflow shipped unable to run and has failed every
+  night since in an eight-second run. It failed correctly, naming both owner steps.
+  Nothing tied that red run back to the merge that created the requirement.
+
+  `site-publish.yml` is the same condition with the sound off: four variables, none
+  set, behind an `if:` that skips rather than fails -- deliberately, and the comment
+  there argues it well, since an unarmed deploy is not a broken build. Every run of
+  it has skipped, which from outside is indistinguishable from having nothing to do.
+
+  `tools/config_audit.py` is now the one place that says which repository variables
+  the workflows need, what each is for, the exact steps that set it, and -- the part
+  that matters -- whether its workflow *fails* or *skips* when it is missing.
+
+  Two checks, split on what they need to read. `make config-audit` holds the
+  workflows and the declarations to each other: a `vars.X` nothing explains fails
+  the build that introduces it, and a declaration no workflow uses fails too. It
+  needs no token and no network, so it sits in `verify-ci` as a merge gate.
+  `.github/workflows/required-configuration.yml` reconciles those declarations
+  against the repository's actual variables under `toJSON(vars)`, on every push to
+  main and daily; like the live-integrity sentinel, source-freshness and the alarm
+  relay it reads outside the repository, so it is not a required check.
+
+  Only a variable whose workflow *fails* without it turns the run red. Four of the
+  five are site-publish.yml's, unset on purpose behind an `if:` that skips; failing
+  on those would make the check red on a state nobody intends to change, and a
+  permanently red workflow is read exactly as often as a silent one. They are
+  reported and not fatal. The check can therefore go green, and the day it does is
+  the day the relay can reach somebody.
+
+  Asked to reconcile with nothing to reconcile against, it exits non-zero rather
+  than reporting everything fine -- a run that could not look is never a run that
+  found nothing, which is the defect the alarm relay exists to remove and is not
+  rebuilt here.
+
 - **A publish was a 23,310-file diff of markup** (2026-09-07, issue #84). The event
   this project must never ship unnoticed is a state flip on a real school's page --
   a figure that was published and is now withheld, or the reverse -- and a git diff

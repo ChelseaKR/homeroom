@@ -1,7 +1,7 @@
 .PHONY: verify sync lint format typecheck test audit data data-offline \
         site site-offline pages node-sync htmlvalidate a11y ask-optin node-audit \
         ask-bundle ask-serve publish publish-limits dataset determinism secret-scan sast \
-        workflow-audit verify-ci
+        workflow-audit verify-ci config-audit
 
 # The gate. Every stage CI runs is a target here, and every CI step runs one of
 # these targets, so `make verify` green and CI green mean the same thing.
@@ -32,7 +32,8 @@ verify: verify-ci secret-scan
 # the working tree is the committed tree: there is no uncommitted file there for
 # it to find. The pass earns its keep on a developer's machine, before the
 # commit exists, which is where `make verify` runs. So it runs there.
-verify-ci: sync lint format typecheck test audit pages determinism sast workflow-audit
+verify-ci: sync lint format typecheck test audit pages determinism sast workflow-audit \
+           config-audit
 
 sync:
 	# `--locked`, not `--frozen`. `--frozen` installs from uv.lock WITHOUT
@@ -379,6 +380,22 @@ sast:
 ZIZMOR_VERSION ?= 1.16.3
 workflow-audit:
 	uvx zizmor@$(ZIZMOR_VERSION) --persona=regular --config .github/zizmor.yml .github/workflows/
+
+# Which repository variables the workflows need, and whether anything explains
+# them. #116 merged a daily workflow whose OIDC role ARN comes from a repository
+# variable that was never set; the workflow failed loudly every night, as it was
+# written to, and nothing tied that red run back to the merge that created the
+# requirement. site-publish.yml is the same condition without the noise: four
+# variables, none set, and an `if:` that skips rather than fails.
+#
+# This stage is the offline half -- workflows against the declarations in
+# tools/config_audit.py, no token and no network -- so it belongs in the merge
+# gate. Reconciling those declarations against the repository's ACTUAL variables
+# needs to read repository settings, so it runs in
+# .github/workflows/required-configuration.yml instead, with the sentinels rather
+# than with the gate.
+config-audit:
+	uv run --locked python tools/config_audit.py
 
 # Has CDE published a newer file than the one PROVENANCE.md records as acquired?
 # Reads CDE's HTML download pages and nothing else -- no data file is fetched and
