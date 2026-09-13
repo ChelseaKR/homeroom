@@ -1,0 +1,164 @@
+# How long has homeroom.chelseakr.com been serving an older `site/` than main's?
+#
+# `live-integrity.yml` already asks whether the origin serves what this checkout
+# publishes, daily, over the network. Nothing here replaces it. What it cannot
+# answer is how far behind, and it compares 8 of the 23,310 published files on
+# every run -- index, CNAME, robots, sitemap, the two cards and the two ask
+# pages -- while the other 23,302 rotate 200 at a time, which is 117 runs for a
+# full sweep. The most recent commit to change `site/` (6985dfb98, #78) rewrote
+# 2,234 files and none of those 8, so a failed publish of it would have left
+# that check green every morning.
+#
+# This reads the github-pages deployment record instead, compares the whole
+# `site/` tree by its git object id, and dates the drift. It fetches nothing
+# from the live origin.
+#
+# It publishes NOTHING and cannot: no `pages: write`, no `id-token: write`, no
+# deploy credential, no `workflow_dispatch` of anything, and it neither reads
+# nor sets the four `vars.SITE_*` that arm site-publish.yml. Whether and when
+# this site publishes is decided by ci.yml and the two publishers, and this file
+# does not touch any of them.
+#
+# The output is an issue, not a red run. A scheduled workflow that fails
+# whenever a deploy is overdue is red for as long as the backlog lasts and then
+# ignored. This run goes red only when the comparison cannot be made at all: no
+# github-pages deployment, none reporting a successful status, a deployed commit
+# this clone does not contain, or a history that has diverged. A detector that
+# cannot tell must look broken rather than report a comfortable zero.
+#
+# Both actions are pinned to full 40-char commit SHAs already in use elsewhere
+# in this repository, per SECURITY-AND-SUPPLY-CHAIN-STANDARD §6.
+name: deploy staleness sentinel
+
+on:
+  schedule:
+    # Mondays. `site/` changed 7 times in this repository's 140 commits, so the
+    # useful question is asked weekly; asking hourly would produce the same
+    # answer 168 times. 16:53 is not shared with source-freshness.yml's Monday
+    # 15:41, nor with the daily 13:07 and 08:12.
+    - cron: "53 16 * * 1"
+  workflow_dispatch:
+    inputs:
+      max_age_days:
+        description: "Days an unpublished change to site/ may wait before this reports"
+        required: false
+        default: "14"
+        type: string
+
+# Least privilege at the workflow level; the one job grants itself what it needs.
+permissions: {}
+
+# This workflow writes: it files, updates or closes one issue. Never cancel a
+# run mid-write, and never let a manual dispatch race the Monday schedule onto
+# the same issue.
+concurrency:
+  group: deploy-staleness
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: measure how far the published site is behind main
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # the checkout, and the git history the comparison walks
+      deployments: read # which commit the published build was made from
+      issues: write # the report itself; nothing here writes anywhere else
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Required, not incidental. On a shallow clone the deployed commit is
+          # simply absent, `git log <deployed>..origin/main` prints nothing, and
+          # the site reads as up to date. tools/deploy_staleness.py refuses that
+          # case rather than reporting it as zero -- this is what keeps it from
+          # having to.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Measure the distance
+        id: measure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAX_AGE_DAYS: ${{ inputs.max_age_days || '14' }}
+          REPOSITORY: ${{ github.repository }}
+        # Deliberately a bare `python3` rather than `uv run`:
+        # tools/deploy_staleness.py imports only the standard library and
+        # nothing from this repository, so the sentinel needs no dependency
+        # resolution and cannot be broken by one. `|| true` so a refusal reaches
+        # the reporting step, which turns it into the red run, rather than
+        # ending the job here with no explanation attached.
+        run: |
+          set -euo pipefail
+          python3 tools/deploy_staleness.py \
+            --repo "$REPOSITORY" \
+            --head origin/main \
+            --max-age-days "$MAX_AGE_DAYS" \
+            > "$RUNNER_TEMP/report.txt" 2> "$RUNNER_TEMP/error.txt" || true
+          cat "$RUNNER_TEMP/report.txt" "$RUNNER_TEMP/error.txt"
+          {
+            echo "## Deploy staleness"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/report.txt" "$RUNNER_TEMP/error.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: File, update or close the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MEASURED: ${{ steps.measure.outputs.measured }}
+          OVERDUE: ${{ steps.measure.outputs.overdue }}
+          TITLE: "The published site is behind main"
+        run: |
+          set -euo pipefail
+
+          existing=$(gh issue list --repo "$REPOSITORY" --state open \
+            --json number,title --jq "[.[] | select(.title == env.TITLE)] | .[0].number // empty")
+
+          # A refusal is the only thing that reddens this run, and it reddens it
+          # unconditionally: the measurement could not be made, so neither the
+          # "up to date" nor the "overdue" branch below is entitled to run.
+          if [ "$MEASURED" != "true" ]; then
+            echo "::error::the staleness comparison could not be made; see the report above"
+            exit 1
+          fi
+
+          if [ "$OVERDUE" != "true" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --repo "$REPOSITORY" --reason completed \
+                --comment "The published site is no longer overdue. ${RUN_URL}"
+              echo "closed #$existing"
+            else
+              echo "not overdue; no open report to close"
+            fi
+            exit 0
+          fi
+
+          {
+            echo '```'
+            cat "$RUNNER_TEMP/report.txt"
+            echo '```'
+            echo
+            echo "The committed \`site/\` is what gets served, so republishing is not a"
+            echo "rebuild: Actions > pages > Run workflow re-uploads the current main."
+            echo "If that keeps not happening on its own, the cause is upstream --"
+            echo "both publishers fire on \`workflow_run\` after \`ci\` succeeds on main,"
+            echo "so a \`ci\` run that failed or was cancelled publishes nothing and"
+            echo "says nothing."
+            echo
+            echo "Measured by \`tools/deploy_staleness.py\` in ${RUN_URL}."
+          } > "$RUNNER_TEMP/body.md"
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPOSITORY" --body-file "$RUNNER_TEMP/body.md"
+            echo "updated #$existing"
+          else
+            gh issue create --repo "$REPOSITORY" --title "$TITLE" \
+              --body-file "$RUNNER_TEMP/body.md"
+          fi
