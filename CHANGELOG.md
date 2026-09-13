@@ -152,6 +152,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An equality gate on a hand-kept number serialised every lane in the repository**
+  (2026-09-13). `tests/test_ci_parity.py` checked that the test count in
+  pyproject.toml's `fail_under` justification equalled what the suite collects. That
+  is true of one tree and wrong as a gate: the number sits on one line, so every
+  branch that adds or removes a test rewrites that line, and any two of them conflict
+  there however unrelated their subjects. #117 and #118 collided on it while sharing
+  no other file; the same shape held family-greenhouse #410 for days.
+
+  The count is now held to a band -- never fewer than the measurement was taken over,
+  never more than 15% above it -- instead of to equality. 15% is not a round number
+  picked for looking reasonable: over this line's own history, 2026-08-29 to
+  2026-09-13, there were 28 edits, no decrease, and the largest single step a branch
+  ever took was +59 tests (9.31%). 15% is the smallest ceiling that clears that with
+  room to spare, so no one branch can trip it alone. Replayed over the same history
+  it asks for 3 edits where equality asked for 28.
+
+  What that gives up is stated in the test and worth repeating: the drift the comment
+  may carry rises from 0 to 15%, and the 515-against-574 case that motivated the
+  original check would no longer fire. The defect being defended against is not a
+  number that is slightly old, it is a number nothing reads at all, which drifts
+  without bound -- 515 was on its way to 962.
+
+  The band's own edges are tested, including that it stays wider than the largest
+  step this line has taken, so tightening it back toward equality fails the build
+  that does it. Both failure messages now carry the exact command that re-measures
+  both figures, because a gate that only says "wrong" sends the next person hunting
+  on a line that is already a collision point.
+
 - **A gate over 17 pages made a claim about 23,305, and said itself that it did not
   carry the part that mattered** (2026-09-13).
   `tests/test_the_a11y_sample_covers_the_published_site.py` justified the accessibility
