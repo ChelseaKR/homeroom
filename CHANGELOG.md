@@ -8,6 +8,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Nothing on the published site said where its code lives** (2026-09-13,
+  DISCOVERY-AND-ADOPTION-STANDARD DISC-02). Measured on `origin/main`:
+  `site/index.html` -- the page served at the root of homeroom.chelseakr.com, and
+  the homepage this repository's GitHub About names -- contained no occurrence of
+  the string `github` at all, and neither did any renderer in `src/`. Every school
+  page names the CDE download page each figure came from, so a reader can check a
+  number against the state's own file; nothing named the code that turned those
+  files into a sentence about a real school.
+
+  The front door now carries one line and one link per language: a sentence saying
+  the project is open source, and a labelled link to the repository. The URL is a
+  single constant, `homeroom.render.REPOSITORY_URL`, and
+  `tests/test_sources_check.py` was moved off its own copy of the literal onto it,
+  so the address the site gives for its source and the address the freshness check
+  introduces itself to CDE with cannot drift apart.
+
+  **The committed tree was edited in the same commit as the renderer.**
+  `.github/workflows/pages.yml` uploads `site/` and builds nothing, so a renderer
+  change alone would have left the served page unchanged until the next hand-run
+  `make publish` -- which issue #82 currently blocks. The two inserted lines are
+  byte-identical to what `render_landing` emits, verified by rendering the fixture
+  landing page before and after the change and diffing: exactly those two lines,
+  in exactly those positions, and no other file in the build moved a byte.
+  `site/index.html` grew 436 bytes, on one file of 23,310.
+
+  **Deliberately the front door only.** 21,069 school pages in two locales is the
+  multiplier that turns any per-page addition into megabytes, and the published
+  tree is at 86.8% of the ceiling its deploy is subject to (`homeroom.publish_limits`,
+  issue #82). `test_no_school_page_gained_the_repository_link` records that as a
+  decision rather than leaving it to be re-litigated.
+
+  **Not done: structured data.** Issue #92 asks for schema.org `School` JSON-LD in
+  every page head, and it stays open and unbuilt. It is blocked on #82 by the
+  owner's own triage, it would need the site's "no script on any page but the ask
+  page" promise amended to admit an inert `application/ld+json` data block, and a
+  `Dataset` descriptor -- which exists to be harvested by catalogs -- is a
+  publication decision rather than a markup one. None of the three is a call this
+  change takes.
+
 - **A publish was a 23,310-file diff of markup** (2026-09-07, issue #84). The event
   this project must never ship unnoticed is a state flip on a real school's page --
   a figure that was published and is now withheld, or the reverse -- and a git diff
@@ -487,7 +526,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   across 6 rule sets and 17 pages, 0 html-validate errors, byte-identical across
   two builds. `make data`, `make site` and `make publish` are given the acquired
   file, because an artifact that omitted a figure the pages carry would be two
-  answers to one question. 19 new bilingual strings (217 keys per locale).
+  answers to one question. 19 new bilingual strings (219 keys per locale).
 
   What did not change: the ask layer. `homeroom.ask` answers from an evidence
   bundle that carries enrollment and chronic absenteeism, and widening it means
@@ -1464,7 +1503,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed -- the refusals legitimately ship inside the JSON the script reads,
   and the question is only ever whether one is *displayed* unearned -- and
   asserts no refusal appears in what a reader sees. Found by looking at a
-  screenshot of the live page. One more bilingual string (217 keys per locale).
+  screenshot of the live page. One more bilingual string (219 keys per locale).
 - **The deployed ask page could not reach its service from a browser, and said
   so in the one string that hides why.** Both the Lambda Function URL's `Cors`
   configuration and the handler set `access-control-allow-origin`, so the
@@ -1516,7 +1555,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for, so a build without `--landing` is byte-identical to one from before it
   existed, which `tests/test_landing.py` asserts by diffing the two builds.
   html-validate and axe-core cover it in `make pages` (zero violations). Two
-  more bilingual strings (217 keys per locale).
+  more bilingual strings (219 keys per locale).
 - `homeroom.ask.http`: the HTTP edge of the ask service, a stdlib
   `ThreadingHTTPServer` for local use (`make ask-serve`) and an AWS Lambda
   Function URL handler, both thin over `AskService`: JSON in, the public JSON
@@ -1546,7 +1585,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requests on load and exactly one POST on submit, rendered as text; it runs
   in `make pages` beside html-validate and axe-core, which now cover the ask
   pages too (zero violations, both languages). Seventeen more fixed
-  bilingual strings (217 keys per locale).
+  bilingual strings (219 keys per locale).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
@@ -1753,7 +1792,7 @@ The ask service was deployed later, on 2026-08-22 (ADR 0003, `deploy/ask/`).
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 217 keys per locale, 434
+- English and Spanish as peers (`src/homeroom/i18n.py`): 219 keys per locale, 438
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
   and 10 interface strings at M3, and before the ask layer added 33 fixed
   interface strings under ADR 0003), covering every reporting category, grade span,

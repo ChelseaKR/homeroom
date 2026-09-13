@@ -294,6 +294,15 @@ UI: dict[Locale, dict[str, str]] = {
         # school in. So the site is walked the way a family already knows where
         # it lives -- county, then district, then school -- and each step is its
         # own page rather than a control the reader has to operate.
+        # The front door is the only page that says where the code came from.
+        # Every page names CDE's download pages, so a reader can check the
+        # figures against the state's own files; none of them named the thing
+        # that turned those files into a sentence about their child's school.
+        "landing_source_body": (
+            "Homeroom is open source. The code that builds these pages, the "
+            "decisions behind them, and what is still missing are all public."
+        ),
+        "landing_source_link": "Read the source on GitHub",
         "landing_counties_heading": "Find a school by county",
         "browse_county_heading": "{county} County",
         "browse_districts_label": "School districts",
@@ -657,6 +666,17 @@ UI: dict[Locale, dict[str, str]] = {
         # una familia ya sabe dónde vive -- condado, luego distrito, luego
         # escuela -- y cada paso es su propia página, no un control que el lector
         # tenga que manejar.
+        # La puerta de entrada es la única página que dice de dónde viene el
+        # código. Todas las páginas nombran las páginas de descarga del CDE,
+        # así que un lector puede verificar las cifras con los archivos del
+        # propio estado; ninguna nombraba lo que convirtió esos archivos en una
+        # frase sobre la escuela de su hijo.
+        "landing_source_body": (
+            "Homeroom es de código abierto. El código que crea estas páginas, "
+            "las decisiones detrás de ellas y lo que todavía falta son "
+            "públicos."
+        ),
+        "landing_source_link": "Lea el código en GitHub",
         "landing_counties_heading": "Busque una escuela por condado",
         "browse_county_heading": "Condado de {county}",
         "browse_districts_label": "Distritos escolares",
