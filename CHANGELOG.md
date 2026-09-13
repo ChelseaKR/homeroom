@@ -152,6 +152,88 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A gate over 17 pages made a claim about 23,305, and said itself that it did not
+  carry the part that mattered** (2026-09-13).
+  `tests/test_the_a11y_sample_covers_the_published_site.py` justified the accessibility
+  gate's sample by *feature containment*: every element, class token, `role`, `aria-*`,
+  `lang`, `alt`, `type` and `scope` value `site/` publishes also occurs in the 17 pages
+  `make a11y` reads. It was explicit that containment is about vocabulary and not about
+  combinations -- "the published site presents 8 distinct (element set, class set)
+  shapes and the fixture build presents 4" -- so a rule that fires only on a
+  co-occurrence was outside the claim. `heading-order`, `landmark-unique`, `region` and
+  `landmark-one-main` are all that kind of rule.
+
+  **Re-measured first, and the arithmetic in the disclaimer does not hold.** 8 published
+  shapes and 4 sample shapes is right; "so 4 are unrepresented" is not, because the 4
+  are not a subset of the 8. Exactly **one** published shape is reproduced exactly and
+  **seven** are not. What that hid is the direction: every one of the 8 published shapes
+  is a **subset** of a shape the gate reads. No published page carries a markup feature,
+  a feature combination, a heading transition, a landmark sequence or a parent/child
+  nesting the 17 lack. The sample is the richer side, by the fixture banner
+  (`class:note`, `class:note-title`), the ask link (`class:ask`, which the fixture build
+  gives all three schools and `make publish` gives one school in 10,534), and the
+  measure-state tokens a particular school's data may not produce.
+
+  So the gap is closed by asserting containment **per page** rather than per corpus,
+  plus the three structural signatures a set of features cannot hold: the heading-level
+  steps a page takes, its landmark sequence with label values normalised and runs
+  collapsed, and every parent/child element pairing in it. Measured on this tree, each
+  figure derived by the checks rather than typed into them:
+
+  | | examined | examinable |
+  |---|---:|---:|
+  | pages the gate reads | 17 | 23,305 |
+  | published shapes contained in a shape it reads | 8 | 8 |
+  | markup features published, present in the sample | 84 | 84 |
+  | heading-level transitions published, in the sample | 6 | 6 |
+  | landmark sequences published, in the sample | 4 | 4 |
+  | element nestings published, in the sample | 56 | 56 |
+
+  **The sample is not extended until the 8 shapes match exactly, and should not be.**
+  Every page the gate reads carries the fixture banner and no published page may --
+  `test_no_published_page_was_built_from_fixtures` fails if one ever does -- so shape
+  equality is unreachable by construction, and the only way to reach it is to stop
+  marking the fixture build as a fixture build. A check now asserts that asymmetry next
+  to the reason, so a change that drops the banner to close the shape gap fails there
+  rather than reading as progress. `class:ask` is the same trade in smaller form: a
+  second fixture render with no endpoint would hand axe a page it has already been
+  handed a superset of, and would double the gate's cost to close nothing any predicate
+  here can measure.
+
+  Two things the new checks found on their own. Every one of the 23,305 published pages
+  closes the tags it opens -- nothing had held them to that, because `make htmlvalidate`
+  reads the fixture build. And no page on either side carries two landmarks with the
+  same element and accessible name, so `landmark-unique` has no firing input in
+  production: a reason it cannot fire, not a reason it was checked.
+
+- **Eight showcase rows were compared on no machine, ever** (2026-09-13).
+  `test_the_showcase_table_matches_coverage_json_where_it_can_be_read` is the only check
+  that held `docs/SUPPRESSION-SHOWCASE.md` to a measurement, and it skips wherever
+  `data/out/coverage.json` is absent or is a fixture build. That is CI, because
+  `data/raw/` is never in git and nothing there builds the artifact; and it is this
+  machine too, because the committed local artifact is the fixture one. The skip message
+  is the honest form and says what it did not do -- "0 of 8 showcase rows were compared"
+  -- and it has been 0 of 8 everywhere, always. Every other check held the table to its
+  own arithmetic, which a table can satisfy while stating the wrong counts.
+
+  Those counts do not live only in `coverage.json`. All 21,068 published school pages
+  render them, three columns wide -- "Schools publishing it", "Schools withholding it",
+  "Schools publishing nothing" -- for every subgroup, in both languages, from the same
+  run of `make data`. The pages are committed, so the comparison runs on every machine:
+  **8 of 8 rows**, plus the scale table's third bucket, plus the most-withheld ranking
+  taken over every subgroup the pages carry rather than the eight the table lists. The
+  pages are also required to agree with each other, so a tree left half-rendered by an
+  interrupted publish is a failure rather than a table matching whichever page was read.
+
+  The acquired-run comparison stays where it is: it is the only check that ties the
+  table to the artifact rather than to another rendering of it. Its skip now names the
+  check that does run everywhere, so a reader of a skipped run is not left thinking the
+  rows go unchecked.
+
+  What this is not is an independent re-derivation from the CDE file. It is the check
+  that the document and the pages tell a family the same number, which is the
+  disagreement a reader can be hurt by.
+
 - **A measure block nobody registered was dropped from the dataset, the record and
   the diff, silently** (2026-09-09, issue #109). `SOURCE_OF_BLOCK` in
   `src/homeroom/explain.py` is five keys typed by hand, derived from nothing and
