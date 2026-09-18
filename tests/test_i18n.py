@@ -138,7 +138,7 @@ def test_every_grade_column_and_subgroup_family_has_both_names() -> None:
 
 
 def test_every_absenteeism_category_the_pipeline_knows_has_both_names() -> None:
-    """The D3 analogue of the D2 parity check above."""
+    """The D3 analog of the D2 parity check above."""
     assert set(ABSENTEEISM_CATEGORY_NAMES_BY_LOCALE["es"]) == set(
         ABSENTEEISM_CATEGORY_NAMES
     )

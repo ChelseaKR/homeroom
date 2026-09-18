@@ -28,7 +28,16 @@ from homeroom.browse import county_code, county_page_name, district_page_name
 from homeroom.directory import active_schools
 from homeroom.i18n import LOCALES, OTHER_LOCALE, text
 from homeroom.site import build_site
-from tests.test_pages import ABSENTEEISM, DIRECTORY, ENROLLMENT
+from tests.test_pages import (
+    ABSENTEEISM,
+    DIRECTORY,
+    ENROLLMENT,
+    FETCHING_ATTRIBUTES,
+    LINK_RELATIONS,
+    SUBRESOURCE_TAGS,
+    assert_one_resolvable_stylesheet,
+    parse_markup,
+)
 
 MARKED = re.compile(r'<span lang="en">(.*?)</span>', re.S)
 
@@ -59,6 +68,35 @@ def cde_names() -> set[str]:
     for school in active_schools(DIRECTORY):
         names.update({school.name, school.district, school.county})
     return names
+
+
+def test_every_browse_page_reaches_one_stylesheet_and_it_is_a_directory_up(
+    built: Path,
+) -> None:
+    """These are the only pages that have to climb to reach the site root.
+
+    School pages and the landing page sit beside `homeroom.css`; a county or
+    district page sits one directory below it and names `../homeroom.css`. A
+    prefix that was right for the pages at the root and wrong here would leave
+    2,234 published pages unstyled with every other gate green, so the href is
+    resolved against the page's own directory rather than pattern-matched.
+
+    Until this existed the browse pages had no fixture-level check on what they
+    fetch at all: `tests/test_pages.py` walks the school pages and
+    `tests/test_landing.py` the front door, and neither of them reaches these.
+    """
+    assert browse_pages(built), "the fixture build published no browse page"
+    for page in browse_pages(built):
+        document = parse_markup(page.read_text(encoding="utf-8"))
+        assert not [tag for tag, _ in document.elements if tag == "style"], page.name
+        assert_one_resolvable_stylesheet(built, page, document)
+        for tag, attr in document.elements:
+            assert tag not in SUBRESOURCE_TAGS, (page.name, tag)
+            for name in attr:
+                assert name not in FETCHING_ATTRIBUTES, (page.name, tag, name)
+                assert not name.startswith("on"), (page.name, tag, name)
+            if tag == "link":
+                assert attr.get("rel") in LINK_RELATIONS, (page.name, attr)
 
 
 def test_there_are_browse_pages_to_check(built: Path) -> None:

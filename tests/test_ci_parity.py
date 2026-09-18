@@ -28,6 +28,13 @@ setup or reporting action named in `SETUP_AND_REPORTING` or a gating action
 registered in `GATING_ACTIONS` against the make target that runs the same check
 locally. An unrecognised action fails the build that adds it.
 
+`GATING_ACTIONS` is empty as of 2026-09-13. Its one entry mapped
+`gitleaks/gitleaks-action` to `secret-scan` and asserted, by existing, that the
+two ran the same check. They did not: the action chose its scan range from the
+triggering event and read a single commit on a single-commit push. A registry
+entry is a claim of equivalence that nothing here can verify, so the job runs
+`make secret-scan-history` and is seen as a `run:` step instead.
+
 The workflow is read as text. `PyYAML` is not a dependency of this project, and
 `tests/test_deploy_template.py` already records the same trade for the same
 reason.
@@ -67,10 +74,18 @@ SETUP_AND_REPORTING = frozenset(
 )
 
 # Actions that are gates, mapped to the target that runs the same check locally.
-# `gitleaks/gitleaks-action` scans history; `make secret-scan` runs that pass and
-# a second one over the working tree, which is the superset the Makefile explains.
-# This is the registration an action-only job needs in order to be visible here.
-GATING_ACTIONS = {"gitleaks/gitleaks-action": "secret-scan"}
+# This registry is empty, and that is the fix rather than an omission. It held
+# one entry, `gitleaks/gitleaks-action` -> `secret-scan`, and the mapping was
+# wrong in the way a mapping can be: the action and the target did not run the
+# same check. `make secret-scan` walked every commit; the action chose its range
+# from the triggering event and degraded to `--log-opts=-1`, one commit, on the
+# single-commit push that every squash merge into `main` is. Registering an
+# action against a target asserts the two are equivalent, and nothing here could
+# check that they were. The `secret-scan` job runs `make secret-scan-history`
+# now, so it is visible to this file as a `run:` step like every other gate, and
+# there is no equivalence left to take on trust. The mechanism stays for the next
+# action-only gate; see `tests/test_secret_scan_reads_history.py`.
+GATING_ACTIONS: dict[str, str] = {}
 
 # A job header: two spaces of indent under `jobs:`, a name, a colon, nothing else.
 JOB_HEADER = re.compile(r"^  ([a-z][a-z0-9-]*):\s*$", re.M)
@@ -201,7 +216,7 @@ def test_verify_still_reaches_the_gates_that_used_to_be_ci_only() -> None:
 def test_the_workflow_is_read_as_jobs_and_steps_not_just_as_run_lines() -> None:
     """The floor under everything below: the parse has to see the whole file.
 
-    ci.yml has three jobs and eleven steps, only three of which are `run:`
+    ci.yml has three jobs and eleven steps, only four of which are `run:`
     lines. If this parse ever sees fewer jobs than the file has, every check
     below silently narrows.
     """
@@ -256,14 +271,20 @@ def test_every_ci_job_runs_something_the_local_gate_can_run() -> None:
 def test_the_secret_scan_job_is_the_one_this_gate_used_to_miss() -> None:
     """Named so that losing sight of it again fails here rather than nowhere.
 
-    The job runs a gitleaks action and no command. Under the old `run:`-only
-    parse it contributed nothing and was indistinguishable from not existing.
+    The job used to run a gitleaks action and no command. Under the old
+    `run:`-only parse it contributed nothing and was indistinguishable from not
+    existing; it was then made visible by registering the action in
+    `GATING_ACTIONS` against `secret-scan`. That registration claimed the two
+    ran the same check, and on 2026-09-13 they were measured and did not: the
+    action read one commit. The job runs `make secret-scan-history` now, which
+    is a `run:` step the original parse would have seen, so the claim is a
+    command this file can read rather than a mapping it has to be told.
     """
     block = ci_jobs()["secret-scan"]
-    assert not [c for c in RUN_STEP.findall(block) if c.strip()], (
-        "the secret-scan job now runs a command; check it calls a make target"
+    assert targets_a_job_runs(block) == {"secret-scan-history"}, (
+        "the secret-scan job must run `make secret-scan-history` and nothing "
+        "else; that target is the full-history walk `make verify` also reaches"
     )
-    assert targets_a_job_runs(block) == {"secret-scan"}
 
 
 # ----------------------------------------------------------------------------------
@@ -279,9 +300,46 @@ def test_the_secret_scan_job_is_the_one_this_gate_used_to_miss() -> None:
 # would report. The coverage percentage is not: measuring it means running the suite
 # under coverage, which is what the `test` target already does, and re-running it
 # inside itself would double the gate's cost to re-assert a number the gate already
-# enforces. What is checked instead is the relationship the comment actually claims,
-# that the floor sits below what is measured, which is the part a drifting figure
-# would break.
+# enforces. `make test` does write coverage.xml, but it writes it when the session
+# ends, so a test running inside that session can only read the *previous* run's
+# file; a gate reading a stale artifact and calling it a measurement is the defect
+# this block exists to catch, one layer up. What is checked instead is the
+# relationship the comment actually claims, that the floor sits below what is
+# measured, which is the part a drifting figure would break.
+#
+# The count is held to a band, not to equality.
+#
+# Until 2026-09-13 this asserted `stated == collected`. That is the right statement
+# about a single tree and the wrong gate for a repository that lands several
+# branches a day. The number lives on one line of pyproject.toml, so every branch
+# that adds or removes a test rewrites that line, and any two such branches conflict
+# there however unrelated their subjects: #117 and #118 collided on it while sharing
+# no other file, and the same shape held family-greenhouse #410 for days. Equality
+# on a hand-kept integer serialises every lane in the repository through one line of
+# a config file, and it does that in defence of a parenthetical -- the floor itself
+# is enforced on every run by `--cov-fail-under`, not by this prose.
+#
+# Measured over this line's own history, 2026-08-29 to 2026-09-13: 28 edits, no
+# decrease, largest single step +59 tests (9.31%). The one larger step, +70
+# (13.59%), was the catch-up that fixed the stale 515 described above, not a
+# branch's own growth.
+#
+# DRIFT_ALLOWED is therefore 15%: the smallest ceiling strictly above the largest
+# single-branch step this repository has ever taken, with room to spare, so no one
+# branch can trip it on its own and lanes stop colliding. Replayed over that same
+# history it asks for 3 edits where equality asked for 28.
+#
+# What this gives up, stated plainly: the drift the comment may carry rises from 0
+# to 15%, and the 515-against-574 case (11.46%) would no longer have fired. That was
+# the cost weighed. The defect being defended against is not a number that is a
+# little old, it is a number nothing reads, which drifts without bound -- 515 was on
+# its way to 962. A bounded 15% and an unbounded drift are different things, and
+# only the second one makes the justification unreadable.
+#
+# The floor below is exact: the suite must never collect FEWER tests than the
+# measurement was taken over. No step in that history was a decrease, so it costs
+# nothing today, and a suite that shrank past its own measurement is a deletion
+# worth a person's attention rather than a rounding error.
 # ----------------------------------------------------------------------------------
 
 PYPROJECT = ROOT / "pyproject.toml"
@@ -290,6 +348,43 @@ MEASURED = re.compile(
     r"suite measures ([\d.]+)% branch coverage over\s+([\d,]+)\s*\n?#?\s*tests"
 )
 FAIL_UNDER = re.compile(r"^fail_under = (\d+)$", re.M)
+
+# See the block above for how 15% was chosen against this line's own edit history.
+DRIFT_ALLOWED = 0.15
+
+# A gate that only says "wrong" makes the next person go and find out how to make it
+# right, which on a shared line is where the jam re-forms. This says it.
+REMEASURE = (
+    "Re-measure both figures with:\n"
+    "    uv run --locked pytest -n auto --dist loadfile --cov=src --cov-branch "
+    "--cov-report=term\n"
+    "and update the 'suite measures ...% branch coverage over N tests' line in "
+    "pyproject.toml with the reported percentage and collected count."
+)
+
+
+def _stale_measurement(stated: int, collected: int) -> str | None:
+    """Why the stated suite size no longer describes this one, or None if it does.
+
+    Pure, so the band it enforces can be tested at its edges without paying for a
+    collection run per case.
+    """
+    if collected < stated:
+        return (
+            f"pyproject.toml defends fail_under with a measurement over {stated} "
+            f"tests, but the suite now collects only {collected}: it has shrunk "
+            f"past the measurement that defends its floor.\n{REMEASURE}"
+        )
+    drift = (collected - stated) / stated
+    if drift > DRIFT_ALLOWED:
+        return (
+            f"pyproject.toml defends fail_under with a measurement over {stated} "
+            f"tests; the suite collects {collected}, which is {drift:.1%} larger "
+            f"and past the {DRIFT_ALLOWED:.0%} this allows, so the coverage figure "
+            f"beside it can no longer be assumed to describe this suite."
+            f"\n{REMEASURE}"
+        )
+    return None
 
 
 def _collected_tests() -> int:
@@ -326,14 +421,59 @@ def test_the_coverage_floor_states_the_suite_it_was_measured_against() -> None:
     stated_tests = int(measured.group(2).replace(",", ""))
 
     collected = _collected_tests()
-    assert stated_tests == collected, (
-        f"pyproject.toml defends fail_under with a measurement over {stated_tests} "
-        f"tests; the suite collects {collected}."
-    )
+    stale = _stale_measurement(stated_tests, collected)
+    assert stale is None, stale
 
     floor = FAIL_UNDER.search(body)
     assert floor, "pyproject.toml no longer sets fail_under"
     assert stated_coverage > int(floor.group(1)), (
         f"the comment says the floor sits under what is measured, but it states "
         f"{stated_coverage}% against a floor of {floor.group(1)}."
+    )
+
+
+# The band's own edges. `_stale_measurement` is what decides whether a branch has to
+# stop and edit pyproject.toml, so the places it changes its mind are worth pinning:
+# a later "just widen it a bit" or "tighten it back to equality" is exactly how the
+# jam returns, and neither would otherwise fail anything.
+
+# The largest single step this line has taken that was a branch's own growth, not
+# the catch-up that fixed a stale figure: 634 -> 693 on 2026-09-05, +59 (9.31%).
+LARGEST_OBSERVED_STEP = (634, 693)
+
+
+def test_a_suite_that_shrank_past_its_own_measurement_is_rejected() -> None:
+    """The floor is exact: fewer tests than were measured is always a finding."""
+    verdict = _stale_measurement(962, 961)
+    assert verdict is not None
+    assert "shrunk past" in verdict
+
+
+def test_growth_inside_the_band_asks_no_branch_to_edit_pyproject() -> None:
+    """The whole point: ordinary growth must not make a branch touch that line."""
+    assert _stale_measurement(962, 962) is None
+    assert _stale_measurement(962, int(962 * (1 + DRIFT_ALLOWED))) is None
+
+
+def test_growth_past_the_band_is_rejected_and_says_how_to_fix_it() -> None:
+    """Drift is bounded, and the message carries the command that ends it."""
+    verdict = _stale_measurement(962, int(962 * (1 + DRIFT_ALLOWED)) + 1)
+    assert verdict is not None
+    assert "--cov-report=term" in verdict, (
+        "a gate that cannot say how to satisfy it re-creates the jam it replaced"
+    )
+
+
+def test_the_band_is_wider_than_the_largest_step_this_line_has_taken() -> None:
+    """15% was chosen to clear a measured number, not picked for looking round.
+
+    If this ever fails, the band no longer clears a single branch's growth and the
+    equality jam is back in a different disguise -- widen it against fresh history
+    rather than deleting this.
+    """
+    before, after = LARGEST_OBSERVED_STEP
+    assert _stale_measurement(before, after) is None, (
+        f"a single branch once moved this suite {before} -> {after} "
+        f"({(after - before) / before:.2%}); a band that narrow makes that branch "
+        f"edit pyproject.toml, which is the collision this replaced"
     )

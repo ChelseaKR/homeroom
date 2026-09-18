@@ -318,7 +318,7 @@ class AskService:
         raw_claims, model = self._call(user, NARRATE_TOOL, NARRATE_MAX_TOKENS, usage)
         claims = parse_claims(raw_claims)
         if _all_malformed(claims) and self._cap.reserve(1):
-            # The reply was not a claims list at all (a serialisation slip, not
+            # The reply was not a claims list at all (a serialization slip, not
             # a content problem). One more try, paid for; then it stands.
             raw_claims, model = self._call(
                 user, NARRATE_TOOL, NARRATE_MAX_TOKENS, usage

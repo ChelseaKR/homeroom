@@ -5,7 +5,7 @@ AGENTS.md requires a PR touching that guardrail to link an ADR. A citation is
 only worth as much as the document it points at, so these check the trail
 itself: that every ADR a source file or a document cites exists, that no ADR
 carries a generator placeholder where its date should be, and that nothing
-cites the process meta-ADR as if it were a decision about behaviour.
+cites the process meta-ADR as if it were a decision about behavior.
 
 That last one is issue #35. Seven sites in code and docs cited "ADR 0000" for
 the anti-ranking and suppression-fidelity rule. ADR 0000 is
@@ -45,7 +45,7 @@ CITATION = re.compile(r"\bADR (\d{4})\b")
 # formats are out; these six are what this repository authors.
 SCANNED_SUFFIXES = frozenset({".py", ".md", ".mjs", ".yml", ".yaml", ".json"})
 
-# The rule below is about a citation used as the *authority for a behaviour*, so
+# The rule below is about a citation used as the *authority for a behavior*, so
 # it applies to code and to the normative documents. Retrospective writing has to
 # be able to name the defect it narrates, or the record of a fix cannot describe
 # what was fixed. Two kinds of file are therefore out of scope, by a stated
@@ -68,7 +68,7 @@ SKIP_DIRS = (Path("docs") / "plans",)
 
 # The process ADR. It records that this project keeps ADRs; it decides nothing
 # about schools, ranking, suppression, or the ask layer, so citing it as the
-# authority for a behaviour points a reader at the wrong document.
+# authority for a behavior points a reader at the wrong document.
 PROCESS_ADR = "0000"
 
 
@@ -269,7 +269,7 @@ def test_no_adr_carries_an_unfilled_generator_placeholder() -> None:
     assert not bad, bad
 
 
-def test_the_process_adr_is_never_cited_as_the_reason_for_a_behaviour() -> None:
+def test_the_process_adr_is_never_cited_as_the_reason_for_a_behavior() -> None:
     """Issue #35. The anti-ranking rule is ADR 0002, not ADR 0000."""
     offenders: list[str] = []
     for path in cited_files():
@@ -279,7 +279,7 @@ def test_the_process_adr_is_never_cited_as_the_reason_for_a_behaviour() -> None:
             if number == PROCESS_ADR:
                 offenders.append(f"{path.relative_to(ROOT)}: {line.strip()}")
     assert not offenders, (
-        "ADR 0000 records the ADR process and decides nothing about behaviour; "
+        "ADR 0000 records the ADR process and decides nothing about behavior; "
         "the anti-ranking and suppression rule is ADR 0002: "
         + "; ".join(offenders)
         + f" -- {census()}"

@@ -97,7 +97,7 @@ the pages write them (:func:`homeroom.i18n.format_number`).
 
 
 def number_positions(text: str) -> list[tuple[int, str]]:
-    """Every number ``text`` states, as (offset into ``text``, normalised token).
+    """Every number ``text`` states, as (offset into ``text``, normalized token).
 
     Academic-year ranges are taken out of the reading first, so ``2024-25`` is
     not read as the two numbers 2024 and 25; the verifier allows years
@@ -123,7 +123,7 @@ def number_positions(text: str) -> list[tuple[int, str]]:
 
 
 def numbers_in(text: str) -> list[str]:
-    """Every number ``text`` states, normalised (commas stripped).
+    """Every number ``text`` states, normalized (commas stripped).
 
     Academic-year ranges are removed first, so ``2024-25`` is not read as the
     two numbers 2024 and 25; the verifier allows years separately.
@@ -132,7 +132,7 @@ def numbers_in(text: str) -> list[str]:
 
 
 def number_forms(value: float) -> set[str]:
-    """Every normalised spelling of a published value a sentence may use.
+    """Every normalized spelling of a published value a sentence may use.
 
     ``512.0`` may be written ``512``; ``12.3`` must be ``12.3`` (``12`` is a
     different number, and so is ``12.30``, which is not how the page writes it).
@@ -184,7 +184,7 @@ def strip_label_references(text: str, labels: Iterable[str]) -> str:
     opened for; the coverage tally was one instance of it and the label is
     another.
 
-    So the licence is positional. The digits written against the label's word
+    So the license is positional. The digits written against the label's word
     are removed here and never enter the check; a digit anywhere else in the
     sentence survives and is matched against the cited cell's published value
     like any other number.

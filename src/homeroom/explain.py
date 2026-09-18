@@ -17,7 +17,7 @@ which is where the discipline already lives.
 
 **The record carries the four states the page shows, not the three the data has.**
 ``Measure`` has three statuses; ``render.py`` renders *four* cells, because a
-published zero is labelled in words as a genuine zero and not left to look like any
+published zero is labeled in words as a genuine zero and not left to look like any
 other number. A record that collapsed those two would be making a different claim
 from the page it is supposed to describe. So each cell carries both ``status`` (the
 measure's, as in ``schools.json``) and ``rendered_state`` (the page's, one of

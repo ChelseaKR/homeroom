@@ -363,7 +363,7 @@ def test_the_scale_table_is_readable_at_all() -> None:
     assert "Not published (no row for this school)" in rows, sorted(rows)
 
 
-def test_the_scale_table_states_the_same_counts_as_the_row_it_summarises() -> None:
+def test_the_scale_table_states_the_same_counts_as_the_row_it_summarizes() -> None:
     """Published and withheld here are `TA`'s published and withheld there.
 
     Both tables describe the total chronic-absenteeism rate over the same run of

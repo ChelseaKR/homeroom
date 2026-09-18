@@ -9,13 +9,13 @@ installed wheel as well as from this checkout; ``site.py`` copies them into the
 output only when the build has been told the origin it will be served from,
 which is the same condition every other addressed artifact is written under.
 
-This is out-of-band on purpose and is not part of ``make verify``. Rasterising
+This is out-of-band on purpose and is not part of ``make verify``. Rasterizing
 text needs a font renderer, and ``dependencies = []`` in pyproject.toml is a
 property this project keeps: Pillow is pulled in by ``--with`` for the length of
 this one command and never enters ``uv.lock``.
 
 **Nothing here is retyped.** The wording comes out of ``homeroom.i18n`` and the
-colours out of ``homeroom.render``. A card is the only thing a reader sees
+colors out of ``homeroom.render``. A card is the only thing a reader sees
 before deciding whether to open the page, so a second hand-maintained copy of
 the tagline would be the copy that drifts, and the drifting copy would be the
 one doing the talking. The Spanish card is not a translation step either: it is

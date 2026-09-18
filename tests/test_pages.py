@@ -44,7 +44,7 @@ from homeroom.artifacts import (
     ENROLLMENT_ACCESS_DATE,
 )
 from homeroom.assignments import OUTCOME_NAMES, OUTCOMES
-from homeroom.browse import county_page_name, district_page_name
+from homeroom.browse import BROWSE_STYLE, county_page_name, district_page_name
 from homeroom.context import (
     AbsenteeismAggregate,
     AggregateFigures,
@@ -55,6 +55,7 @@ from homeroom.context import (
 )
 from homeroom.directory import active_schools
 from homeroom.i18n import LOCALES, Locale, format_number, outcome_name, text
+from homeroom.landing import LANDING_STYLE
 from homeroom.measures import Measure, MeasureStatus
 from homeroom.profiles import SchoolProfile, assemble_profiles
 from homeroom.render import (
@@ -65,7 +66,9 @@ from homeroom.render import (
     ENROLLMENT_URL,
     LIGHT,
     OTHER_LOCALE,
-    STATE_COLOURS,
+    STATE_COLORS,
+    STYLESHEET,
+    STYLESHEET_NAME,
     SiteCoverage,
     page_name,
     render_school,
@@ -366,31 +369,152 @@ FETCHING_ATTRIBUTES = frozenset(
 def test_no_page_carries_a_script_or_reaches_off_the_page_for_an_asset(
     built: Path,
 ) -> None:
-    """README's "no script, no external asset, no account, no tracking", checked.
+    """The renderer's "no script, nothing off-origin", checked.
+
+    This is the renderer's output. Since 2026-09-17 the *published* pages also
+    carry one hash-pinned Google Analytics loader, added after rendering by
+    `homeroom.analytics`; `tests/test_published_site.py` holds them to exactly
+    that, and `tools/analytics.mjs` to what it does.
 
     Neither html-validate nor axe-core has an opinion about this: a page that
     loads a font from a CDN, an analytics beacon, or a tracking pixel is
     perfectly conformant and perfectly accessible. The claim is a privacy
     promise to families reading about their own children's schools, so it needs
-    a gate of its own, and this is it. The stylesheet has to be present and
-    inline, so the check cannot be satisfied by a page that stopped rendering.
+    a gate of its own, and this is it.
+
+    Until 2026-09-07 the stylesheet was inline and this asserted exactly one
+    ``<style>`` per page. It is now one file the same build wrote, so what is
+    asserted instead is that the page names exactly one stylesheet, that it is
+    ``homeroom.css`` by a relative href, and that the href resolves to a file
+    inside the tree this build produced. That last clause is the one doing the
+    new work: a stylesheet that 404s is silent in a browser, and a check that
+    only counted ``<link>`` elements would pass on a site with no CSS at all.
     """
     for _, _, path in every_page(built):
         source = path.read_text(encoding="utf-8")
         document = parse_markup(source)
-        styles = [attr for tag, attr in document.elements if tag == "style"]
-        assert len(styles) == 1, path.name
-        assert "--surface" in source, path.name
+        assert not [tag for tag, _ in document.elements if tag == "style"], path.name
+        assert_one_resolvable_stylesheet(built, path, document)
         for tag, attr in document.elements:
             assert tag not in SUBRESOURCE_TAGS, (path.name, tag)
             for name in attr:
                 assert name not in FETCHING_ATTRIBUTES, (path.name, tag, name)
                 assert not name.startswith("on"), (path.name, tag, name)
             if tag == "link":
-                assert attr.get("rel") == "alternate", (path.name, attr)
+                assert attr.get("rel") in LINK_RELATIONS, (path.name, attr)
         lowered = source.lower()
         for smell in ("@import", "url(", "javascript:", "<script"):
             assert smell not in lowered, (path.name, smell)
+
+
+#: What a ``<link>`` on a page that is not the ask page may say it is for.
+#: ``canonical`` and ``alternate`` name addresses; ``stylesheet`` is the only
+#: one that makes the browser fetch anything, and the check below is what keeps
+#: it from being joined by ``preconnect``, ``prefetch`` or an icon from a CDN.
+LINK_RELATIONS = frozenset({"alternate", "canonical", "stylesheet"})
+
+
+def assert_one_resolvable_stylesheet(
+    built: Path, path: Path, document: Document
+) -> None:
+    """The page names one stylesheet, relatively, and the file is really there."""
+    sheets = [
+        attr.get("href", "")
+        for tag, attr in document.elements
+        if tag == "link" and attr.get("rel") == "stylesheet"
+    ]
+    assert len(sheets) == 1, (path.name, sheets)
+    href = sheets[0]
+    assert not href.startswith(("http://", "https://", "//", "/")), (path.name, href)
+    assert href.endswith(STYLESHEET_NAME), (path.name, href)
+    target = (path.parent / href).resolve()
+    assert target.is_file(), (path.name, href)
+    assert target == (built.resolve() / STYLESHEET_NAME), (path.name, target)
+
+
+def test_the_stylesheet_the_pages_link_is_written_by_every_build(
+    tmp_path: Path,
+) -> None:
+    """Not under ``site_url``, the way the social cards are.
+
+    A card is only ever named by a build that was given an origin. The
+    stylesheet is named by every page in every build, so a build that wrote it
+    conditionally would emit pages reaching for a file that is not there --
+    which is exactly the shape `MissingAssetError` exists to refuse for cards.
+    Both of these builds name no origin, and the second renders one school with
+    no landing page, which is the smallest tree `build_site` can produce.
+    """
+    for out, kwargs in (
+        (tmp_path / "full", {"landing": True}),
+        (tmp_path / "one", {"cds_codes": [EXAMPLE], "landing": False}),
+    ):
+        build_site(
+            directory=DIRECTORY,
+            enrollment=ENROLLMENT,
+            out_dir=out,
+            is_fixture=True,
+            **kwargs,  # type: ignore[arg-type]
+        )
+        sheet = out / STYLESHEET_NAME
+        assert sheet.is_file(), out
+        assert "--surface" in sheet.read_text(encoding="utf-8"), out
+
+
+def test_the_published_stylesheet_reaches_nowhere_of_its_own(built: Path) -> None:
+    """The privacy promise moved into a file, so the check has to move with it.
+
+    A stylesheet may fetch: `@import` pulls in another sheet, and `url()` pulls
+    in a font or an image, either of them from anywhere. Those used to be
+    covered because the CSS was part of the page and the page was checked for
+    them. Nothing checked the file until this did, and a font from a CDN in
+    here would be exactly the tracking beacon the README says these pages do
+    not carry, with no page-level evidence of it at all.
+    """
+    css = (built / STYLESHEET_NAME).read_text(encoding="utf-8")
+    for smell in ("@import", "url(", "//", "http:", "https:"):
+        assert smell not in css, smell
+
+
+def test_the_stylesheet_carries_every_rule_the_pages_used_to_inline(
+    built: Path,
+) -> None:
+    """One file for four page kinds, so all four kinds' rules have to be in it.
+
+    The browse and landing blocks are 297 bytes of class-scoped rules that used
+    to be concatenated onto the base sheet at render time. Folding them into one
+    file is what lets a family's walk from the front door to a school page fetch
+    one stylesheet rather than three; dropping either on the way would leave a
+    county list unstyled with nothing to notice it.
+    """
+    css = (built / STYLESHEET_NAME).read_text(encoding="utf-8")
+    assert css == STYLESHEET + BROWSE_STYLE + LANDING_STYLE
+    for selector in (".browse-list", ".crumb", ".langs", ".county-list"):
+        assert selector in css, selector
+
+
+def test_a_page_whose_stylesheet_never_arrives_still_tells_the_truth(
+    built: Path,
+) -> None:
+    """The property that makes linking the stylesheet safe, asserted not believed.
+
+    A linked stylesheet can fail to arrive; an inline one cannot. So the trade
+    is only sound if a page with no styling at all still says the same thing,
+    and it does, because the four cell states are separated by words as well as
+    color (WCAG 2.2 SC 1.4.1). What a reader loses without the sheet is the
+    visual separation. What they keep is the factual one: a withheld figure
+    reads "withheld to protect privacy" and never a digit, so an unstyled page
+    can be read as under-informative but never as wrong.
+
+    The markup below is literally what a browser has before it fetches the
+    sheet, because after 2026-09-07 the page carries no styling of its own.
+    """
+    for locale in LOCALES:
+        document = parse(page(built, CHARTER, locale))
+        withheld = cells_with(document, "m-withheld")
+        assert withheld, locale
+        for body in withheld + cells_with(document, "m-nothing"):
+            assert not any(character.isdigit() for character in body), (locale, body)
+        assert text(locale, "state_withheld_label") in document.body_text
 
 
 # ----------------------------------------------------------------------------------
@@ -451,7 +575,7 @@ def test_a_genuine_zero_renders_as_a_zero_and_says_it_is_one(built: Path) -> Non
 def test_the_three_states_are_worded_differently_in_both_languages(
     built: Path,
 ) -> None:
-    """Colour is never the only signal (WCAG 2.2 SC 1.4.1), so the words carry it."""
+    """Color is never the only signal (WCAG 2.2 SC 1.4.1), so the words carry it."""
     for locale in LOCALES:
         labels = [
             text(locale, key)
@@ -658,7 +782,7 @@ def named_section(source: str, anchor: str) -> str:
 
     The sections a page is built from are siblings under ``main`` and are the
     only elements carrying ``aria-labelledby``; the scrollable table wrappers
-    inside them are labelled by ``aria-label`` instead. So the next
+    inside them are labeled by ``aria-label`` instead. So the next
     ``aria-labelledby`` after this one is where this one ends, and a nested
     ``</section>`` cannot be mistaken for the closing tag.
     """
@@ -889,7 +1013,7 @@ def assignment_coverage_numbers(cover: SiteCoverage) -> set[str]:
 
 
 def test_every_assignment_number_was_counted(built_with_assignments: Path) -> None:
-    """The D5 analogue of ``test_every_number_in_a_data_cell_was_counted``.
+    """The D5 analog of ``test_every_number_in_a_data_cell_was_counted``.
 
     Every digit on a page carrying assignment outcomes is a cell the pipeline
     read out of a source file or a coverage status it tallied. A figure Homeroom
@@ -1216,7 +1340,7 @@ def absenteeism_coverage_numbers(cover: SiteCoverage) -> set[str]:
 
 
 def test_every_absenteeism_number_was_counted(built_with_absenteeism: Path) -> None:
-    """The D3 analogue of ``test_every_number_in_a_data_cell_was_counted``: every
+    """The D3 analog of ``test_every_number_in_a_data_cell_was_counted``: every
     digit on a page with chronic absenteeism data is a rate the pipeline read or a
     coverage tally it counted, never a value Homeroom computed."""
     assembly = assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=ABSENTEEISM)
@@ -1643,8 +1767,8 @@ def test_source_urls_match_the_provenance_record() -> None:
 # ----------------------------------------------------------------------------------
 
 
-def luminance(colour: str) -> float:
-    raw = colour.lstrip("#")
+def luminance(color: str) -> float:
+    raw = color.lstrip("#")
     channels = [int(raw[i : i + 2], 16) / 255 for i in (0, 2, 4)]
     linear = [
         channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
@@ -1659,7 +1783,7 @@ def contrast(foreground: str, background: str) -> float:
     return (high + 0.05) / (low + 0.05)
 
 
-FOREGROUNDS = ("ink", "ink-2", "ink-3", "accent", *STATE_COLOURS)
+FOREGROUNDS = ("ink", "ink-2", "ink-3", "accent", *STATE_COLORS)
 BACKGROUNDS = ("surface", "raised", "note")
 
 
@@ -1679,20 +1803,20 @@ def test_the_focus_ring_meets_non_text_contrast(palette: dict[str, str]) -> None
 
 
 @pytest.mark.parametrize("palette", [LIGHT, DARK], ids=["light", "dark"])
-def test_each_state_colour_reads_differently_from_a_plain_number(
+def test_each_state_color_reads_differently_from_a_plain_number(
     palette: dict[str, str],
 ) -> None:
     """A state cell has to look unlike an ordinary published figure.
 
-    Colour is not the only signal, and by itself it would not be enough (SC
+    Color is not the only signal, and by itself it would not be enough (SC
     1.4.1): each state also carries its own words, tested above, and its own left
-    border. What this checks is that the colours are three distinct values and
+    border. What this checks is that the colors are three distinct values and
     that none of them reads as the ink a plain number is printed in.
     """
-    colours = [palette[token] for token in STATE_COLOURS]
-    assert len(set(colours)) == len(colours)
-    for colour in colours:
-        assert contrast(colour, palette["ink"]) >= 1.5
+    colors = [palette[token] for token in STATE_COLORS]
+    assert len(set(colors)) == len(colors)
+    for color in colors:
+        assert contrast(color, palette["ink"]) >= 1.5
 
 
 def test_both_palettes_define_the_same_tokens() -> None:
@@ -1828,13 +1952,20 @@ def test_the_roadmap_states_how_many_pages_the_accessibility_gate_reads() -> Non
     page type this gate quietly stops covering, and nothing else would say so.
     """
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    directories = A11Y_RUN.findall(makefile)
+    runs = A11Y_RUN.findall(makefile)
+    # `analytics-gate` repeats the same runs over the fixture build with Google
+    # Analytics added (2026-09-17); the count below is the original build's.
+    analytics_copy = "build/site-offline-analytics"
+    directories = [run for run in runs if not run.startswith(analytics_copy)]
     assert directories == [
         "build/site-offline",
         "build/site-offline/ask",
         "build/site-offline/county",
         "build/site-offline/district",
     ], directories
+    assert [run for run in runs if run.startswith(analytics_copy)] == [
+        run.replace("build/site-offline", analytics_copy, 1) for run in directories
+    ], runs
 
     checker = (ROOT / "tools" / "a11y.mjs").read_text(encoding="utf-8")
     assert "recursive" not in checker, (

@@ -4,7 +4,7 @@ Three rules govern this module, and each is checked by a test rather than truste
 
 *A cell never lies about what it is.* Four things can appear where a number would
 go: a published number, a published zero, a figure the state withheld, and nothing
-at all. Each gets its own words, its own colour, and its own CSS class, in both
+at all. Each gets its own words, its own color, and its own CSS class, in both
 languages. The withheld and the missing never render a digit, so no reader and no
 scraper can mistake either for a zero. :class:`homeroom.measures.Measure` makes
 the mistake impossible upstream; this module makes it visible downstream.
@@ -134,8 +134,8 @@ DARK: dict[str, str] = {
 }
 """The dark palette. Same token names, so no rule needs to know the theme."""
 
-STATE_COLOURS: tuple[str, ...] = ("zero", "withheld", "nothing")
-"""The tokens that carry a measure state. Colour is never the only signal: each
+STATE_COLORS: tuple[str, ...] = ("zero", "withheld", "nothing")
+"""The tokens that carry a measure state. Color is never the only signal: each
 state also carries its own words, so a reader who cannot see the difference still
 reads the difference (WCAG 2.2 SC 1.4.1)."""
 
@@ -221,8 +221,8 @@ td.count, th.count { text-align: right; font-variant-numeric: tabular-nums; }
 .m-nothing { border-left: 3px solid var(--nothing); }
 .m-nothing .state { color: var(--nothing); }
 /* The page is about one school, so its own column stays the loudest of the three.
-   The separation is weight and a rule, never colour alone: the four cell states
-   already own the colours, and reusing them here would make a district's withheld
+   The separation is weight and a rule, never color alone: the four cell states
+   already own the colors, and reusing them here would make a district's withheld
    cell and a school's withheld cell say different things in the same hue. */
 td.c-district .num, td.c-state .num { font-weight: 400; color: var(--ink-2); }
 td.c-district { border-left-color: var(--rule-strong); }
@@ -243,6 +243,37 @@ footer p { color: var(--ink-2); font-size: .92rem; }
 }
 """
 )
+
+#: The one stylesheet the published tree carries, at the root of the site.
+#:
+#: It was inline on every page until 2026-09-07, which cost 5,061 bytes on each
+#: of 21,068 school pages and 5,169 on each of 2,234 browse pages: 118,190,092
+#: bytes, 13.62% of the published tree, measured over `site/` rather than
+#: projected. `homeroom.publish_limits` describes what that share was deciding.
+#:
+#: One file rather than one per page kind. `BROWSE_STYLE` and `LANDING_STYLE`
+#: are 108 and 189 bytes of class-scoped rules for elements no other page kind
+#: carries (`.browse-list`, `.crumb`, `.langs`, `.county-list`), so folding them
+#: in costs 297 bytes once and buys a reader one stylesheet for the whole site:
+#: the walk a family actually makes -- front door, county, district, school --
+#: fetches it on the first page and none of the three after it.
+STYLESHEET_NAME = "homeroom.css"
+
+
+def stylesheet_link(prefix: str = "") -> str:
+    """The one element a page uses to reach the stylesheet, relative to itself.
+
+    ``prefix`` is what the page has to climb to reach the site root: nothing for
+    a school page or the landing page, ``../`` for a county or district page.
+    The pages already address each other this way, and a relative href is what
+    keeps the tree servable from a subpath and from `file://` both.
+
+    This is a same-origin file the build wrote. It is not a font, a CDN, a
+    tracker, or anything a reader's browser reports to anyone -- but it *is* a
+    second request, and it is the first time a Homeroom page has needed one, so
+    it is stated here rather than left to be inferred from the markup.
+    """
+    return f'<link rel="stylesheet" href="{prefix}{STYLESHEET_NAME}">'
 
 
 @dataclass(frozen=True)
@@ -905,7 +936,7 @@ OG_LOCALES: dict[Locale, str] = {"en": "en_US", "es": "es_ES"}
 def canonical_url(site_url: str, path: str) -> str:
     """The absolute address of one published file, for a canonical or a sitemap.
 
-    ``site_url`` is an origin with no trailing slash (``site.py`` normalises it);
+    ``site_url`` is an origin with no trailing slash (``site.py`` normalizes it);
     ``path`` is a published file name relative to the site root. The root page is
     addressed as the bare origin with a trailing slash, because that is the
     address a reader is given and the address the server answers on; a canonical
@@ -1020,7 +1051,7 @@ def _head(
         f'<meta name="description" content="{_esc(description)}">\n'
         f"{addressed}"
         f"{alternates}\n"
-        f"<style>\n{STYLESHEET}</style>\n"
+        f"{stylesheet_link()}\n"
         "</head>"
     )
 

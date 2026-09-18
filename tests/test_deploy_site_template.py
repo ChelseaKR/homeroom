@@ -308,9 +308,13 @@ def published_kinds() -> frozenset[str]:
     )
 
 
-def test_the_published_tree_holds_the_five_kinds_this_file_reasons_about() -> None:
-    """The floor: if the tree stops holding these, every check below narrows."""
-    assert published_kinds() == {".html", ".png", ".xml", ".txt", "CNAME"}
+def test_the_published_tree_holds_the_six_kinds_this_file_reasons_about() -> None:
+    """The floor: if the tree stops holding these, every check below narrows.
+
+    `.js` joined on 2026-09-17: `analytics.js`, the Google Analytics loader
+    `homeroom.analytics` writes at the site root.
+    """
+    assert published_kinds() == {".html", ".png", ".xml", ".txt", ".js", "CNAME"}
 
 
 def test_every_action_the_publish_workflow_uses_is_pinned_to_a_full_sha() -> None:
@@ -323,8 +327,8 @@ def test_every_action_the_publish_workflow_uses_is_pinned_to_a_full_sha() -> Non
 def test_every_kind_of_published_file_is_synced_with_its_own_content_type() -> None:
     """`CNAME` has no extension, and the CLI's guess for it is a download.
 
-    Four of the five kinds the site publishes are typed correctly by the
-    extension alone. The fifth is `CNAME`, which the AWS CLI gives
+    Five of the six kinds the site publishes are typed correctly by the
+    extension alone. The sixth is `CNAME`, which the AWS CLI gives
     `binary/octet-stream`: a browser asked for it offers to save it. The site
     has published it since the first deploy and the sentinel compares it, so it
     is served, not incidental.

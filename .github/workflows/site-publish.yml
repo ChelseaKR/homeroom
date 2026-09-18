@@ -27,9 +27,10 @@
 #      every pass, and an inventory comparison afterwards that fails if the
 #      bucket holds one key the checkout does not.
 #   2. Content-Type must be right, per kind. The site publishes .html, .png,
-#      .xml, .txt and the extensionless CNAME. The CLI guesses from the
-#      extension, which is correct for four of those and gives the fifth
-#      `binary/octet-stream` -- a file a browser offers to download. Each kind
+#      .xml, .txt, .js (the Google Analytics loader, since 2026-09-17) and the
+#      extensionless CNAME. The CLI guesses from the extension, which is right
+#      for most of those and gives CNAME `binary/octet-stream` -- a file a
+#      browser offers to download. Each kind
 #      is synced in its own pass with its type stated, and the types are read
 #      back from the bucket afterwards.
 #   3. A republish must reach readers. CloudFront is invalidated on `/*`, which
@@ -71,7 +72,7 @@ on: # zizmor: ignore[dangerous-triggers]
 
 permissions: {}
 
-# Never let two publishes race, and never cancel one in flight: a cancelled
+# Never let two publishes race, and never cancel one in flight: a canceled
 # sync leaves the bucket holding half of one commit and half of another, which
 # is the one state `tools/verify_live_site.py` would report and nobody could
 # explain.
@@ -126,7 +127,7 @@ jobs:
           test -f site/CNAME || { echo "site/CNAME is missing; the tree is not one make publish wrote" >&2; exit 1; }
           echo "publishing $(find site -type f | wc -l | tr -d ' ') files ($(du -sm site | cut -f1) MB) for $(cat site/CNAME)"
 
-      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.SITE_PUBLISH_ROLE_ARN }}
           aws-region: ${{ vars.SITE_AWS_REGION }}
@@ -141,15 +142,15 @@ jobs:
           # the one that decides how long a family can still be reading a page
           # this project has already corrected.
           CACHING: public, max-age=300, s-maxage=86400
-        # Six passes, written out rather than looped. A shell `for` loop exits
+        # Seven passes, written out rather than looped. A shell `for` loop exits
         # with only its last iteration's status and would swallow a failed
-        # upload in any earlier one -- the same reason `make secret-scan` runs
-        # its two scans as two commands.
+        # upload in any earlier one -- the same reason `make secret-scan` keeps
+        # its history pass and its working-tree pass as two separate targets.
         #
         # `--delete` is scoped by each pass's own filters, which apply to the
         # bucket listing as well as the local tree, so each pass removes the
         # objects of its own kind that the checkout no longer publishes. The
-        # sixth pass excludes all five kinds, which leaves it with nothing to
+        # seventh pass excludes all six kinds, which leaves it with nothing to
         # upload and everything else to delete: that is what removes an object
         # of a kind this site does not publish, put there by hand or left by an
         # older layout.
@@ -171,8 +172,11 @@ jobs:
             --exclude '*' --include 'CNAME' \
             --content-type 'text/plain; charset=utf-8' --cache-control "${CACHING}"
           aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
+            --exclude '*' --include '*.js' \
+            --content-type 'text/javascript; charset=utf-8' --cache-control "${CACHING}"
+          aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
             --exclude '*.html' --exclude '*.png' --exclude '*.xml' \
-            --exclude '*.txt' --exclude 'CNAME'
+            --exclude '*.txt' --exclude 'CNAME' --exclude '*.js'
 
       - name: The bucket holds exactly what the checkout publishes
         env:
@@ -222,6 +226,7 @@ jobs:
           expect robots.txt 'text/plain; charset=utf-8'
           expect CNAME 'text/plain; charset=utf-8'
           expect social-card.en.png 'image/png'
+          expect analytics.js 'text/javascript; charset=utf-8'
 
       - name: Invalidate the distribution and wait for it
         env:

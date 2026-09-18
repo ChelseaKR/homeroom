@@ -235,7 +235,7 @@ def test_a_figure_may_not_borrow_the_build_size_as_the_school_own_value(
 def test_a_figure_may_not_state_a_measure_label_digit_as_the_school_own_value(
     example: SchoolEvidence, corpus: Corpus
 ) -> None:
-    """Issue #34, the label instance: Grade 4's enrolment at this school is 9,
+    """Issue #34, the label instance: Grade 4's enrollment at this school is 9,
     and the row is called "Grade 4". Licensing the label's digit as a bare token
     let the sentence state ``4`` as the count, next to the very name it came
     from. The 4 that names the row is fine; the 4 that claims to be the figure
@@ -257,7 +257,7 @@ def test_a_figure_may_not_state_a_measure_label_digit_as_the_school_own_value(
 def test_a_figure_may_not_swap_one_cited_grade_label_for_another_value(
     example: SchoolEvidence, corpus: Corpus
 ) -> None:
-    """Grade 1 enrols 16 and Grade 4 enrols 9. Naming Grade 1 does not license
+    """Grade 1 enrolls 16 and Grade 4 enrolls 9. Naming Grade 1 does not license
     Grade 4's figure, and the label does not license a number of its own."""
     assert (
         reason(
@@ -298,7 +298,7 @@ def test_naming_a_grade_row_is_still_shown(
     """The digit that names the row has to be sayable, in either language and
     in the shapes narration actually writes: the verbatim label, an ordinal, and
     a list of rows sharing one verb. A fix that withheld these would have made
-    the enrolment-by-grade answer unwritable."""
+    the enrollment-by-grade answer unwritable."""
     shown = one(Claim("figure", text, cites), example, corpus, locale)
     assert isinstance(shown, ShownClaim), shown
 
@@ -357,8 +357,8 @@ def test_no_kind_may_state_a_quoted_passage_number_as_the_school_own_value(
     Every kind is checked because the kind is the model's to write. Narrowing
     the quote pool by kind alone -- the way the coverage tally is narrowed --
     would have left this sentence one word away from passing again, since
-    nothing stops a claim that reads like a figure from being labelled
-    ``definition``. The licence has to be positional, so the digits CDE wrote
+    nothing stops a claim that reads like a figure from being labeled
+    ``definition``. The license has to be positional, so the digits CDE wrote
     are licensed where the sentence quotes them and nowhere else.
     """
     assert (
@@ -939,7 +939,7 @@ def test_a_comma_grouped_thousand_still_names_the_side_a_comparison_speaks_from(
     the other figure, which is how it matched "1,000" against the cell's 1000.
     It reads numbers through :data:`homeroom.ask.guards.NUMBER` now, and that
     pattern takes the thousands comma itself -- so the state cell the fixture
-    publishes as 1000.0 is still recognised in the one spelling a page or the
+    publishes as 1000.0 is still recognized in the one spelling a page or the
     narration would ever give it.
     """
     cites = (f"{TOTAL}|school", f"{TOTAL}|state")

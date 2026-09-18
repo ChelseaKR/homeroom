@@ -245,7 +245,7 @@ class _BoundedPart:
 
     The cap is enforced on bytes actually produced, not on the size the zip
     header declares, because the header is written by whoever made the file. The
-    DTD check is the entity-expansion defence named in the module docstring; the
+    DTD check is the entity-expansion defense named in the module docstring; the
     marker can straddle a chunk boundary, so the tail of each chunk is carried
     into the next.
     """

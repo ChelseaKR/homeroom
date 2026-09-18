@@ -39,7 +39,7 @@ on: # zizmor: ignore[dangerous-triggers]
 
 permissions: {}
 
-# Never let two publishes race; never cancel one in flight, because a cancelled
+# Never let two publishes race; never cancel one in flight, because a canceled
 # deploy-pages can leave the site on a half-uploaded artifact.
 concurrency:
   group: pages
