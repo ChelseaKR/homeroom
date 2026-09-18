@@ -643,10 +643,10 @@ def test_citation_scorer_catches_a_coverage_tally_stated_as_the_school_figure(
 def test_citation_scorer_catches_a_measure_label_digit_stated_as_the_figure(
     example: SchoolEvidence,
 ) -> None:
-    """Issue #34, the label instance: Grade 4 enrols 9 students, and the row is
+    """Issue #34, the label instance: Grade 4 enrolls 9 students, and the row is
     named "Grade 4". The scorer must catch the sentence that states the label's
     own digit as the count, and must not fire on the sentence that only names
-    the row -- otherwise the enrolment-by-grade answer scores as ungrounded."""
+    the row -- otherwise the enrollment-by-grade answer scores as ungrounded."""
     borrowed = response(
         shown("figure", "Grade 4 enrolled 4 students.", f"{GRADE_4}|school")
     )

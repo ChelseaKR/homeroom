@@ -67,7 +67,13 @@ that cannot be shown honestly is not shown at all.
   and `make sources-check` says when CDE has published a newer one.
 - Coverage is a first-class output: how many schools publish each measure is itself
   published, so absence reads as absence rather than as a clean dataset.
-- English and Spanish from the first release. No account, no tracking.
+- English and Spanish from the first release. No account.
+- Google Analytics 4 counts page views (owner decision, 2026-09-17), added to the
+  published pages after rendering by `src/homeroom/analytics.py`. It loads only on
+  homeroom.chelseakr.com, never under Global Privacy Control, Do Not Track or the
+  "Opt out of analytics" button on every page, with Google signals and ad
+  personalization off; the landing page carries the full disclosure in both
+  languages.
 
 ## Data reality
 
@@ -167,15 +173,17 @@ coverage in the next three columns. Birch Lane Elementary in Davis Joint Unified
 renders from the acquired files in English and Spanish, publishing 36 of its 40
 figures (30 counts and 6 genuine zeros) and stating in words, for the other four,
 that the state published nothing.
-Every user-visible string exists in both languages: 217 keys per locale, zero
-present in one and missing from the other, enforced by test. The pages carry no
-script, no account, and no tracking, and reach nothing off this origin: since
-2026-09-07 each one links a single stylesheet this build wrote (`homeroom.css`,
-5,341 bytes at the root of the site), and that link is the only request a page
-makes. There is no font, no image, no CDN and no third party on any of them. The
-ask pages are the exception in the other direction — they keep their stylesheet
-inline, because ADR 0003 promises they fetch nothing at all until a question is
-submitted.
+Every user-visible string exists in both languages: 226 keys per locale, zero
+present in one and missing from the other, enforced by test. The renderer's pages
+carry no script and no account, and reach nothing off this origin: since
+2026-09-18 each school, county, district and landing page links a single
+stylesheet the same build writes (`homeroom.css`, at the root of the site, under
+that fixed name), and there is no font, no image, no CDN and no third party on any
+of them. The ask pages are the exception in the other direction — they keep their
+stylesheet inline, because ADR 0003 promises they fetch nothing at all until a
+question is submitted. The published pages carry one script, the same-origin,
+hash-pinned Google Analytics loader that `homeroom.analytics` adds after
+rendering, and nothing else.
 
 Chronic absenteeism (D3) is the first measure Homeroom publishes that CDE masks
 at real scale, and it is now built end to end (M3). The 2024-25 file (341,490
@@ -208,7 +216,7 @@ What a cell can say, and how the four states stay apart on the page:
 Accessibility and translation are gated, not asserted. `make verify` builds the
 pages from committed fixtures and runs html-validate and axe-core (WCAG 2.0/2.1/2.2
 A and AA, plus best-practice) over every page in both languages, and re-checks
-structure, EN/ES key parity, colour contrast in both themes, and that every number
+structure, EN/ES key parity, color contrast in both themes, and that every number
 in a data cell is a number the pipeline counted. Re-verified with M3's four new
 tables in the fixture build (2026-08-21): zero violations, same six rule sets.
 What none of that can do is look at the pages: layout, reflow at small widths,
@@ -456,18 +464,18 @@ Governed by [portfolio-standards](https://github.com/ChelseaKR/portfolio-standar
 |----------|-------|
 | Responsible-Tech Framework | Applies (see `docs/RESPONSIBLE-TECH-AUDITS.md`) |
 | Code Quality | Applies |
-| Security & Supply-Chain | Applies. `make verify` runs semgrep over this project's own source, `tests/` included (semgrep's built-in ignore list drops `tests/`; the committed `.semgrepignore` replaces that list and does not), zizmor over the workflows under a `hash-pin` policy, pip-audit, npm audit, and a secret scan covering git history *and* the working tree, because history mode alone is blind to an uncommitted key. `.semgrepignore` excludes vendored, generated and built output, `site/` among it, so the bytes actually served are gated by `tests/test_published_site.py` rather than by semgrep; this row said "the whole tree" until 2026-08-29. Every step in `.github/workflows/ci.yml` is accounted for by `tests/test_ci_parity.py`: each `run:` step calls a `make` target that `make verify` reaches, and each `uses:` step is either a setup or reporting action or a gating action registered against the target that reproduces it locally, which is what covers the `secret-scan` job, whose only step is an action. So the local gate is a strict superset of CI and the two cannot drift; the sentence said "every step ... is a `make` target", which was true only of the `run:` steps. CI runs `make verify-ci`, which is all of it except the working-tree secret pass: that one needs a binary the runner does not carry, and in CI the working tree is the committed tree anyway |
+| Security & Supply-Chain | Applies. `make verify` runs semgrep over this project's own source, `tests/` included (semgrep's built-in ignore list drops `tests/`; the committed `.semgrepignore` replaces that list and does not), zizmor over the workflows under a `hash-pin` policy, pip-audit, npm audit, and a secret scan covering git history *and* the working tree, because history mode alone is blind to an uncommitted key. `.semgrepignore` excludes vendored, generated and built output, `site/` among it, so the bytes actually served are gated by `tests/test_published_site.py` rather than by semgrep; this row said "the whole tree" until 2026-08-29. Every step in `.github/workflows/ci.yml` is accounted for by `tests/test_ci_parity.py`: each `run:` step calls a `make` target that `make verify` reaches, and each `uses:` step is either a setup or reporting action or a gating action registered against the target that reproduces it locally, which is what used to cover the `secret-scan` job, whose only step was an action. So the local gate is a strict superset of CI and the two cannot drift; the sentence said "every step ... is a `make` target", which was true only of the `run:` steps. CI runs `make verify-ci` and `make secret-scan-history`, which is all of it except the working-tree secret pass: in CI the working tree is the committed tree, so that pass has no uncommitted file to find. The `secret-scan` job was `gitleaks/gitleaks-action` until 2026-09-13, and this row's "secret scan covering git history" held only of `make verify`: the action scopes itself to the commits the triggering event names, which on the single-commit push that every squash merge into `main` is meant 1 of 138 commits, with `fetch-depth: 0` set the whole time -- checkout depth decides what is on disk, not what gets read. The job runs the same `make secret-scan-history` walk now |
 | CI/CD | Applies |
 | Observability | Applies (Tier C, library/CLI; declared in `docs/ROADMAP.md`) |
 | Accessibility | Applies, in two halves, one of them open. Automated: html-validate and axe-core over every built page in both languages, plus structure, EN/ES parity and contrast checks in `make verify`. **Review, not yet done:** the keyboard-only and screen-reader walkthrough in each language, and the reflow check at 320 CSS pixels on the seven-column tables. A headless DOM cannot decide any of it. The procedure for that walkthrough and its record are `docs/accessibility-walkthrough.md` — all five page types, both languages, every cell reading UNMET with no date and no name, because nobody has walked one. Tracked as [issue #6](https://github.com/ChelseaKR/homeroom/issues/6) and RR-05; owner Chelsea Kelly-Reif; held to its record by `tests/test_accessibility_review.py`. The pages are live, so this is open work rather than work waiting on a publication decision |
-| Internationalization | Applies (EN/ES is a launch requirement; parity gate wired and merge-blocking as of ROADMAP M4) |
+| Internationalization | Applies (EN/ES is a launch requirement; the parity gate has been wired into `make verify` since ROADMAP M4 and fails the run, but `main` requires no status check, so CI reports it rather than blocking a merge on it — measured 2026-09-13, see RR-12) |
 | AI Evaluation | Applies as of ADR 0003 (2026-08-21): a prompt, a retrieval corpus, and a model-version surface now exist in `src/homeroom/ask/`. Five evaluation suites and their harness live in `evals/`; results carry provider, model, prompt version, commit, and date, and a test rejects results without them. See `docs/RESPONSIBLE-TECH-AUDITS.md` AI-EVAL and Governance |
 | Documentation | Applies |
 | Quality & Metrics | Applies (see `docs/ROADMAP.md` metrics ledger) |
 | Performance | Applies: the school pages are pre-rendered static HTML built from locally acquired files, with no client-side script and no network call at build time, and the pipeline is deterministic: re-running `make data` produces byte-identical artifacts. The optional ask service (ADR 0003) is a hosted route as of 2026-08-22; a measured answer takes about 5 s end to end against Bedrock claude-sonnet-4-6, and no latency objective is declared for it yet. The static pages declare none and need none: they are files. No page-weight or build-time budget is asserted in CI yet |
 | AI Development Measurement | Applies: this project is built AI-assisted and says so below. The outcome side is the metrics ledger in `docs/ROADMAP.md`, where every gate names its measurement and its AUTO/REVIEW disposition, and every day-one value was measured against a named acquired file rather than estimated. The diagnostic counters the standard names (sessions, tokens, share of generated code, acceptance rate) are not instrumented here, and by the standard's own rule they would be observe-only if they were: they never gate a merge |
-| Incident Response | Applies: `SECURITY.md` routes reports through GitHub private vulnerability reporting with a 72-hour acknowledgement target. The static site and the ask service are deployed as of 2026-08-22 and there is still no account; the ask service (ADR 0003) stores no question and keeps no user data, so the incidents this project can actually have are a wrong or mis-sourced figure on a school page and a model sentence that reached a reader unverified. The first is why masked cells are type-enforced to raise on read, why a number on a page that nothing counted fails the build, and why coverage is published beside the data; the second is why every AI claim passes a verifier and the withheld count is shown. A severity ladder and a committed postmortem template are not yet in the repository |
-| Data Governance | Applies: `PROVENANCE.md` is the register: every source is a named California Department of Education public file with its acquisition method, access date, and status, and a source that has not been acquired publishes nothing and says so in `coverage.json`. CDE small-cell masking is preserved as null, never zero and never interpolated; the CDS code is the only join key; no third-party or commercial data enters the pipeline. The artifacts are school-level public aggregates, not personal data, and the site has no account and no tracking. Raw source files are never committed and CI never fetches them. The ask service (ADR 0003) sends a reader's question and one school's published records to the model provider for the duration of the request and stores neither; the subprocessor record is in `docs/RESPONSIBLE-TECH-AUDITS.md` under Privacy, owner-approved 2026-08-22 |
+| Incident Response | Applies: `SECURITY.md` routes reports through GitHub private vulnerability reporting with a 72-hour acknowledgment target. The static site and the ask service are deployed as of 2026-08-22 and there is still no account; the ask service (ADR 0003) stores no question and keeps no user data, so the incidents this project can actually have are a wrong or mis-sourced figure on a school page and a model sentence that reached a reader unverified. The first is why masked cells are type-enforced to raise on read, why a number on a page that nothing counted fails the build, and why coverage is published beside the data; the second is why every AI claim passes a verifier and the withheld count is shown. A severity ladder and a committed postmortem template are not yet in the repository |
+| Data Governance | Applies: `PROVENANCE.md` is the register: every source is a named California Department of Education public file with its acquisition method, access date, and status, and a source that has not been acquired publishes nothing and says so in `coverage.json`. CDE small-cell masking is preserved as null, never zero and never interpolated; the CDS code is the only join key; no third-party or commercial data enters the pipeline. The artifacts are school-level public aggregates, not personal data, and the site has no account; page views are counted by Google Analytics 4 (owner decision, 2026-09-17; subprocessor record in `docs/RESPONSIBLE-TECH-AUDITS.md`), with GPC, Do Not Track and an on-page opt-out honored. Raw source files are never committed and CI never fetches them. The ask service (ADR 0003) sends a reader's question and one school's published records to the model provider for the duration of the request and stores neither; the subprocessor record is in `docs/RESPONSIBLE-TECH-AUDITS.md` under Privacy, owner-approved 2026-08-22 |
 | Release & Versioning | Applies |
 
 ## License

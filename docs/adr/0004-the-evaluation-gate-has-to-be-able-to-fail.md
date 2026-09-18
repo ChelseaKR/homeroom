@@ -91,7 +91,7 @@ disagree.
 
 ## Consequences
 
-- A regression in the ask layer's behaviour now stops something. Before this,
+- A regression in the ask layer's behavior now stops something. Before this,
   the only thing standing between a broken ranking refusal and a green build
   was a person reading stderr.
 - The owner will occasionally see exit 1 from a run that is fine and a ceiling

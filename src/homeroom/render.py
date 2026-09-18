@@ -4,7 +4,7 @@ Three rules govern this module, and each is checked by a test rather than truste
 
 *A cell never lies about what it is.* Four things can appear where a number would
 go: a published number, a published zero, a figure the state withheld, and nothing
-at all. Each gets its own words, its own colour, and its own CSS class, in both
+at all. Each gets its own words, its own color, and its own CSS class, in both
 languages. The withheld and the missing never render a digit, so no reader and no
 scraper can mistake either for a zero. :class:`homeroom.measures.Measure` makes
 the mistake impossible upstream; this module makes it visible downstream.
@@ -120,8 +120,8 @@ DARK: dict[str, str] = {
 }
 """The dark palette. Same token names, so no rule needs to know the theme."""
 
-STATE_COLOURS: tuple[str, ...] = ("zero", "withheld", "nothing")
-"""The tokens that carry a measure state. Colour is never the only signal: each
+STATE_COLORS: tuple[str, ...] = ("zero", "withheld", "nothing")
+"""The tokens that carry a measure state. Color is never the only signal: each
 state also carries its own words, so a reader who cannot see the difference still
 reads the difference (WCAG 2.2 SC 1.4.1)."""
 
@@ -207,8 +207,8 @@ td.count, th.count { text-align: right; font-variant-numeric: tabular-nums; }
 .m-nothing { border-left: 3px solid var(--nothing); }
 .m-nothing .state { color: var(--nothing); }
 /* The page is about one school, so its own column stays the loudest of the three.
-   The separation is weight and a rule, never colour alone: the four cell states
-   already own the colours, and reusing them here would make a district's withheld
+   The separation is weight and a rule, never color alone: the four cell states
+   already own the colors, and reusing them here would make a district's withheld
    cell and a school's withheld cell say different things in the same hue. */
 td.c-district .num, td.c-state .num { font-weight: 400; color: var(--ink-2); }
 td.c-district { border-left-color: var(--rule-strong); }
@@ -922,7 +922,7 @@ OG_LOCALES: dict[Locale, str] = {"en": "en_US", "es": "es_ES"}
 def canonical_url(site_url: str, path: str) -> str:
     """The absolute address of one published file, for a canonical or a sitemap.
 
-    ``site_url`` is an origin with no trailing slash (``site.py`` normalises it);
+    ``site_url`` is an origin with no trailing slash (``site.py`` normalizes it);
     ``path`` is a published file name relative to the site root. The root page is
     addressed as the bare origin with a trailing slash, because that is the
     address a reader is given and the address the server answers on; a canonical

@@ -12,12 +12,13 @@ That last rule is the whole project, and it is the rule this document is about.
 
 **Nobody has ever listened to this site.**
 
-The automated half of the accessibility gate is real and merge-blocking. `make
+The automated half of the accessibility gate is real, and it fails the run rather
+than warning — though nothing on GitHub makes it block a merge (RR-12). `make
 pages` builds every page type from committed fixtures and runs `html-validate`
 and `axe-core` over WCAG 2.0/2.1/2.2 A and AA plus best-practice, in both
-languages, on every built page. `tests/test_pages.py` measures colour contrast
+languages, on every built page. `tests/test_pages.py` measures color contrast
 for every pair the pages use in both themes and asserts that each cell state
-carries its own words, so colour is never the only signal. That gate has been at
+carries its own words, so color is never the only signal. That gate has been at
 zero violations since M4.
 
 It cannot look at, or listen to, a page. `tools/a11y.mjs` runs in jsdom, which
@@ -120,11 +121,11 @@ one, or the label made me read the number as something it is not.*
 
 Being credited means being named in a public file, and for some people that is
 not free. This repository has no policy on whether a pseudonym, a handle, or an
-organisation name is acceptable in the walker column, and it is not this
+organization name is acceptable in the walker column, and it is not this
 document's place to invent one.
 
 The session template therefore offers three options - name, handle or
-organisation, or anonymous - and is honest about the consequence of the third:
+organization, or anonymous - and is honest about the consequence of the third:
 an unnamed row cannot move off UNMET, because the record's own rule is that a
 result needs a name and a date. Your findings are still filed and still fixed.
 

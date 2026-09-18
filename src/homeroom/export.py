@@ -4,7 +4,7 @@ The pages are for families. This is for the readers who will check them -- repor
 districts, researchers -- and the whole point is that the honesty rules travel with the
 data instead of stopping at the HTML.
 
-CSV is where those rules are usually lost. A spreadsheet column of enrolment counts with
+CSV is where those rules are usually lost. A spreadsheet column of enrollment counts with
 a few blank cells in it says nothing about *why* they are blank, and every consumer
 supplies the missing reason themselves: a blank becomes a zero in the next sum. So every
 measure in ``schools.csv`` is **two** columns, a state and a value:
@@ -24,7 +24,7 @@ sentinel in them would also satisfy.
 
 The four words are the four cells ``render.py`` puts on a page, not the three statuses
 :class:`~homeroom.measures.Measure` carries, for the reason :mod:`homeroom.explain`
-already gives: a published zero is labelled in words as a genuine zero, and a dataset
+already gives: a published zero is labeled in words as a genuine zero, and a dataset
 that collapsed ``zero`` into ``reported`` would be making a different claim from the page
 it describes. They are derived from :func:`homeroom.explain.rendered_state` through one
 table, so the CSV cannot drift from the markup.
@@ -61,7 +61,7 @@ count is not exactly that is a truncated dataset presenting itself as a complete
 duplicated CDS code, and schools that disagree about which measures they carry. The last
 one is the subtle one: filling a missing column with a blank would publish "this school
 has no such measure" when the truth is that the file this row came from is shaped
-differently from its neighbours'.
+differently from its neighbors'.
 
 *A real build with no access date.* The release is named by the date the sources were
 acquired, which is the dataset's identity -- never by the build clock, which would give
@@ -235,7 +235,7 @@ def measure_paths(entries: list[dict[str, Any]]) -> list[str]:
     all carry the same cells. If they do not, something upstream has changed shape, and
     the tempting repair -- emit a blank for the school that is missing a column -- would
     publish "no such measure for this school" when the truth is that this row was built
-    differently from its neighbours'. That is the defect this whole project is written
+    differently from its neighbors'. That is the defect this whole project is written
     against, so it raises instead.
     """
     first = _cells_of(entries[0])
@@ -529,7 +529,7 @@ def write_dataset(
     )
 
     # Verbatim, byte for byte: the release's own account of what it covers has to be
-    # the same object the pages were built against, not a re-serialisation of it.
+    # the same object the pages were built against, not a re-serialization of it.
     shutil.copyfile(artifacts / "coverage.json", directory / "coverage.json")
 
     for entry in _schools_of(schools):

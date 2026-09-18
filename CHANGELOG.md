@@ -8,6 +8,68 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Google Analytics 4 on the published pages** (owner decision, 2026-09-17: GA4 on
+  every public site, with the privacy copy and every "no tracking" claim updated to
+  match). `src/homeroom/analytics.py` adds it after rendering, and `make publish` runs
+  it over the staged tree before weighing it, so the committed `site/` is still the
+  bytes served. Every page gets one same-origin `analytics.js`, pinned by its sha384
+  in an `integrity` attribute, and a note ("This site uses Google Analytics...") with
+  a link to the landing page's new "Privacy and analytics" section in each language
+  and an "Opt out of analytics" / "Opt back in" button remembered in `localStorage`
+  (`homeroom.chelseakr.com:analytics-opt-out`). The loader does nothing off
+  homeroom.chelseakr.com, under Global Privacy Control or Do Not Track, or after the
+  opt-out; it sets Consent Mode v2 defaults (ad storage, ad user data and ad
+  personalization denied everywhere, analytics storage denied in the EEA, the UK and
+  Switzerland), turns Google signals and ad personalization off, and sends one page
+  view whose address is the path plus `utm_*` tags. The renderer is unchanged and
+  still emits no script. `make pages` gains `analytics-gate`: GA added to a copy of
+  the fixture build, html-validate over it, and `tools/analytics.mjs` running the
+  loader in jsdom -- every load and no-load case, the button in both languages, axe
+  with the button rendered, and negative controls that remove the GPC and host
+  guards and require the harness to see GA load. `tests/test_published_site.py`
+  holds every published page to exactly that one pinned script and the note. Nine
+  interface keys (226 keys per locale). AGENTS.md rule 7, the README, the roadmap,
+  ADR 0001 and the privacy audit (with a Google subprocessor record) say what runs.
+  The published tree is 877.2 MB, 22.8 MB under the 90% budget.
+
+- **A workflow shipped that could not run, and only a nightly red build said so**
+  (2026-09-13). #116 merged `ask-alarm-relay.yml`, which reads the ask service's
+  CloudWatch alarm through an OIDC role named by the repository variable
+  `ASK_ALARM_RELAY_ROLE_ARN`. Setting that variable needs a stack redeploy the merge
+  could not perform, so the workflow shipped unable to run and has failed every
+  night since in an eight-second run. It failed correctly, naming both owner steps.
+  Nothing tied that red run back to the merge that created the requirement.
+
+  `site-publish.yml` is the same condition with the sound off: four variables, none
+  set, behind an `if:` that skips rather than fails -- deliberately, and the comment
+  there argues it well, since an unarmed deploy is not a broken build. Every run of
+  it has skipped, which from outside is indistinguishable from having nothing to do.
+
+  `tools/config_audit.py` is now the one place that says which repository variables
+  the workflows need, what each is for, the exact steps that set it, and -- the part
+  that matters -- whether its workflow *fails* or *skips* when it is missing.
+
+  Two checks, split on what they need to read. `make config-audit` holds the
+  workflows and the declarations to each other: a `vars.X` nothing explains fails
+  the build that introduces it, and a declaration no workflow uses fails too. It
+  needs no token and no network, so it sits in `verify-ci` as a merge gate.
+  `.github/workflows/required-configuration.yml` reconciles those declarations
+  against the repository's actual variables under `toJSON(vars)`, on every push to
+  main and daily; like the live-integrity sentinel, source-freshness and the alarm
+  relay it reads outside the repository, so it is not a required check.
+
+  Only a variable whose workflow *fails* without it turns the run red. Four of the
+  five are site-publish.yml's, unset on purpose behind an `if:` that skips; failing
+  on those would make the check red on a state nobody intends to change, and a
+  permanently red workflow is read exactly as often as a silent one. They are
+  reported and not fatal. The check can therefore go green, and the day it does is
+  the day the relay can reach somebody.
+
+  Asked to reconcile with nothing to reconcile against, it exits non-zero rather
+  than reporting everything fine -- a run that could not look is never a run that
+  found nothing, which is the defect the alarm relay exists to remove and is not
+  rebuilt here.
+
 - **A publish was a 23,310-file diff of markup** (2026-09-07, issue #84). The event
   this project must never ship unnoticed is a state flip on a real school's page --
   a figure that was published and is now withheld, or the reverse -- and a git diff
@@ -58,7 +120,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   The record carries the **four** states the page shows, not the three the data
   has. `Measure` has three statuses; `render.py` renders four cells, because a
-  published zero is labelled in words as a genuine zero rather than left to look
+  published zero is labeled in words as a genuine zero rather than left to look
   like any other number. `rendered_state` is checked against `_measure_cell`
   itself, so a record saying `withheld` where the page renders `m-nothing` is a
   red build, not a wrong citation.
@@ -107,8 +169,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bundle_schools` is not a positive integer, which was the half of the hole no
   assertion reached.
 
-- **Every page carried the whole stylesheet, 23,305 times over** (2026-09-07,
-  issue #95). The school, county, district and landing pages inlined it: 5,061
+- **Every page carried the whole stylesheet, 23,305 times over** (2026-09-18,
+  issue #95; accepted by the owner with a fixed filename). The school, county, district and landing pages inlined it: 5,061
   bytes on each of 21,068 school pages, 5,169 on each of 2,234 browse pages --
   118,190,092 bytes across the published tree, **13.62% of it**, measured over
   `site/` rather than projected from a sample.
@@ -148,7 +210,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   Linking a stylesheet is safe only because a page that never receives it still
   tells the truth, and that is now asserted rather than believed: the four cell
-  states are separated by words as well as colour, so a withheld figure reads
+  states are separated by words as well as color, so a withheld figure reads
   "withheld to protect privacy" and never a digit. ADR 0001, README and
   `docs/RESPONSIBLE-TECH-AUDITS.md` are restated rather than quietly
   contradicted, and html-validate's `require-sri` is retargeted from its default
@@ -199,6 +261,170 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   refuse can never be registered as checkable.
 
 ### Fixed
+
+- **The `secret-scan` job read 1 of `main`'s 138 commits, and said so in its own logs**
+  (2026-09-13). The job was one step, `gitleaks/gitleaks-action@v3.0.0`, and that
+  action does not scan a repository -- it scans the range the triggering event hands
+  it. A push of one commit becomes `--log-opts=-1`; a pull request becomes the pull
+  request's own commits; only `schedule` and `workflow_dispatch` drop the range and
+  walk the history, and `ci.yml` has neither trigger. Every squash merge into `main`
+  is a one-commit push.
+
+  This is not read off the action's source. The five most recent `ci` runs on `main`
+  each logged `--log-opts=-1` and `1 commits scanned`, and the most recent
+  `pull_request` run logged `--log-opts=--no-merges --first-parent <sha>^..<sha>` and
+  `1 commits scanned`. A credential added in one commit and deleted in the next was
+  invisible in both lanes: the push lane saw only the deletion, the pull request lane
+  saw a diff that nets to nothing.
+
+  `fetch-depth: 0` was on that checkout the whole time and could not have prevented
+  it. It decides how much history `actions/checkout` puts on disk; how much gets read
+  is decided by how the scanner is invoked, and a checkout deep enough to scan
+  alongside an invocation that declines to is exactly the state this job was in.
+
+  The job runs `make secret-scan-history` now, which is `gitleaks git .` with no
+  `--log-opts` -- and with no range gitleaks walks `git log -p --full-history --all`,
+  every commit on every ref the checkout has, on every event. It is a `make` target
+  rather than inline script because `tests/test_ci_parity.py` requires that, which is
+  also how CI and `make verify` stop being two different commands. `make secret-scan`
+  is now `secret-scan-history` plus `secret-scan-tree`; CI runs the history half,
+  because in CI the working tree is the committed tree.
+
+  The missing binary was the stated reason this stage was local-only, and the
+  Makefile named the way out -- "a pinned download this repository would then have to
+  keep verifying" -- and declined it. Declining did not avoid the supply-chain
+  surface; it bought a scan that read one commit. `gitleaks-binary` fetches gitleaks
+  8.30.1 and checks it against the checksum file published with the release before
+  running it, and is a no-op on a machine that already has gitleaks.
+
+  `timeout-minutes` stays 15, which was never a measured number while the job read
+  one commit and finished in under a second. It is one now: the first full-history
+  run on this PR read 873 MB across 129 commits in 31.2s, a 41-second job, and the
+  same walk takes 3m26s locally on 10 cores (874.22 MB, 973s of CPU, 175 non-merge
+  commits of 199 across all refs). The comment at the line says so, and says to
+  revisit if the history grows an order of magnitude -- a timeout under a job's
+  runtime reads as `cancelled` rather than `failed`.
+
+  Negative-controlled in a throwaway clone with its remote removed: a random,
+  real-shaped AWS key planted in one commit and deleted in the next left
+  `--log-opts=-1` exiting 0 and `gitleaks git .` exiting 1, and the tree came back
+  byte-identical. `tests/test_secret_scan_reads_history.py` asserts the invocation
+  rather than the checkout depth, reading both files with comments stripped, and each
+  of its assertions was checked by sabotaging the thing it guards.
+
+  `tests/test_ci_parity.py`'s `GATING_ACTIONS` registry is now empty. Its one entry
+  mapped this action to `make secret-scan` and asserted, by existing, that the two
+  ran the same check; they did not, and nothing there could have noticed.
+
+- **An equality gate on a hand-kept number serialized every lane in the repository**
+  (2026-09-13). `tests/test_ci_parity.py` checked that the test count in
+  pyproject.toml's `fail_under` justification equaled what the suite collects. That
+  is true of one tree and wrong as a gate: the number sits on one line, so every
+  branch that adds or removes a test rewrites that line, and any two of them conflict
+  there however unrelated their subjects. #117 and #118 collided on it while sharing
+  no other file; the same shape held family-greenhouse #410 for days.
+
+  The count is now held to a band -- never fewer than the measurement was taken over,
+  never more than 15% above it -- instead of to equality. 15% is not a round number
+  picked for looking reasonable: over this line's own history, 2026-08-29 to
+  2026-09-13, there were 28 edits, no decrease, and the largest single step a branch
+  ever took was +59 tests (9.31%). 15% is the smallest ceiling that clears that with
+  room to spare, so no one branch can trip it alone. Replayed over the same history
+  it asks for 3 edits where equality asked for 28.
+
+  What that gives up is stated in the test and worth repeating: the drift the comment
+  may carry rises from 0 to 15%, and the 515-against-574 case that motivated the
+  original check would no longer fire. The defect being defended against is not a
+  number that is slightly old, it is a number nothing reads at all, which drifts
+  without bound -- 515 was on its way to 962.
+
+  The band's own edges are tested, including that it stays wider than the largest
+  step this line has taken, so tightening it back toward equality fails the build
+  that does it. Both failure messages now carry the exact command that re-measures
+  both figures, because a gate that only says "wrong" sends the next person hunting
+  on a line that is already a collision point.
+
+- **A gate over 17 pages made a claim about 23,305, and said itself that it did not
+  carry the part that mattered** (2026-09-13).
+  `tests/test_the_a11y_sample_covers_the_published_site.py` justified the accessibility
+  gate's sample by *feature containment*: every element, class token, `role`, `aria-*`,
+  `lang`, `alt`, `type` and `scope` value `site/` publishes also occurs in the 17 pages
+  `make a11y` reads. It was explicit that containment is about vocabulary and not about
+  combinations -- "the published site presents 8 distinct (element set, class set)
+  shapes and the fixture build presents 4" -- so a rule that fires only on a
+  co-occurrence was outside the claim. `heading-order`, `landmark-unique`, `region` and
+  `landmark-one-main` are all that kind of rule.
+
+  **Re-measured first, and the arithmetic in the disclaimer does not hold.** 8 published
+  shapes and 4 sample shapes is right; "so 4 are unrepresented" is not, because the 4
+  are not a subset of the 8. Exactly **one** published shape is reproduced exactly and
+  **seven** are not. What that hid is the direction: every one of the 8 published shapes
+  is a **subset** of a shape the gate reads. No published page carries a markup feature,
+  a feature combination, a heading transition, a landmark sequence or a parent/child
+  nesting the 17 lack. The sample is the richer side, by the fixture banner
+  (`class:note`, `class:note-title`), the ask link (`class:ask`, which the fixture build
+  gives all three schools and `make publish` gives one school in 10,534), and the
+  measure-state tokens a particular school's data may not produce.
+
+  So the gap is closed by asserting containment **per page** rather than per corpus,
+  plus the three structural signatures a set of features cannot hold: the heading-level
+  steps a page takes, its landmark sequence with label values normalized and runs
+  collapsed, and every parent/child element pairing in it. Measured on this tree, each
+  figure derived by the checks rather than typed into them:
+
+  | | examined | examinable |
+  |---|---:|---:|
+  | pages the gate reads | 17 | 23,305 |
+  | published shapes contained in a shape it reads | 8 | 8 |
+  | markup features published, present in the sample | 84 | 84 |
+  | heading-level transitions published, in the sample | 6 | 6 |
+  | landmark sequences published, in the sample | 4 | 4 |
+  | element nestings published, in the sample | 56 | 56 |
+
+  **The sample is not extended until the 8 shapes match exactly, and should not be.**
+  Every page the gate reads carries the fixture banner and no published page may --
+  `test_no_published_page_was_built_from_fixtures` fails if one ever does -- so shape
+  equality is unreachable by construction, and the only way to reach it is to stop
+  marking the fixture build as a fixture build. A check now asserts that asymmetry next
+  to the reason, so a change that drops the banner to close the shape gap fails there
+  rather than reading as progress. `class:ask` is the same trade in smaller form: a
+  second fixture render with no endpoint would hand axe a page it has already been
+  handed a superset of, and would double the gate's cost to close nothing any predicate
+  here can measure.
+
+  Two things the new checks found on their own. Every one of the 23,305 published pages
+  closes the tags it opens -- nothing had held them to that, because `make htmlvalidate`
+  reads the fixture build. And no page on either side carries two landmarks with the
+  same element and accessible name, so `landmark-unique` has no firing input in
+  production: a reason it cannot fire, not a reason it was checked.
+
+- **Eight showcase rows were compared on no machine, ever** (2026-09-13).
+  `test_the_showcase_table_matches_coverage_json_where_it_can_be_read` is the only check
+  that held `docs/SUPPRESSION-SHOWCASE.md` to a measurement, and it skips wherever
+  `data/out/coverage.json` is absent or is a fixture build. That is CI, because
+  `data/raw/` is never in git and nothing there builds the artifact; and it is this
+  machine too, because the committed local artifact is the fixture one. The skip message
+  is the honest form and says what it did not do -- "0 of 8 showcase rows were compared"
+  -- and it has been 0 of 8 everywhere, always. Every other check held the table to its
+  own arithmetic, which a table can satisfy while stating the wrong counts.
+
+  Those counts do not live only in `coverage.json`. All 21,068 published school pages
+  render them, three columns wide -- "Schools publishing it", "Schools withholding it",
+  "Schools publishing nothing" -- for every subgroup, in both languages, from the same
+  run of `make data`. The pages are committed, so the comparison runs on every machine:
+  **8 of 8 rows**, plus the scale table's third bucket, plus the most-withheld ranking
+  taken over every subgroup the pages carry rather than the eight the table lists. The
+  pages are also required to agree with each other, so a tree left half-rendered by an
+  interrupted publish is a failure rather than a table matching whichever page was read.
+
+  The acquired-run comparison stays where it is: it is the only check that ties the
+  table to the artifact rather than to another rendering of it. Its skip now names the
+  check that does run everywhere, so a reader of a skipped run is not left thinking the
+  rows go unchecked.
+
+  What this is not is an independent re-derivation from the CDE file. It is the check
+  that the document and the pages tell a family the same number, which is the
+  disagreement a reader can be hurt by.
 
 - **A measure block nobody registered was dropped from the dataset, the record and
   the diff, silently** (2026-09-09, issue #109). `SOURCE_OF_BLOCK` in
@@ -263,7 +489,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   whose status is `not_run`, and everything the check exists for -- the
   provenance fields, `bundle_is_fixture`, `bundle_schools`, `regressions` --
   sits after that branch. Five of the ten committed results files are `not_run`,
-  because Bedrock has never authorised this account for the second model, so the
+  because Bedrock has never authorized this account for the second model, so the
   gate was verifying half the tree and reporting on all of it. It now counts
   examined against examinable, prints the census and names every unexamined file
   on every run, and refuses `0 of N`.
@@ -453,7 +679,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   across 6 rule sets and 17 pages, 0 html-validate errors, byte-identical across
   two builds. `make data`, `make site` and `make publish` are given the acquired
   file, because an artifact that omitted a figure the pages carry would be two
-  answers to one question. 19 new bilingual strings (217 keys per locale).
+  answers to one question. 19 new bilingual strings (226 keys per locale).
 
   What did not change: the ask layer. `homeroom.ask` answers from an evidence
   bundle that carries enrollment and chronic absenteeism, and widening it means
@@ -641,7 +867,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the host moves rather than the pages shrinking.
 
   `deploy/site/template.yaml` is the shape, in the form `deploy/ask/` already
-  uses: a CloudFormation stack, parameterised, with the domain nowhere in it,
+  uses: a CloudFormation stack, parameterized, with the domain nowhere in it,
   and a README beside it recording what was applied, how to verify, and how to
   go back. A private S3 bucket -- all four public-access blocks,
   `BucketOwnerEnforced` so there are no ACLs to get wrong, encrypted, versioned
@@ -741,7 +967,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requires of an origin are each provided deliberately (the 404 above,
   `DefaultRootObject` for the root comparison, and an identity-encoded response
   because CloudFront compresses only when the viewer asks for it, over objects
-  stored uncompressed). One behaviour genuinely changes and is harmless: the
+  stored uncompressed). One behavior genuinely changes and is harmless: the
   `?live-integrity=<nonce>` it appends stops busting the cache, because the
   cache key is the path alone, and freshness after a publish comes from the
   invalidation the publish waits for.
@@ -1267,7 +1493,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     anywhere in `src/`, `tests/`, `docs/`, `evals/` and `tools/` resolves to a
     file that exists; that no ADR carries a placeholder where its date should
     be; that the Accepted decision ADRs are still Accepted; and that the
-    process meta-ADR is never cited as the reason for a behaviour. Each of the
+    process meta-ADR is never cited as the reason for a behavior. Each of the
     three was run against a deliberately reintroduced fault (an `ADR 0000`
     citation, an `ADR 0099` citation, the restored `TODO` date) and observed
     failing before being observed passing. A first test asserts the ADR series
@@ -1430,7 +1656,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed -- the refusals legitimately ship inside the JSON the script reads,
   and the question is only ever whether one is *displayed* unearned -- and
   asserts no refusal appears in what a reader sees. Found by looking at a
-  screenshot of the live page. One more bilingual string (217 keys per locale).
+  screenshot of the live page. One more bilingual string (226 keys per locale).
 - **The deployed ask page could not reach its service from a browser, and said
   so in the one string that hides why.** Both the Lambda Function URL's `Cors`
   configuration and the handler set `access-control-allow-origin`, so the
@@ -1438,7 +1664,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   https://homeroom.chelseakr.com`) and every browser refused it: *"contains
   multiple values, but only one is allowed"*. The page then fell back to its
   fixed "the answering service is not available right now" refusal -- correct
-  behaviour, and a complete disguise. `curl` cannot see this at all; it prints
+  behavior, and a complete disguise. `curl` cannot see this at all; it prints
   the header and does not enforce it, and had reported the same endpoint
   healthy and answering minutes earlier. Found by loading the live page in a
   real browser. The template no longer declares CORS on the URL: the handler is
@@ -1482,7 +1708,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for, so a build without `--landing` is byte-identical to one from before it
   existed, which `tests/test_landing.py` asserts by diffing the two builds.
   html-validate and axe-core cover it in `make pages` (zero violations). Two
-  more bilingual strings (217 keys per locale).
+  more bilingual strings (226 keys per locale).
 - `homeroom.ask.http`: the HTTP edge of the ask service, a stdlib
   `ThreadingHTTPServer` for local use (`make ask-serve`) and an AWS Lambda
   Function URL handler, both thin over `AskService`: JSON in, the public JSON
@@ -1502,7 +1728,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   build is byte-identical to one before ADR 0003, which `tests/test_askpage.py`
   asserts by diffing the two builds. The ask page is the only page that
   carries a script: one inline script, no subresource, no `on*` attribute, a
-  form with a labelled textarea and a button, a `noscript` note, the
+  form with a labeled textarea and a button, a `noscript` note, the
   AI/unofficial/not-a-ranking labels, the non-affiliation notice, and a link
   back to the school page, which is complete without it. The script registers
   a submit handler and nothing else; the answer is built with `textContent`
@@ -1512,7 +1738,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requests on load and exactly one POST on submit, rendered as text; it runs
   in `make pages` beside html-validate and axe-core, which now cover the ask
   pages too (zero violations, both languages). Seventeen more fixed
-  bilingual strings (217 keys per locale).
+  bilingual strings (226 keys per locale).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
@@ -1525,7 +1751,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bundle: ranking refusal 62/62, suppression 24/24, citation 24/24,
   comparability 19/19, structuring 28/28; 511 sentences shown, 23 withheld
   by the verifier before display. Earlier runs found and fixed: a claims
-  array serialised as a string, 'has not been published' missing from the
+  array serialized as a string, 'has not been published' missing from the
   absence lexicon, and honest denials of the zero reading ('not because the
   number is zero') being withheld as zeros.
 - `homeroom.ask`, the service core of the grounded question-answering layer
@@ -1568,7 +1794,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   "Last Reviewed" date, and SHA-256 of both the HTML received and the text
   committed, in `corpus/manifest.json`. `homeroom.ask.corpus` loads them,
   refuses a file whose hash no longer matches the manifest, and decides
-  whether a quote is verbatim (whitespace and typographic marks normalised,
+  whether a quote is verbatim (whitespace and typographic marks normalized,
   every word checked, quotes under four words refused). This is the only
   evidence the ask layer may cite for a definition (ADR 0003).
 
@@ -1719,7 +1945,7 @@ The ask service was deployed later, on 2026-08-22 (ADR 0003, `deploy/ask/`).
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 217 keys per locale, 434
+- English and Spanish as peers (`src/homeroom/i18n.py`): 226 keys per locale, 452
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
   and 10 interface strings at M3, and before the ask layer added 33 fixed
   interface strings under ADR 0003), covering every reporting category, grade span,

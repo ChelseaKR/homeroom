@@ -210,7 +210,7 @@ DASS_ALL = "All"
 """The "regardless of this dimension" value for the two status columns.
 
 Spelled as words here and as ``ALL``/``TA`` in the four dimension columns above,
-which is CDE's inconsistency and not one to normalise away: a district row means
+which is CDE's inconsistency and not one to normalize away: a district row means
 "every school in this district" only when all six read their own aggregated
 value, and :func:`homeroom.context.load_assignment_context` accepts no other."""
 

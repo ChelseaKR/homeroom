@@ -10,7 +10,7 @@ string table most text lives in, a sheet that starts well below row 1, and rows
 that write only the cells they have. Nothing here is a D6 parser and nothing here
 knows what a D6 column means; the module under test reads a file format.
 
-The hazard the whole file is organised around is that XLSX omits what is empty. A
+The hazard the whole file is organized around is that XLSX omits what is empty. A
 reader that takes a value's column from its position among the cells present,
 rather than from its own ``r`` attribute, shifts every value left into the wrong
 column and raises nothing while doing it.

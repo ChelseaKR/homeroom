@@ -85,7 +85,7 @@ def test_district_context_is_the_all_row_not_the_first_row_that_matches(
 def test_context_never_sums_school_rows(tmp_path: Path) -> None:
     """No arithmetic over schools, even when the schools would sum to something.
 
-    Two schools totalling 300 sit under a district whose published ALL row says
+    Two schools totaling 300 sit under a district whose published ALL row says
     450. The gap is the point: the district row counts schools this file does not
     list and students whose cells are masked. Homeroom publishes 450, the state's
     own figure, and never 300.

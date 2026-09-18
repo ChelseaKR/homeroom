@@ -26,10 +26,19 @@ make verify
 ```
 
 `make verify` is the single local gate. It is a strict superset of CI, not a copy
-of it: CI's `verify` job runs `make verify-ci`, and `make verify` is that plus the
-working-tree secret scan, which needs a binary the runner does not carry and which
-in CI would have no uncommitted file to find. So green locally implies green in CI,
-never the reverse (`STANDARDS/CODE-QUALITY-STANDARD.md` §2).
+of it: CI's `verify` job runs `make verify-ci`, its `secret-scan` job runs
+`make secret-scan-history`, and `make verify` is both of those plus the
+working-tree secret scan, which in CI would have no uncommitted file to find. So
+green locally implies green in CI, never the reverse
+(`STANDARDS/CODE-QUALITY-STANDARD.md` §2).
+
+This paragraph said the working-tree pass was local-only because it "needs a
+binary the runner does not carry". The binary was the reason the *history* pass
+was local-only too, and CI ran `gitleaks/gitleaks-action` in its place -- an
+action that reads the commits the event handed it, which on a squash merge is
+one. CI fetches a pinned, checksum-verified gitleaks and runs the same history
+walk as of 2026-09-13; the working-tree pass stays local for the reason above,
+which is about the tree and not about the binary.
 
 This paragraph said `make verify` was "byte-for-byte identical to the `verify`
 job"; it was not, and the Makefile's own comment and `AGENTS.md` were corrected on

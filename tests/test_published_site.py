@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
+from homeroom import analytics
 from homeroom.i18n import LOCALES, text
 from tests.test_pages import FETCHING_ATTRIBUTES, SUBRESOURCE_TAGS, parse_markup
 
@@ -105,6 +106,8 @@ def needles() -> tuple[str, ...]:
         found.append(text(locale, "fixture_banner_title"))
         found.append(text(locale, "footer_unaffiliated"))
         found.append(text(locale, "footer_no_ranking"))
+        found.append(text(locale, "analytics_note"))
+        found.append(f'id="privacy-{locale}"')
     host = re.search(
         r"https://([a-z0-9]+\.lambda-url\.[a-z0-9-]+\.on\.aws)",
         DEPLOY_RECORD.read_text(encoding="utf-8"),
@@ -124,12 +127,12 @@ class PageFacts:
     metas: Mapping[str, str]
     properties: Mapping[str, str]
     present: frozenset[str]
-    carries_script_text: bool
     subresource_tags: frozenset[str]
     fetching_attrs: frozenset[tuple[str, str]]
     event_attrs: frozenset[tuple[str, str]]
     scripts: int
     script_srcs: frozenset[str]
+    script_integrity: frozenset[str]
     ask_blob: str | None
     styles: int
     stylesheet_hrefs: tuple[str, ...]
@@ -150,7 +153,6 @@ def read_facts(path: Path) -> PageFacts:
         metas=dict(document.metas),
         properties=dict(document.properties),
         present=frozenset(needle for needle in needles() if needle in source),
-        carries_script_text="<script" in source.lower(),
         subresource_tags=frozenset(
             tag for tag, _ in document.elements if tag in SUBRESOURCE_TAGS
         ),
@@ -169,6 +171,11 @@ def read_facts(path: Path) -> PageFacts:
         scripts=sum(1 for tag, _ in document.elements if tag == "script"),
         script_srcs=frozenset(
             attr["src"]
+            for tag, attr in document.elements
+            if tag == "script" and "src" in attr
+        ),
+        script_integrity=frozenset(
+            attr.get("integrity") or ""
             for tag, attr in document.elements
             if tag == "script" and "src" in attr
         ),
@@ -198,9 +205,9 @@ def pages() -> tuple[PageFacts, ...]:
     Reading each page once got this gate from 14m18s to 114s, and then all
     10,534 schools gained a county and a district page and the corpus reached
     23,310 files. What is left is the parse itself, which is `html.parser`
-    tokenising in pure Python -- measured at 5.9ms a page, and a leaner parser
+    tokenizing in pure Python -- measured at 5.9ms a page, and a leaner parser
     collecting only the fields below is no faster, because the cost is the
-    tokeniser rather than the bookkeeping.
+    tokenizer rather than the bookkeeping.
 
     So it is spread across processes instead. Measured over the published tree:
 
@@ -302,20 +309,71 @@ def test_no_published_link_points_at_a_page_that_was_not_published() -> None:
 # ----------------------------------------------------------------------------------
 
 
-def test_no_school_page_carries_a_script_or_reaches_off_the_page() -> None:
+def loader_src(facts: PageFacts) -> str:
+    """The relative path from a page to the one loader at the site root."""
+    depth = len(facts.path.relative_to(SITE).parts) - 1
+    return "../" * depth + analytics.SCRIPT_NAME
+
+
+def test_no_page_carries_any_script_but_the_pinned_analytics_loader() -> None:
     """The promise is per-page, and the published pages are where it is kept.
 
+    Until 2026-09-17 the promise was no script at all. The owner's decision that
+    day put Google Analytics 4 on every public site, so the promise is now
+    exactly one script: the same-origin ``analytics.js`` that
+    `homeroom.analytics` adds, pinned by its hash, and nothing else -- no other
+    script, no inline code, no subresource, no handler. What that loader may do
+    is `tools/analytics.mjs`'s to prove.
+
     Every indexable page, rather than the school pages and the index by name.
-    The ask page is the one page allowed a script and it is the one page this
-    skips; anything else published now or later is held to the promise without
-    this list having to be remembered. The county and district pages added on
-    2026-09-05 were covered by nothing when this named its pages individually.
+    The ask page carries its own inline script too and is checked below;
+    anything else published now or later is held to this without a list.
     """
     for facts in indexable_facts():
-        assert not facts.subresource_tags, (facts.name, sorted(facts.subresource_tags))
-        assert not facts.fetching_attrs, (facts.name, sorted(facts.fetching_attrs))
+        assert facts.subresource_tags <= {"script"}, (
+            facts.name,
+            sorted(facts.subresource_tags),
+        )
+        assert facts.scripts == 1, (facts.name, facts.scripts)
+        assert facts.script_srcs == {loader_src(facts)}, (
+            facts.name,
+            sorted(facts.script_srcs),
+        )
+        assert facts.fetching_attrs == {("script", "src")}, (
+            facts.name,
+            sorted(facts.fetching_attrs),
+        )
         assert not facts.event_attrs, (facts.name, sorted(facts.event_attrs))
-        assert not facts.carries_script_text, facts.name
+
+
+def test_the_published_loader_is_the_one_the_module_writes_and_every_page_pins_it() -> (
+    None
+):
+    """A hand edit to ``site/analytics.js`` would be served to every page.
+
+    So the committed loader has to be byte-for-byte what `homeroom.analytics`
+    writes for the configured ID, and every page's ``integrity`` has to be its
+    hash -- which also means a browser refuses any other file at that path.
+    """
+    measurement = analytics.measurement_id()
+    assert measurement is not None, "GA4 is configured off; site/ should carry none"
+    served = (SITE / analytics.SCRIPT_NAME).read_text(encoding="utf-8")
+    assert served == analytics.loader(measurement)
+    pinned = analytics.integrity(served)
+    for facts in pages():
+        assert facts.script_integrity == {pinned}, (facts.name, facts.script_integrity)
+
+
+def test_every_page_says_it_uses_google_analytics_and_where_to_read_more() -> None:
+    """The note (or, on the landing page, the whole disclosure) is on every page."""
+    for facts in pages():
+        if facts.path == SITE / "index.html":
+            for locale in LOCALES:
+                assert f'id="privacy-{locale}"' in facts.present, locale
+            continue
+        assert any(
+            text(locale, "analytics_note") in facts.present for locale in LOCALES
+        ), facts.name
 
 
 def test_every_published_page_has_exactly_one_stylesheet_and_it_arrives() -> None:
@@ -395,18 +453,25 @@ def test_each_ask_page_names_exactly_one_endpoint_and_it_is_https() -> None:
 
 
 def test_every_ask_page_script_is_inline_and_nothing_else_is_fetched() -> None:
-    """The ask page is allowed a script. It is not allowed to load one.
+    """The ask page is allowed its own script. It is not allowed to load one.
 
     A `src` here would mean a family's browser fetching code from somewhere
-    else to read about their own child's school, which is the thing every other
-    page on this site is checked for not doing.
+    else to read about their own child's school. The one exception is the
+    same-origin, hash-pinned analytics loader every page carries since
+    2026-09-17; the ask page's own code stays inline.
     """
     for facts in ask_facts():
-        assert facts.scripts, facts.name
-        assert not facts.script_srcs, (facts.name, sorted(facts.script_srcs))
+        assert facts.scripts >= 2, facts.name
+        assert facts.script_srcs == {loader_src(facts)}, (
+            facts.name,
+            sorted(facts.script_srcs),
+        )
         fetched = facts.subresource_tags - {"script"}
         assert not fetched, (facts.name, sorted(fetched))
-        assert not facts.fetching_attrs, (facts.name, sorted(facts.fetching_attrs))
+        assert facts.fetching_attrs == {("script", "src")}, (
+            facts.name,
+            sorted(facts.fetching_attrs),
+        )
         assert not facts.event_attrs, (facts.name, sorted(facts.event_attrs))
 
 
@@ -429,7 +494,7 @@ def links_into(facts: PageFacts, directory: Path, locale: str) -> list[Path]:
     Resolved against the linking page rather than read as text, because the
     steps of the walk are written relative: the front door names
     `county/01.en.html`, a county page names `../district/0110017.en.html`, and
-    a district page names `../01100170130229.en.html`. Normalised rather than
+    a district page names `../01100170130229.en.html`. Normalized rather than
     `resolve()`d, so the result is comparable to the paths `published()`
     collected under `site/` and no symlink between here and the checkout can
     make the two spellings of the same file look like different files.

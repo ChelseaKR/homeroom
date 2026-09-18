@@ -26,7 +26,7 @@ The constraints were already fixed by earlier decisions and by what the data is:
 The realistic options were a static site generator (Eleventy, Astro, Hugo), a
 Python template engine (Jinja), or rendering in the standard library. A generator
 would put a second language, a second dependency tree, and a build server between
-the data and the page, for a site with no client-side behaviour at all. Jinja
+the data and the page, for a site with no client-side behavior at all. Jinja
 would add one dependency and move the honesty rules into templates, where a
 missing `{% if %}` silently renders an empty cell, which is the exact failure mode
 this project refuses.
@@ -42,24 +42,34 @@ toolchain lives outside the product and never ships in it.
   empty cell, because there is no fall-through.
 - **The pages carry no script, no external stylesheet, no font, and no image.**
   The stylesheet is inlined and the palettes are Python dictionaries, which is
-  what lets a test measure WCAG contrast without a browser.
-  (**Amended 2026-09-07**, and unlike the note on "No deployment" below this one
-  does change the bullet it sits under: the stylesheet is no longer inlined on
-  the school, county, district and landing pages. It was 5,061 bytes on each of
-  21,068 school pages and 5,169 on each of 2,234 browse pages — 118,190,092
-  bytes, 13.62% of `site/`, measured over the published tree — and the byte
-  budget in `src/homeroom/publish_limits.py` had become the thing deciding what
-  Homeroom may publish at all. Those pages now link one file the same build
-  wrote, `homeroom.css`, at the root of the site.
-  Three parts of the bullet are unchanged and are load-bearing: **no font, no
-  image and no third party** — the linked file is same-origin, written by this
-  build, and `tests/test_pages.py` fails on an `@import` or a `url()` inside it;
-  and **the palettes stay Python dictionaries**, so the contrast tests still
-  measure them without a browser. What did change is that a page now makes one
-  request it did not make before, and can be served before its stylesheet
-  arrives. That is safe only because the four cell states are separated by words
-  as well as colour — a withheld figure reads "withheld to protect privacy" and
-  never a digit — so an unstyled page is less legible and not less true;
+  what lets a test measure WCAG contrast without a browser. *(Amended
+  2026-09-17: the renderer still emits no script, but the published pages now
+  carry one, the Google Analytics 4 loader that `src/homeroom/analytics.py`
+  adds after rendering, on the owner's decision to run GA4 on every public
+  site.)*
+  (**Amended 2026-09-18**, on the owner's acceptance of #98, and unlike the note
+  on "No deployment" below this one does change the bullet it sits under: the
+  stylesheet is no longer inlined on the school, county, district and landing
+  pages. It was 5,061 bytes on each of 21,068 school pages and 5,169 on each of
+  2,234 browse pages — 118,190,092 bytes, 13.62% of `site/`, measured over the
+  published tree — and the byte budget in `src/homeroom/publish_limits.py` had
+  become the thing deciding what Homeroom may publish at all. Those pages now
+  link one file the same build wrote, `homeroom.css`, at the root of the site.
+  The name is fixed and carries no content hash, by the owner's choice: a
+  republish can briefly pair new markup with a browser's cached copy of the
+  previous stylesheet, which the worded cell states below make a matter of
+  legibility rather than truth, and a hashed name would put every page in every
+  publish diff.
+  Two parts of the bullet are unchanged and are load-bearing: **no font, no
+  image, and no stylesheet from anyone but this site** — the linked file is
+  same-origin, written by this build, and `tests/test_pages.py` fails on an
+  `@import` or a `url()` inside it; and **the palettes stay Python
+  dictionaries**, so the contrast tests still measure them without a browser.
+  What did change is that a page now makes one request it did not make before,
+  and can be served before its stylesheet arrives. That is safe only because the
+  four cell states are separated by words as well as color — a withheld figure
+  reads "withheld to protect privacy" and never a digit — so an unstyled page is
+  less legible and not less true;
   `test_a_page_whose_stylesheet_never_arrives_still_tells_the_truth` asserts it
   rather than trusting it.
   **The ask pages are excluded and stay inline.** `tools/ask-optin.mjs` proves an

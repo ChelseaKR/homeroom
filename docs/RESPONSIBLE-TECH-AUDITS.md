@@ -13,7 +13,8 @@ below claims an audit that did not happen.
 - B Bias:          applies (the product exists to refuse a biased ranking practice; EN/ES is a first-class segment)
 - C Privacy:       applies, narrowly (no PII collected; the duty is suppression fidelity for the students inside CDE's aggregates)
 - D Transparency:  applies
-- E Accessibility: applies as of M4; gates wired and merge-blocking (see E)
+- E Accessibility: applies as of M4; gates wired and failing the run, though not
+  required on `main` and so not merge-blocking (see E and RR-12)
 - F Security:      applies (threat model not yet written; see F)
 - AI-EVAL:         applies as of ADR 0003 (2026-08-21). An optional runtime question-answering layer (`src/homeroom/ask/`) carries a prompt, a retrieval corpus, and a model version. AI-assisted development is separately disclosed in the README (see AI-EVAL)
 - I18N:            applies. EN/ES is a launch requirement; every user-visible string exists in both, parity gated (see B)
@@ -73,9 +74,11 @@ this framework to a repo", step 2).
 ## C. Privacy
 
 - Data inventory: CDE public aggregate files only, listed with acquisition rules
-  in PROVENANCE.md. No PII is collected or stored; no accounts, no tracking, no
-  telemetry. The people at risk are the students inside the aggregates, protected
-  upstream by CDE's small-cell suppression.
+  in PROVENANCE.md. No PII is collected or stored by this project and there are no
+  accounts. Page views are counted by Google Analytics 4 since the owner's
+  2026-09-17 decision (the Google subprocessor record below). The people at risk
+  in the data are the students inside the aggregates, protected upstream by CDE's
+  small-cell suppression.
 - What could go wrong: undermining that suppression, either by rendering a mask as
   a value or by re-deriving a masked cell (for example, subtracting published
   grade counts from a published total). Joining third-party data could sharpen
@@ -136,6 +139,30 @@ family-facing exposure, per the deployment runbook (`deploy/ask/README.md`).
   2026-08-22 (deployment authorization, relayed with the site origin
   decision).
 
+### Subprocessor record (Google Analytics 4)
+
+- **Subprocessor:** Google LLC, Google Analytics 4, property 554882251, web
+  stream `G-PMC113MW2C`. Owner decision 2026-09-17: GA4 on every public site.
+- **What is sent, per page view:** the page address reduced to its path and any
+  `utm_*` tags, the page title, the referring site's origin, and what gtag.js
+  itself collects (browser language, screen size, browser and operating
+  system, and an approximate location Google derives from the IP address),
+  plus enhanced measurement's scrolls, outbound clicks and downloads. Never a
+  question typed on an ask page, never an identifier this project holds (it
+  holds none).
+- **Cookies:** `_ga` and `_ga_PMC113MW2C`, up to two years, and none in the
+  EEA, the UK or Switzerland, where Consent Mode denies analytics storage by
+  default. Ad storage, ad user data and ad personalization are denied
+  everywhere; Google signals and ad personalization are off.
+- **Retention at the subprocessor:** the property's 14 months of event data.
+- **When nothing is sent:** off `homeroom.chelseakr.com`, under Global Privacy
+  Control or Do Not Track, or after the reader presses "Opt out of analytics"
+  (a per-browser `localStorage` flag that also deletes the GA cookies).
+  `tools/analytics.mjs` proves each case in `make pages`.
+- **Where readers are told:** the landing page's "Privacy and analytics"
+  section, in both languages, linked from a note on every other page.
+- **Recorded:** 2026-09-17, on the owner's decision.
+
 ## D. Transparency
 
 - Commitments: every figure traces to a named public file with an access date
@@ -182,35 +209,39 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
 - What could go wrong: the family this is written for cannot read it. A screen
   reader announces a withheld figure as a bare number with no row header; a table
   scrolls sideways on a phone with no way to reach it from a keyboard; a cell's
-  state is carried by colour alone, so the difference between a withheld figure
-  and a zero is invisible to a colour-blind reader; the English page is good and
+  state is carried by color alone, so the difference between a withheld figure
+  and a zero is invisible to a color-blind reader; the English page is good and
   the Spanish page is an afterthought.
 - Commitments: WCAG 2.2 AA on every page in both languages, semantic HTML with
-  real landmarks and real table headers, no reliance on colour alone, no script
-  and nothing fetched off this origin, and equal capability in both languages.
-  (Restated 2026-09-07: "no external asset" said what was true when every page
-  carried its stylesheet inline. The school, county, district and landing pages
-  now link one same-origin file this build wrote, `homeroom.css`. The commitment
-  the phrase was protecting -- that a family reading about their own child's
-  school fetches nothing from anyone but this site, and that no font, image, CDN
-  or beacon appears on any page -- is unchanged and is checked by
-  `tests/test_pages.py`, which now also refuses an `@import` or a `url()` inside
-  the stylesheet file itself. The *accessibility* consequence is the new one and
-  is why this is restated here rather than only in the README: a linked
-  stylesheet can fail to arrive, so a reader can be served the markup unstyled.
-  That costs the visual separation of the four cell states and not the factual
-  one, because each state is worded as well as coloured -- which is the
-  no-reliance-on-colour commitment two lines up, now doing a second job.)
+  real landmarks and real table headers, no reliance on color alone, no external
+  asset, no script but the hash-pinned Google Analytics loader added at publish
+  (whose opt-out button `tools/analytics.mjs` runs axe over), and equal
+  capability in both languages.
+  (Restated 2026-09-18, on the owner's acceptance of #98: "no external asset"
+  said what was true when every page carried its stylesheet inline. The school,
+  county, district and landing pages now link one same-origin file this build
+  wrote, `homeroom.css`, under a fixed name. The commitment the phrase was
+  protecting -- that no font, image, CDN or stylesheet from anyone but this site
+  appears on any page -- is unchanged and is checked by `tests/test_pages.py`,
+  which now also refuses an `@import` or a `url()` inside the stylesheet file
+  itself. The *accessibility* consequence is the new one and is why this is
+  restated here rather than only in the README: a linked stylesheet can fail to
+  arrive, so a reader can be served the markup unstyled. That costs the visual
+  separation of the four cell states and not the factual one, because each state
+  is worded as well as colored -- which is the no-reliance-on-color commitment
+  above, now doing a second job.)
 - Enforcement:
-  - AUTO (in place): `make pages`, inside `make verify` and merge-blocking in CI,
+  - AUTO (in place): `make pages`, inside `make verify` and run in CI on every
+    pull request (reporting, not merge-blocking: `main` requires no status check,
+    RR-12),
     builds the pages from committed fixtures and runs `html-validate` (with
     `scope` required on every table header) and `axe-core` in a headless jsdom DOM
     over the WCAG 2.0/2.1/2.2 A and AA rule sets plus best-practice, on every page
     in both languages. Zero violations at M4.
   - AUTO (in place): `tests/test_pages.py` checks what axe cannot in a DOM that
-    paints nothing: colour contrast for every pair the pages use, in light and in
+    paints nothing: color contrast for every pair the pages use, in light and in
     dark, and the document structure a screen reader depends on. It also asserts
-    each cell state carries its own words, so colour is never the only signal
+    each cell state carries its own words, so color is never the only signal
     (SC 1.4.1).
   - REVIEW (not yet done, still open at M3, 2026-08-21): a keyboard and
     screen-reader walkthrough of a built page in each language, and a look at
@@ -245,7 +276,7 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     stated here rather than left implicit, so automated coverage is never read
     as a stand-in for the human step it explicitly is not.
   - AUTO (in place, ADR 0003, 2026-08-22): the ask page is the first page with
-    an interactive control. It is a native form (labelled textarea, submit
+    an interactive control. It is a native form (labeled textarea, submit
     button), a `noscript` note, an `aria-live="polite"` answer region, and a
     focusable answer heading that receives focus when an answer lands, so a
     screen reader is told an answer arrived. html-validate and axe-core run
@@ -263,7 +294,7 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
   things. The static pages are served by GitHub Pages; the ask service (ADR
   0003) has been deployed since 2026-08-22 as an AWS Lambda behind an
   unauthenticated Function URL in `us-west-2`, which is a real inbound surface
-  and is modelled in `docs/audits/threat-model.md` boundary 5. This bullet read
+  and is modeled in `docs/audits/threat-model.md` boundary 5. This bullet read
   "No hosted service ... no inbound network surface" until 2026-08-29, a week
   after the deploy. There are no secrets in the data. The other real exposures
   are the supply chain (actions, dependencies) and the by-hand acquisition step.
@@ -282,7 +313,7 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     `docs/audits/threat-model.md` and the residual-risk register to
     `docs/audits/residual-risk-register.md`, both owed before the first tagged
     release. The threat model names the primary risk for this archetype as a
-    figure that is wrong and looks right rather than unauthorised access, and
+    figure that is wrong and looks right rather than unauthorized access, and
     treats the drift refusals and the three-state measure type as security
     controls on that basis. Six residual risks carry an owner and a decision;
     RR-05 and RR-06 are tracked rather than accepted, and RR-04 closed

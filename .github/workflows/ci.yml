@@ -22,7 +22,7 @@ concurrency:
   # A concurrency group holds one running run and one pending run. A third run
   # joining the group cancels the pending one before it dispatches a single job,
   # so that commit ends `cancelled` with zero jobs and no verdict at all; with
-  # `cancel-in-progress: true` the running run is cancelled part-way through
+  # `cancel-in-progress: true` the running run is canceled part-way through
   # instead — also no verdict. A group keyed only on `github.ref` therefore makes
   # every push to `main` contend with the merge before it, and a burst of merges
   # loses the middle ones.
@@ -30,7 +30,7 @@ concurrency:
   # Measured 2026-09-05 over the 67 most recent `ci` runs on `main`: 20 ended
   # `cancelled` (6 of them with zero jobs dispatched), and 23 of those 67 commits
   # have no successful `ci` run at all. `pages.yml` publishes only on a
-  # *successful* `ci` run for the commit, so each cancelled run is also a commit
+  # *successful* `ci` run for the commit, so each canceled run is also a commit
   # that never reached families — the site stayed on older content until the next
   # merge's run happened to survive.
   #
@@ -51,7 +51,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
           version: ">=0.11.0"
@@ -76,7 +76,7 @@ jobs:
       - name: make verify-ci
         run: make verify-ci
 
-      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      - uses: codecov/codecov-action@0b35c9ecc4f0529d0eb674914510c22f85b196b4 # v7.1.0
         if: always()
         with:
           files: coverage.xml
@@ -84,20 +84,51 @@ jobs:
 
   secret-scan:
     runs-on: ubuntu-latest
+    # 15 is unchanged, and now it is a checked number rather than an assumed
+    # one. This job used to read one commit and finish in under a second, so
+    # nothing here had been measured against a real scan. It has been:
+    # `site/` holds 21,069 published pages, so the patch volume is large even
+    # though `main` is only 138 commits, and the first full-history run on this
+    # runner read 873 MB across 129 commits in 31.2s (the whole job, 41s). The
+    # same walk takes 3m26s locally on 10 cores. 15 minutes is ~29x the measured
+    # cost; revisit it if the history grows by an order of magnitude, because a
+    # timeout under a job's runtime reads as `cancelled` rather than `failed`
+    # and is easy to mistake for a flake.
     timeout-minutes: 15
     permissions:
       contents: read
+    env:
+      # The runner image carries no gitleaks, which is why this job ran an
+      # action instead of the target `make verify` has always run. The
+      # `gitleaks-binary` prerequisite fetches the pinned release to this path
+      # and checks it against the SHA-256 file published with it; on a developer
+      # machine `GITLEAKS` stays `gitleaks` and nothing is downloaded.
+      GITLEAKS: build/gitleaks
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Necessary for a history scan and NOT sufficient for one. This
+          # decides how much history actions/checkout puts on disk; how much of
+          # it gets read is decided by how the scanner is invoked. This line was
+          # already here, unchanged, through every run that read one commit.
           fetch-depth: 0
           persist-credentials: false
-      # The action scans history only. `make secret-scan` runs that pass and a
-      # second one over the working tree, which is where an uncommitted key
-      # sits; see the target's comment for the demonstration.
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # `gitleaks/gitleaks-action@v3.0.0` ran here until 2026-09-13. It picks
+      # its scan range from the triggering event: a push of N commits becomes
+      # `--log-opts=--no-merges --first-parent BASE^..HEAD`, a push of ONE
+      # commit becomes `--log-opts=-1`, and a pull request becomes the pull
+      # request's own commits. Only `schedule` and `workflow_dispatch` drop
+      # `--log-opts` and walk the whole history, and this workflow has neither
+      # trigger. Every squash merge into `main` is a one-commit push, so the
+      # check read 1 of `main`'s 138 commits and reported success. A credential
+      # added in one commit and deleted in the next was invisible to it.
+      #
+      # `make secret-scan-history` runs `gitleaks git .` with no `--log-opts`.
+      # With no range, gitleaks walks `git log -p --full-history --all`: every
+      # commit on every ref the checkout has, on every event. It is the same
+      # history pass `make secret-scan` has always run locally, so the two gates
+      # are now the same command rather than two different ones.
+      - run: make secret-scan-history
 
   sast:
     runs-on: ubuntu-latest
@@ -108,7 +139,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
       - run: make sast
