@@ -127,7 +127,7 @@ jobs:
           test -f site/CNAME || { echo "site/CNAME is missing; the tree is not one make publish wrote" >&2; exit 1; }
           echo "publishing $(find site -type f | wc -l | tr -d ' ') files ($(du -sm site | cut -f1) MB) for $(cat site/CNAME)"
 
-      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.SITE_PUBLISH_ROLE_ARN }}
           aws-region: ${{ vars.SITE_AWS_REGION }}
