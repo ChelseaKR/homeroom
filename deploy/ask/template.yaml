@@ -245,7 +245,7 @@ Resources:
       #   access-control-allow-origin: https://homeroom.chelseakr.com, https://homeroom.chelseakr.com
       # which every browser rejects ("contains multiple values, but only one is
       # allowed"). The ask page then falls back to its fixed "service is not
-      # available" string, which is correct behaviour and completely hides the
+      # available" string, which is correct behavior and completely hides the
       # cause. curl cannot see this: it prints the header and does not enforce
       # it. This was found on 2026-08-22 by loading the live page in a real
       # browser, after curl had reported the same endpoint healthy and

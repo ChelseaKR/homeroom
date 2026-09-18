@@ -89,7 +89,7 @@ nothing added for it and nothing relaxed:
 
 4. **Four cell states, unchanged.** A published number, a published zero, a
    figure the state withheld, and nothing published at all keep their own words,
-   their own colour and their own CSS class, in both languages, and the withheld
+   their own color and their own CSS class, in both languages, and the withheld
    and the missing never render a digit. The acquired 2023-24 file masks no
    cell anywhere, and the path stays load-bearing anyway: a future year that
    masks must render as withheld and not as zero, and the committed fixture

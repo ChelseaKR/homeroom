@@ -42,7 +42,7 @@ permissions:
   contents: read
 
 concurrency:
-  # Never cancel. A cancelled run is not a clean read, and a check whose silence
+  # Never cancel. A canceled run is not a clean read, and a check whose silence
   # is supposed to mean "looked, everything is set" cannot afford one.
   group: required-configuration
   cancel-in-progress: false

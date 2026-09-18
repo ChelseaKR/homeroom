@@ -23,10 +23,10 @@ is not what this document is about. (It fails the run rather than warning; it is
 not merge-blocking, because `main` requires no status check — RR-12.) `make pages` builds
 every page type from committed fixtures and runs `html-validate` and `axe-core`
 over the WCAG 2.0/2.1/2.2 A and AA rule sets plus best-practice, in both
-languages, on every built page; `tests/test_pages.py` measures colour contrast
+languages, on every built page; `tests/test_pages.py` measures color contrast
 for every pair the pages use in both themes, asserts the document structure a
 screen reader depends on, and asserts each cell state carries its own words so
-colour is never the only signal. That gate has been at zero violations since
+color is never the only signal. That gate has been at zero violations since
 M4.
 
 What it cannot do is look at, or listen to, a page. `tools/a11y.mjs` runs in
@@ -92,7 +92,7 @@ a screen reader and a browser fail as a pair.
 | VoiceOver | Safari | macOS 14 or later | The pairing Apple tests; the only screen reader most Mac readers have |
 | NVDA (2024.1 or later) | Firefox, then Chrome | Windows 11 | Free, the most-used screen reader in the WebAIM survey, and the one most likely to find a table-semantics problem |
 | VoiceOver | Safari | iOS 17 or later, real phone | Reflow and touch on the device families actually read this on |
-| JAWS | Chrome | Windows 11 | Optional; run it if a licence is available |
+| JAWS | Chrome | Windows 11 | Optional; run it if a license is available |
 | TalkBack | Chrome | Android | Optional; the second half of the phone story |
 
 **Make the screen reader able to switch languages.** This is not optional here,
@@ -102,7 +102,7 @@ Spanish voice is installed and automatic language switching is on.
 
 - VoiceOver: VoiceOver Utility → Speech → Voices, add a Spanish voice; the
   language-detection setting must be on so the voice follows the document.
-- NVDA: install a Spanish voice for your synthesiser (eSpeak NG ships one;
+- NVDA: install a Spanish voice for your synthesizer (eSpeak NG ships one;
   Windows OneCore needs the Spanish language pack), then NVDA menu →
   Preferences → Settings → Speech → "Automatic language switching (when
   supported)".
@@ -238,7 +238,7 @@ English half and the Spanish half sit in the same page as two sections, with
    ("All counties" / "Todos los condados"), then the district links.
    - Pass: the breadcrumb is the first stop in the main content, and the
      district list reads as a list with a count.
-   - Failure: the breadcrumb reads as an unlabelled link, or the list is
+   - Failure: the breadcrumb reads as an unlabeled link, or the list is
      announced as loose links with no list semantics.
 
 2. **The proper name inside the Spanish heading (SC 3.1.2).** On the Spanish
@@ -380,7 +380,7 @@ comment recording it says so itself.
    - Pass: the textarea is announced with its label ("Your question" / "Su
      pregunta"), the button's name is its visible text, and submitting needs no
      mouse.
-   - Failure: an unlabelled textarea, a control you can reach only by pointer,
+   - Failure: an unlabeled textarea, a control you can reach only by pointer,
      or a submit that requires a click.
 
 2. **The answer's arrival (SC 4.1.3).** Submit a real question and listen

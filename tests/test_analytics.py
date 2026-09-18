@@ -3,7 +3,7 @@
 What the loader does in a browser is `tools/analytics.mjs`'s to prove (it runs in
 `make pages`). This file holds the step that puts it on the page: where each
 piece goes, that it goes there once, that it refuses a page it does not
-recognise, that an empty ID adds nothing, and that `make publish` runs it before
+recognize, that an empty ID adds nothing, and that `make publish` runs it before
 the tree is weighed.
 """
 

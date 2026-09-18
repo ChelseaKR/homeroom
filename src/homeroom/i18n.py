@@ -253,7 +253,7 @@ UI: dict[Locale, dict[str, str]] = {
         "sources_heading": "Where these numbers come from",
         "sources_body": (
             "Every figure above was copied from one of these files. Nothing was "
-            "estimated, averaged, or filled in from a neighbouring number."
+            "estimated, averaged, or filled in from a neighboring number."
         ),
         "source_d1_name": "School names and districts",
         "source_d1_title": "Public Schools and Districts directory",

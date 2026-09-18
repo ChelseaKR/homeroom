@@ -54,7 +54,7 @@ def test_the_function_url_declares_no_cors_block() -> None:
 
     and refuses it ("contains multiple values, but only one is allowed"). The
     ask page then shows its fixed "service is not available" string, which is
-    correct behaviour and hides the cause completely. curl never sees it: it
+    correct behavior and hides the cause completely. curl never sees it: it
     prints the header and does not enforce it. This shipped, and was found by
     loading the live page in a real browser after curl had called the same
     endpoint healthy and answering.

@@ -115,12 +115,12 @@ def build_source_archive(repo_root: Path, ref: str, prefix: str, output: Path) -
         compressed.write(result.stdout)
 
 
-def _normalise_project_name(value: str) -> str:
+def _normalize_project_name(value: str) -> str:
     return re.sub(r"[-_.]+", "-", value).lower()
 
 
 def _pypi_purl(name: str, version: str) -> str:
-    return f"pkg:pypi/{quote(_normalise_project_name(name))}@{quote(version)}"
+    return f"pkg:pypi/{quote(_normalize_project_name(name))}@{quote(version)}"
 
 
 def _github_purl(repository: str, version: str) -> str:
@@ -217,7 +217,7 @@ def runtime_sbom(
     version: str,
     timestamp: str,
 ) -> dict[str, Any]:
-    expected = _normalise_project_name(project_name)
+    expected = _normalize_project_name(project_name)
     components: list[dict[str, Any]] = []
     root_found = False
     for distribution in importlib.metadata.distributions():
@@ -227,8 +227,8 @@ def runtime_sbom(
             raise ReleaseEvidenceError(
                 "installed distribution lacks Name or Version metadata"
             )
-        normalised = _normalise_project_name(name)
-        if normalised == expected:
+        normalized = _normalize_project_name(name)
+        if normalized == expected:
             root_found = True
             if dist_version != version:
                 raise ReleaseEvidenceError(
@@ -402,14 +402,14 @@ def _sdist_identity(path: Path) -> tuple[str, str]:
 
 
 def verify_dist(directory: Path, project_name: str, version: str) -> None:
-    expected_name = _normalise_project_name(project_name)
+    expected_name = _normalize_project_name(project_name)
     for artifact in _artifact_files(directory):
         name, built_version = (
             _wheel_identity(artifact)
             if artifact.suffix == ".whl"
             else _sdist_identity(artifact)
         )
-        if _normalise_project_name(name) != expected_name:
+        if _normalize_project_name(name) != expected_name:
             raise ReleaseEvidenceError(
                 f"{artifact.name} project name {name!r} != {project_name!r}"
             )

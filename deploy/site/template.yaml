@@ -178,7 +178,7 @@ Resources:
               DaysAfterInitiation: 7
 
   # Origin Access Control, not the legacy Origin Access Identity. OAI is a
-  # CloudFront-owned IAM user that S3 recognises; OAC is SigV4 on every origin
+  # CloudFront-owned IAM user that S3 recognizes; OAC is SigV4 on every origin
   # request, which is the only one of the two that works with SSE-KMS, is the
   # only one AWS still adds features to, and is the one whose grant can be
   # narrowed to a single distribution ARN (see the bucket policy below).
@@ -237,7 +237,7 @@ Resources:
   # no-referrer a fetch's `Origin` header can be sent as `null` in some paths,
   # and the ask service refuses by origin (deploy/ask/template.yaml): the
   # symptom would be the ask page falling back to its fixed "not available"
-  # string, correct behaviour hiding a cause completely, exactly as the CORS
+  # string, correct behavior hiding a cause completely, exactly as the CORS
   # trap in that template did.
   #
   # No Content-Security-Policy, deliberately, and it is open work rather than a

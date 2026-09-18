@@ -171,7 +171,7 @@ def ask_page_name(cds_code: str, locale: Locale) -> str:
 def _strings(profile: SchoolProfile, locale: Locale, endpoint: str) -> str:
     """The data the script reads: fixed strings, the endpoint, and the school.
 
-    Serialised with ``ensure_ascii`` and ``<`` escaped, so the JSON block can
+    Serialized with ``ensure_ascii`` and ``<`` escaped, so the JSON block can
     never close its own ``<script>`` tag whatever a string contains.
     """
     data = {

@@ -72,7 +72,7 @@ on: # zizmor: ignore[dangerous-triggers]
 
 permissions: {}
 
-# Never let two publishes race, and never cancel one in flight: a cancelled
+# Never let two publishes race, and never cancel one in flight: a canceled
 # sync leaves the bucket holding half of one commit and half of another, which
 # is the one state `tools/verify_live_site.py` would report and nobody could
 # explain.

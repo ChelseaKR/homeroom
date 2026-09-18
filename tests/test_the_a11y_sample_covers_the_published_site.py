@@ -63,7 +63,7 @@ a second fixture render whose only effect is to hand axe a page it has already b
 a superset of. It closes nothing any predicate here can measure, and doubles the gate.
 
 **What this still does not claim.** Attribute *values* — an `aria-label`'s text, an
-`alt`'s text, an `href` — are normalised away, because they are a school's name and are
+`alt`'s text, an `href` — are normalized away, because they are a school's name and are
 the same rule input whichever school it is. Run lengths are collapsed: a school page with
 eighteen measure sections and one with twenty-two are one landmark sequence here. And
 nothing in a headless DOM can see layout, so contrast and target size are decided
@@ -138,7 +138,7 @@ def _vocabulary(markup: str) -> set[str]:
 
     Regex rather than `html.parser`: this reads 23,305 files and the parser costs six
     times as much for an answer that does not change. The tokens are deliberately
-    normalised — an `aria-label`'s *value* is a school name and is the same rule input
+    normalized — an `aria-label`'s *value* is a school name and is the same rule input
     whichever school it is, while `alt=""` and a non-empty `alt` are different inputs.
     """
     found = {f"element:{name.lower()}" for name in _ELEMENTS.findall(markup)}
@@ -168,17 +168,17 @@ def _heading_transitions(markup: str) -> frozenset[tuple[str | int, int | None]]
 
 
 def _landmark_sequence(markup: str) -> tuple[str, ...]:
-    """The landmarks in document order, with label values normalised and runs collapsed.
+    """The landmarks in document order, with label values normalized and runs collapsed.
 
     `landmark-unique`, `landmark-one-main` and `region` reason about which landmarks a
     page has, whether each carries an accessible name, and where they sit relative to one
     another — not about the name's text, and not about how many measure sections a
-    particular school happens to publish. So a labelled `<section>` repeated eighteen
+    particular school happens to publish. So a labeled `<section>` repeated eighteen
     times and one repeated twenty-two times are the same sequence here, while a page that
-    gains an unlabelled one, or loses its `<footer>`, is not.
+    gains an unlabeled one, or loses its `<footer>`, is not.
     """
     ordered = [
-        f"{name}[{'labelled' if _LABEL.search(attributes) else 'bare'}]"
+        f"{name}[{'labeled' if _LABEL.search(attributes) else 'bare'}]"
         for name, attributes in _LANDMARKS.findall(markup)
     ]
     collapsed: list[str] = []
@@ -456,8 +456,8 @@ def test_every_landmark_sequence_the_site_publishes_occurs_in_the_sample(
     """`landmark-one-main`, `landmark-banner-is-top-level` and `region` read this.
 
     Not the shape of one landmark but the run of them: which landmarks a page carries,
-    in what order, each labelled or bare. Runs are collapsed, so the number of measure
-    sections a school publishes is not a difference; gaining an unlabelled landmark, or
+    in what order, each labeled or bare. Runs are collapsed, so the number of measure
+    sections a school publishes is not a difference; gaining an unlabeled landmark, or
     losing the footer, is.
     """
     missing = {
@@ -518,7 +518,7 @@ def test_no_published_page_repeats_a_landmark_the_sample_never_repeats(
 ) -> None:
     """`landmark-unique` needs two landmarks with one name, and a set cannot count.
 
-    Every other check here reduces a page to sets, and a set holds "there is a labelled
+    Every other check here reduces a page to sets, and a set holds "there is a labeled
     section" identically whether there is one or five. This is the property that falls
     through: two landmarks sharing an element and an accessible name are a violation, and
     a page with one of each is not. Measured 2026-09-13: no page on either side repeats

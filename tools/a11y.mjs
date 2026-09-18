@@ -8,8 +8,8 @@
 // exists to prevent.
 //
 // It is not a substitute for a person using the pages: jsdom does no layout and paints
-// no pixels, so rules that depend on rendered geometry or colour cannot fire here.
-// Those are named below and in README.md under what still needs a person; colour
+// no pixels, so rules that depend on rendered geometry or color cannot fire here.
+// Those are named below and in README.md under what still needs a person; color
 // contrast is measured separately, off the palette itself, in tests/test_pages.py.
 //
 // Usage: node tools/a11y.mjs <directory-of-html-files>
@@ -70,7 +70,7 @@ async function checkPage(path) {
   // "outside-only" gives an eval to inject axe with, without ever running a script that
   // came out of the page. These pages ship no script, and the checker should not start
   // executing one if that ever changes.
-  // axe probes for a canvas to decide whether it can sample colours. jsdom has none, so
+  // axe probes for a canvas to decide whether it can sample colors. jsdom has none, so
   // it reports that once per page. Everything else the page or axe says is forwarded.
   const console_ = new VirtualConsole();
   console_.forwardTo(console, { jsdomErrors: "none" });

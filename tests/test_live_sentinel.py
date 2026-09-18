@@ -142,7 +142,7 @@ def test_a_same_day_rerun_compares_the_same_window() -> None:
 
 
 def test_sample_zero_compares_the_whole_tree() -> None:
-    """The by-hand sweep after a publish, and the old behaviour, still reachable."""
+    """The by-hand sweep after a publish, and the old behavior, still reachable."""
     relatives = corpus(50)
     assert sentinel.comparison_set(relatives, 0, 1) == sorted(relatives)
 

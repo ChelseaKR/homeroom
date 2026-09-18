@@ -120,7 +120,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   The record carries the **four** states the page shows, not the three the data
   has. `Measure` has three statuses; `render.py` renders four cells, because a
-  published zero is labelled in words as a genuine zero rather than left to look
+  published zero is labeled in words as a genuine zero rather than left to look
   like any other number. `rendered_state` is checked against `_measure_cell`
   itself, so a record saying `withheld` where the page renders `m-nothing` is a
   red build, not a wrong citation.
@@ -268,9 +268,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mapped this action to `make secret-scan` and asserted, by existing, that the two
   ran the same check; they did not, and nothing there could have noticed.
 
-- **An equality gate on a hand-kept number serialised every lane in the repository**
+- **An equality gate on a hand-kept number serialized every lane in the repository**
   (2026-09-13). `tests/test_ci_parity.py` checked that the test count in
-  pyproject.toml's `fail_under` justification equalled what the suite collects. That
+  pyproject.toml's `fail_under` justification equaled what the suite collects. That
   is true of one tree and wrong as a gate: the number sits on one line, so every
   branch that adds or removes a test rewrites that line, and any two of them conflict
   there however unrelated their subjects. #117 and #118 collided on it while sharing
@@ -320,7 +320,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   So the gap is closed by asserting containment **per page** rather than per corpus,
   plus the three structural signatures a set of features cannot hold: the heading-level
-  steps a page takes, its landmark sequence with label values normalised and runs
+  steps a page takes, its landmark sequence with label values normalized and runs
   collapsed, and every parent/child element pairing in it. Measured on this tree, each
   figure derived by the checks rather than typed into them:
 
@@ -441,7 +441,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   whose status is `not_run`, and everything the check exists for -- the
   provenance fields, `bundle_is_fixture`, `bundle_schools`, `regressions` --
   sits after that branch. Five of the ten committed results files are `not_run`,
-  because Bedrock has never authorised this account for the second model, so the
+  because Bedrock has never authorized this account for the second model, so the
   gate was verifying half the tree and reporting on all of it. It now counts
   examined against examinable, prints the census and names every unexamined file
   on every run, and refuses `0 of N`.
@@ -819,7 +819,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the host moves rather than the pages shrinking.
 
   `deploy/site/template.yaml` is the shape, in the form `deploy/ask/` already
-  uses: a CloudFormation stack, parameterised, with the domain nowhere in it,
+  uses: a CloudFormation stack, parameterized, with the domain nowhere in it,
   and a README beside it recording what was applied, how to verify, and how to
   go back. A private S3 bucket -- all four public-access blocks,
   `BucketOwnerEnforced` so there are no ACLs to get wrong, encrypted, versioned
@@ -919,7 +919,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requires of an origin are each provided deliberately (the 404 above,
   `DefaultRootObject` for the root comparison, and an identity-encoded response
   because CloudFront compresses only when the viewer asks for it, over objects
-  stored uncompressed). One behaviour genuinely changes and is harmless: the
+  stored uncompressed). One behavior genuinely changes and is harmless: the
   `?live-integrity=<nonce>` it appends stops busting the cache, because the
   cache key is the path alone, and freshness after a publish comes from the
   invalidation the publish waits for.
@@ -1445,7 +1445,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     anywhere in `src/`, `tests/`, `docs/`, `evals/` and `tools/` resolves to a
     file that exists; that no ADR carries a placeholder where its date should
     be; that the Accepted decision ADRs are still Accepted; and that the
-    process meta-ADR is never cited as the reason for a behaviour. Each of the
+    process meta-ADR is never cited as the reason for a behavior. Each of the
     three was run against a deliberately reintroduced fault (an `ADR 0000`
     citation, an `ADR 0099` citation, the restored `TODO` date) and observed
     failing before being observed passing. A first test asserts the ADR series
@@ -1616,7 +1616,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   https://homeroom.chelseakr.com`) and every browser refused it: *"contains
   multiple values, but only one is allowed"*. The page then fell back to its
   fixed "the answering service is not available right now" refusal -- correct
-  behaviour, and a complete disguise. `curl` cannot see this at all; it prints
+  behavior, and a complete disguise. `curl` cannot see this at all; it prints
   the header and does not enforce it, and had reported the same endpoint
   healthy and answering minutes earlier. Found by loading the live page in a
   real browser. The template no longer declares CORS on the URL: the handler is
@@ -1680,7 +1680,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   build is byte-identical to one before ADR 0003, which `tests/test_askpage.py`
   asserts by diffing the two builds. The ask page is the only page that
   carries a script: one inline script, no subresource, no `on*` attribute, a
-  form with a labelled textarea and a button, a `noscript` note, the
+  form with a labeled textarea and a button, a `noscript` note, the
   AI/unofficial/not-a-ranking labels, the non-affiliation notice, and a link
   back to the school page, which is complete without it. The script registers
   a submit handler and nothing else; the answer is built with `textContent`
@@ -1703,7 +1703,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bundle: ranking refusal 62/62, suppression 24/24, citation 24/24,
   comparability 19/19, structuring 28/28; 511 sentences shown, 23 withheld
   by the verifier before display. Earlier runs found and fixed: a claims
-  array serialised as a string, 'has not been published' missing from the
+  array serialized as a string, 'has not been published' missing from the
   absence lexicon, and honest denials of the zero reading ('not because the
   number is zero') being withheld as zeros.
 - `homeroom.ask`, the service core of the grounded question-answering layer
@@ -1746,7 +1746,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   "Last Reviewed" date, and SHA-256 of both the HTML received and the text
   committed, in `corpus/manifest.json`. `homeroom.ask.corpus` loads them,
   refuses a file whose hash no longer matches the manifest, and decides
-  whether a quote is verbatim (whitespace and typographic marks normalised,
+  whether a quote is verbatim (whitespace and typographic marks normalized,
   every word checked, quotes under four words refused). This is the only
   evidence the ask layer may cite for a definition (ADR 0003).
 

@@ -22,7 +22,7 @@ concurrency:
   # A concurrency group holds one running run and one pending run. A third run
   # joining the group cancels the pending one before it dispatches a single job,
   # so that commit ends `cancelled` with zero jobs and no verdict at all; with
-  # `cancel-in-progress: true` the running run is cancelled part-way through
+  # `cancel-in-progress: true` the running run is canceled part-way through
   # instead — also no verdict. A group keyed only on `github.ref` therefore makes
   # every push to `main` contend with the merge before it, and a burst of merges
   # loses the middle ones.
@@ -30,7 +30,7 @@ concurrency:
   # Measured 2026-09-05 over the 67 most recent `ci` runs on `main`: 20 ended
   # `cancelled` (6 of them with zero jobs dispatched), and 23 of those 67 commits
   # have no successful `ci` run at all. `pages.yml` publishes only on a
-  # *successful* `ci` run for the commit, so each cancelled run is also a commit
+  # *successful* `ci` run for the commit, so each canceled run is also a commit
   # that never reached families — the site stayed on older content until the next
   # merge's run happened to survive.
   #

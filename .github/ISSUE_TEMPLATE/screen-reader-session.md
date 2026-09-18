@@ -56,7 +56,7 @@ fail as a pair, not separately.
 Describe what you did and what you heard or saw, in order. Quote what was
 announced where you can, including the bits that were wrong.
 
-Please do NOT tell us whether the page conforms to anything. That judgement is
+Please do NOT tell us whether the page conforms to anything. That judgment is
 not what this report is for, and a report that leads with "looks fine" is a
 report that gets nodded through. Say what happened; the conformance question is
 settled somewhere else, against the record, by someone who has to sign it.
@@ -106,7 +106,7 @@ this is not decoration.
 
 - **Name or handle to record:**
 - [ ] Record my name
-- [ ] Record a handle or an organisation instead
+- [ ] Record a handle or an organization instead
 - [ ] Do not record me; treat this as an anonymous report and leave the row's
       "walked by" cell empty
 

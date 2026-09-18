@@ -101,7 +101,7 @@ def schools_in(profiles: list[SchoolProfile], code: str) -> list[SchoolProfile]:
 
 
 def _sibling(path: str, locale: Locale) -> str:
-    """One browse page's file name in a given locale, as its neighbours see it.
+    """One browse page's file name in a given locale, as its neighbors see it.
 
     The browse pages sit in their own directory, so a language link between two
     of them is a bare file name rather than the `county/…` the sitemap needs.

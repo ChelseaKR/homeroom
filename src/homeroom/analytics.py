@@ -332,7 +332,7 @@ def add_to_page(source: str, relative: Path, pinned: str) -> str:
     """One page with GA added. ``relative`` is its path under the site root.
 
     ``pinned`` is the loader's :func:`integrity` value. Refuses (raises) a page
-    that already carries the addition or whose shape it does not recognise,
+    that already carries the addition or whose shape it does not recognize,
     rather than guessing where a note belongs.
     """
     where = str(relative)

@@ -197,9 +197,9 @@ def pages() -> tuple[PageFacts, ...]:
     Reading each page once got this gate from 14m18s to 114s, and then all
     10,534 schools gained a county and a district page and the corpus reached
     23,310 files. What is left is the parse itself, which is `html.parser`
-    tokenising in pure Python -- measured at 5.9ms a page, and a leaner parser
+    tokenizing in pure Python -- measured at 5.9ms a page, and a leaner parser
     collecting only the fields below is no faster, because the cost is the
-    tokeniser rather than the bookkeeping.
+    tokenizer rather than the bookkeeping.
 
     So it is spread across processes instead. Measured over the published tree:
 
@@ -429,7 +429,7 @@ def links_into(facts: PageFacts, directory: Path, locale: str) -> list[Path]:
     Resolved against the linking page rather than read as text, because the
     steps of the walk are written relative: the front door names
     `county/01.en.html`, a county page names `../district/0110017.en.html`, and
-    a district page names `../01100170130229.en.html`. Normalised rather than
+    a district page names `../01100170130229.en.html`. Normalized rather than
     `resolve()`d, so the result is comparable to the paths `published()`
     collected under `site/` and no symlink between here and the checkout can
     make the two spellings of the same file look like different files.

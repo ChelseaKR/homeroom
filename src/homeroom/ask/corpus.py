@@ -8,7 +8,7 @@ how the verifier decides whether a quote is real.
 
 A :class:`Passage` is one block of one page, addressed as ``<source>#<index>``.
 A quote verifies against the *whole page* it cites, not only the passage, after
-normalising whitespace and the typographic quotes and dashes CDE's pages use:
+normalizing whitespace and the typographic quotes and dashes CDE's pages use:
 CDE's template sometimes splits one sentence across two blocks around a link,
 and a sentence that is on the page is on the page. What a quote may not do is
 differ from the page in any word, and that is the check.
@@ -66,7 +66,7 @@ class CorpusSource:
         return "\n\n".join(p.text for p in self.passages)
 
 
-def normalise(text: str) -> str:
+def normalize(text: str) -> str:
     """The form quotes are compared in: one space between words, ASCII marks."""
     return re.sub(r"\s+", " ", text.translate(_QUOTE_MARKS)).strip().casefold()
 
@@ -97,10 +97,10 @@ class Corpus:
         passage = self.passage(passage_id)
         if passage is None:
             return False
-        wanted = normalise(quote)
+        wanted = normalize(quote)
         if len(wanted.split()) < 4:
             return False
-        return wanted in normalise(self.sources[passage.source].text)
+        return wanted in normalize(self.sources[passage.source].text)
 
 
 def load_corpus(root: Path = CORPUS_DIR) -> Corpus:

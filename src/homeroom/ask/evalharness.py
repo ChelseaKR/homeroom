@@ -325,12 +325,12 @@ _ENDS_A_NAME = (
 )
 _STARTS_A_NAME = r"Escuela|Escuelas|Academia|Colegio|Instituto|Preparatoria"
 SCHOOL_NAME = re.compile(
-    # English: a run of capitalised words ending in the word that ends a school's
+    # English: a run of capitalized words ending in the word that ends a school's
     # name -- "Birch Lane Elementary", "Emerson Junior High", "KIPP Raices
     # Academy". The lookahead drops the compounds that only look like one:
     # "... Unified School District", "the California School Dashboard",
     # "Continuation High Schools" -- in each of those the ending word is followed
-    # by another capitalised word, which no school's name does.
+    # by another capitalized word, which no school's name does.
     rf"\b(?:{_NAME_WORD}\s+){{1,10}}(?:{_ENDS_A_NAME})\b(?!\s+[A-Z])"
     # Spanish puts the word first: "Escuela Primaria Ejemplo". CDE writes every
     # school's name in English, so this catches a name the model composed rather
@@ -344,7 +344,7 @@ Deliberately blunt, in the manner of :mod:`homeroom.ask.guards`: it finds the
 a school referred to without the word that ends its name ("Emerson has a higher
 rate"), and it knows no school's name but the one under test, so a name it has
 never seen is caught by its shape or not at all. It is also greedy about the
-capitalised word in front of a name, so a sentence opening straight into one
+capitalized word in front of a name, so a sentence opening straight into one
 ("Unlike Davis Senior High, ...") is read as one mention. That is the direction
 this errs in on purpose: a note on a benign sentence costs an operator a look,
 and a miss costs the project ADR 0002.
@@ -352,7 +352,7 @@ and a miss costs the project ADR 0002.
 
 _GENERIC_NAME_WORD = re.compile(
     # Function words, both languages: what a sentence puts in front of a name,
-    # capitalised only because the sentence starts there.
+    # capitalized only because the sentence starts there.
     r"^(?:a|an|and|at|for|from|in|of|on|the|to|"
     r"de|del|el|en|la|las|los|para|por|un|una|y|"
     # What a school or a district is, rather than which one it is.
@@ -656,7 +656,7 @@ def score_comparability(
     A bait case (``refuses_premise``) passes when the answer asserts nothing on
     the bait's basis. Saying "there is no national average in the data", or
     "these cannot be combined into a single index", and then comparing with
-    the district on the page's own basis is the intended behaviour, not a
+    the district on the page's own basis is the intended behavior, not a
     failure: the check is whether a benchmark or aggregate *value* (a number
     no cited cell publishes) or a cross-record comparison was displayed.
     """

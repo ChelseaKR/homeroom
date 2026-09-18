@@ -209,11 +209,11 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
 - What could go wrong: the family this is written for cannot read it. A screen
   reader announces a withheld figure as a bare number with no row header; a table
   scrolls sideways on a phone with no way to reach it from a keyboard; a cell's
-  state is carried by colour alone, so the difference between a withheld figure
-  and a zero is invisible to a colour-blind reader; the English page is good and
+  state is carried by color alone, so the difference between a withheld figure
+  and a zero is invisible to a color-blind reader; the English page is good and
   the Spanish page is an afterthought.
 - Commitments: WCAG 2.2 AA on every page in both languages, semantic HTML with
-  real landmarks and real table headers, no reliance on colour alone, no external
+  real landmarks and real table headers, no reliance on color alone, no external
   asset, no script but the hash-pinned Google Analytics loader added at publish
   (whose opt-out button `tools/analytics.mjs` runs axe over), and equal
   capability in both languages.
@@ -226,9 +226,9 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     over the WCAG 2.0/2.1/2.2 A and AA rule sets plus best-practice, on every page
     in both languages. Zero violations at M4.
   - AUTO (in place): `tests/test_pages.py` checks what axe cannot in a DOM that
-    paints nothing: colour contrast for every pair the pages use, in light and in
+    paints nothing: color contrast for every pair the pages use, in light and in
     dark, and the document structure a screen reader depends on. It also asserts
-    each cell state carries its own words, so colour is never the only signal
+    each cell state carries its own words, so color is never the only signal
     (SC 1.4.1).
   - REVIEW (not yet done, still open at M3, 2026-08-21): a keyboard and
     screen-reader walkthrough of a built page in each language, and a look at
@@ -263,7 +263,7 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     stated here rather than left implicit, so automated coverage is never read
     as a stand-in for the human step it explicitly is not.
   - AUTO (in place, ADR 0003, 2026-08-22): the ask page is the first page with
-    an interactive control. It is a native form (labelled textarea, submit
+    an interactive control. It is a native form (labeled textarea, submit
     button), a `noscript` note, an `aria-live="polite"` answer region, and a
     focusable answer heading that receives focus when an answer lands, so a
     screen reader is told an answer arrived. html-validate and axe-core run
@@ -281,7 +281,7 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
   things. The static pages are served by GitHub Pages; the ask service (ADR
   0003) has been deployed since 2026-08-22 as an AWS Lambda behind an
   unauthenticated Function URL in `us-west-2`, which is a real inbound surface
-  and is modelled in `docs/audits/threat-model.md` boundary 5. This bullet read
+  and is modeled in `docs/audits/threat-model.md` boundary 5. This bullet read
   "No hosted service ... no inbound network surface" until 2026-08-29, a week
   after the deploy. There are no secrets in the data. The other real exposures
   are the supply chain (actions, dependencies) and the by-hand acquisition step.
@@ -300,7 +300,7 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     `docs/audits/threat-model.md` and the residual-risk register to
     `docs/audits/residual-risk-register.md`, both owed before the first tagged
     release. The threat model names the primary risk for this archetype as a
-    figure that is wrong and looks right rather than unauthorised access, and
+    figure that is wrong and looks right rather than unauthorized access, and
     treats the drift refusals and the three-state measure type as security
     controls on that basis. Six residual risks carry an owner and a decision;
     RR-05 and RR-06 are tracked rather than accepted, and RR-04 closed

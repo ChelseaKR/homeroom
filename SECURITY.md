@@ -29,7 +29,7 @@ In scope, through the private channel above: that endpoint, prompt injection,
 a fabricated or judgmental answer reaching a reader, and a credential in a
 build. The service stores no question and holds no user data. The static pages
 at homeroom.chelseakr.com are files on GitHub Pages with no server-side
-behaviour of their own.
+behavior of their own.
 
 
 Scan configuration (SAST/SCA/secret-scan/container-CVE) lives in
