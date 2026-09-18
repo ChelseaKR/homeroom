@@ -41,6 +41,7 @@ from homeroom.artifacts import (
 )
 from homeroom.askpage import ask_page_name, render_ask_page
 from homeroom.browse import (
+    BROWSE_STYLE,
     counties,
     county_code,
     county_page_name,
@@ -61,13 +62,15 @@ from homeroom.context import (
     load_context,
 )
 from homeroom.i18n import LOCALES
-from homeroom.landing import render_landing
+from homeroom.landing import LANDING_STYLE, render_landing
 from homeroom.profiles import ProfileAssembly, SchoolProfile, assemble_profiles
 from homeroom.render import (
     ABSENTEEISM_URL,
     ASSIGNMENTS_URL,
     DIRECTORY_URL,
     ENROLLMENT_URL,
+    STYLESHEET,
+    STYLESHEET_NAME,
     SiteCoverage,
     SourceRef,
     canonical_url,
@@ -121,6 +124,37 @@ def _publish_social_cards(out_dir: Path) -> list[Path]:
     return written
 
 
+def published_stylesheet() -> str:
+    """The bytes of the one stylesheet the build writes.
+
+    The base sheet plus the two page-kind blocks, in the order the pages used to
+    concatenate them inline, so the cascade is the one that was already there
+    and no rule changes precedence. `BROWSE_STYLE` and `LANDING_STYLE` are
+    class-scoped to elements only those page kinds carry, so a school page
+    reading them is 297 bytes it never applies -- against 5,017 bytes a page
+    saved by not carrying the base sheet at all.
+
+    The ask pages are not here. They keep their stylesheet inline, and README's
+    reason is theirs alone: `tools/ask-optin.mjs` asserts an ask page issues no
+    request until a question is submitted, and a linked stylesheet is a request.
+    """
+    return STYLESHEET + BROWSE_STYLE + LANDING_STYLE
+
+
+def _publish_stylesheet(out_dir: Path) -> Path:
+    """Write the stylesheet every page but the ask pages links.
+
+    First, and unconditionally -- not under ``site_url`` the way the social
+    cards are. A card is only named by a build that was given an origin; the
+    stylesheet is named by every page in every build, including a fixture build
+    and a one-school build, so a build that skipped it would publish pages
+    reaching for a file that is not there.
+    """
+    path = out_dir / STYLESHEET_NAME
+    path.write_text(published_stylesheet(), encoding="utf-8")
+    return path
+
+
 class UnknownSchoolError(ValueError):
     """A CDS code was asked for that no active school in the build carries."""
 
@@ -131,6 +165,14 @@ class SiteBuild:
     coverage: SiteCoverage
     schools: list[SchoolProfile]
     pages: list[Path]
+    stylesheet: Path
+    """The one file every page but the ask pages links.
+
+    Kept out of ``pages`` deliberately. ``main`` prints ``len(pages)`` under the
+    label "N schools x 2 locales", and a stylesheet counted there would make
+    that arithmetic wrong by one in a line whose whole job is to let a reader
+    check it.
+    """
 
 
 def sources(
@@ -447,6 +489,7 @@ def build_site(
     out_dir.mkdir(parents=True, exist_ok=True)
     if ask_endpoint:
         (out_dir / "ask").mkdir(parents=True, exist_ok=True)
+    stylesheet = _publish_stylesheet(out_dir)
     pages: list[Path] = []
     indexable: list[str] = []
     for profile in schools:
@@ -503,7 +546,13 @@ def build_site(
         sitemap = out_dir / "sitemap.xml"
         sitemap.write_text(sitemap_xml(site_url, indexable), encoding="utf-8")
         pages.append(sitemap)
-    return SiteBuild(assembly=assembly, coverage=cover, schools=schools, pages=pages)
+    return SiteBuild(
+        assembly=assembly,
+        coverage=cover,
+        schools=schools,
+        pages=pages,
+        stylesheet=stylesheet,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -618,6 +667,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         print("chronic absenteeism: no D3 file given, no page carries one")
+    print(f"stylesheet: {build.stylesheet}")
     for page in build.pages[:4]:
         print(f"wrote {page}")
     if len(build.pages) > 4:

@@ -153,6 +153,40 @@ def test_the_ask_page_carries_one_inline_script_and_reaches_nowhere(
                 assert smell not in source.lower(), (path.name, smell)
 
 
+def test_the_ask_page_is_the_one_page_that_still_carries_its_stylesheet_inline(
+    with_ask: Path,
+) -> None:
+    """Every other page links `homeroom.css` since 2026-09-07. This one may not.
+
+    `tools/ask-optin.mjs` asserts that opening an ask page issues no request
+    until a question is submitted, and a linked stylesheet is a request -- one
+    the browser makes before the reader has done anything. So the 6,074 bytes
+    that could come off each of these pages stay on them, which is what README's
+    "the one large saving is not available" is about and is the whole of what it
+    is about. There are two ask pages published today, so the cost of the
+    exception is 12,148 bytes; the same exception across all 10,534 schools is
+    the 216 MB the README bounds the ask layer with.
+
+    Asserted rather than left to the ADR, because the failure is silent: an ask
+    page that quietly gained a `<link>` would look right, render right, and
+    break a promise in `tools/ask-optin.mjs`'s language rather than in HTML.
+    """
+    for cds in SCHOOLS:
+        for locale in LOCALES:
+            path = with_ask / ask_page_name(cds, locale)
+            source = path.read_text(encoding="utf-8")
+            document = parse(path)
+            styles = [tag for tag, _ in document.elements if tag == "style"]
+            assert styles == ["style"], path.name
+            assert "--surface" in source, path.name
+            sheets = [
+                attrs
+                for tag, attrs in document.elements
+                if tag == "link" and attrs.get("rel") == "stylesheet"
+            ]
+            assert not sheets, (path.name, sheets)
+
+
 def test_the_ask_page_says_what_it_is_in_its_own_language(with_ask: Path) -> None:
     for cds in SCHOOLS:
         for locale in LOCALES:

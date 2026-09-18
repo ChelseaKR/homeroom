@@ -217,6 +217,19 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
   asset, no script but the hash-pinned Google Analytics loader added at publish
   (whose opt-out button `tools/analytics.mjs` runs axe over), and equal
   capability in both languages.
+  (Restated 2026-09-18, on the owner's acceptance of #98: "no external asset"
+  said what was true when every page carried its stylesheet inline. The school,
+  county, district and landing pages now link one same-origin file this build
+  wrote, `homeroom.css`, under a fixed name. The commitment the phrase was
+  protecting -- that no font, image, CDN or stylesheet from anyone but this site
+  appears on any page -- is unchanged and is checked by `tests/test_pages.py`,
+  which now also refuses an `@import` or a `url()` inside the stylesheet file
+  itself. The *accessibility* consequence is the new one and is why this is
+  restated here rather than only in the README: a linked stylesheet can fail to
+  arrive, so a reader can be served the markup unstyled. That costs the visual
+  separation of the four cell states and not the factual one, because each state
+  is worded as well as colored -- which is the no-reliance-on-color commitment
+  above, now doing a second job.)
 - Enforcement:
   - AUTO (in place): `make pages`, inside `make verify` and run in CI on every
     pull request (reporting, not merge-blocking: `main` requires no status check,

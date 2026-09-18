@@ -12,10 +12,16 @@ carries the two steps below them. What the page says has not changed -- these
 are the schools published so far -- only how many names it puts in front of
 somebody to say it.
 
-Same rules as every other page (ADR 0001): stdlib rendering, the shared inline
-stylesheet, no script, no external asset, deterministic output. It is written
-only when the build is asked for it (``--landing``), so the fixture gates cover
-it and a build without it is unchanged.
+Same rules as every other page (ADR 0001): stdlib rendering, the one shared
+stylesheet, no script, nothing fetched off this origin, deterministic output. It
+is written only when the build is asked for it (``--landing``), so the fixture
+gates cover it and a build without it is unchanged.
+
+This page saves nothing by linking the stylesheet rather than inlining it --
+there is one of it, so the file it links costs what the block it dropped cost.
+It links anyway, because it is the first page a family lands on and the walk
+from here to a county, a district and a school is four pages: linking means one
+stylesheet fetched once rather than a copy of it in each of the four.
 """
 
 from __future__ import annotations
@@ -24,12 +30,12 @@ from homeroom.browse import counties, county_page_name
 from homeroom.i18n import LOCALES, Locale, text
 from homeroom.profiles import SchoolProfile
 from homeroom.render import (
-    STYLESHEET,
     _cde,
     _esc,
     _social_meta,
     canonical_url,
     social_card_name,
+    stylesheet_link,
 )
 
 LANDING_STYLE = """
@@ -107,7 +113,7 @@ def render_landing(
         f"<title>{_esc(title)}</title>\n"
         f'<meta name="description" content="{_esc(description)}">\n'
         f"{addressed}"
-        f"<style>\n{STYLESHEET}{LANDING_STYLE}</style>\n"
+        f"{stylesheet_link()}\n"
         "</head>\n"
         "<body>\n"
         f'<a class="skip-link" href="#main">{_esc(text("en", "skip_to_content"))}</a>\n'

@@ -19,8 +19,12 @@ first seven as the district a school belongs to. Nothing is invented here and no
 name becomes a slug: the pages are addressed by the same digits the data joins
 on, so two districts that share a name stay two districts.
 
-Same rules as every other page: stdlib rendering, the shared inline stylesheet,
-no script, no external asset, deterministic output, both locales as peers.
+Same rules as every other page: stdlib rendering, the one shared stylesheet, no
+script, nothing fetched off this origin, deterministic output, both locales as
+peers. These are the only pages that sit a directory below the site root, so
+they are the only ones that reach the stylesheet as `../homeroom.css`; a prefix
+that was right at the root and wrong here would leave 2,234 published pages
+unstyled, which is what `tests/test_browse.py` resolves rather than matches.
 """
 
 from __future__ import annotations
@@ -28,13 +32,13 @@ from __future__ import annotations
 from homeroom.i18n import LOCALE_NAMES, OTHER_LOCALE, Locale, text
 from homeroom.profiles import SchoolProfile
 from homeroom.render import (
-    STYLESHEET,
     _cde,
     _esc,
     _social_meta,
     canonical_url,
     page_name,
     social_card_name,
+    stylesheet_link,
 )
 
 BROWSE_STYLE = """
@@ -185,7 +189,7 @@ def _shell(
         f'<link rel="alternate" hreflang="{locale}" href="{_esc(_sibling(path, locale))}">\n'
         f'<link rel="alternate" hreflang="{other}" href="{_esc(alternate)}">\n'
         f"{addressed}"
-        f"<style>\n{STYLESHEET}{BROWSE_STYLE}</style>\n"
+        f"{stylesheet_link('../')}\n"
         "</head>\n"
         "<body>\n"
         f'<a class="skip-link" href="#main">{_esc(text(locale, "skip_to_content"))}</a>\n'
