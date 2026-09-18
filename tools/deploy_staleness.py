@@ -49,7 +49,7 @@ succeeds on main rather than on the push:
     That is stated here rather than assumed: reading one record and calling it
     "the deploy" is only honest while one publisher creates records.
 
-Because neither publisher fires on `push`, a `ci` run that fails, is cancelled,
+Because neither publisher fires on `push`, a `ci` run that fails, is canceled,
 or is evicted from its concurrency group's pending slot publishes nothing and
 reports nothing. That is not hypothetical here. `ci.yml`'s own concurrency
 comment records the measurement: over the 67 most recent `ci` runs on main, 20

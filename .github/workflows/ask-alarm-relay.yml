@@ -43,7 +43,7 @@ permissions:
   contents: read
 
 concurrency:
-  # Never cancel: a cancelled run is neither a finding nor a clean read, and
+  # Never cancel: a canceled run is neither a finding nor a clean read, and
   # this is a check whose silence has to mean "looked, nothing new".
   group: ask-alarm-relay
   cancel-in-progress: false

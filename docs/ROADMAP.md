@@ -16,7 +16,7 @@ public files, joined on CDS codes. One page per school, each measure shown on it
 own terms beside district and statewide context, with suppression and coverage
 stated. No composite score, no ranking, ever (ADR 0002). No account. Page views
 are counted with Google Analytics 4 (owner decision, 2026-09-17), with GPC, Do Not
-Track and an on-page opt-out honoured.
+Track and an on-page opt-out honored.
 
 ## Architecture
 

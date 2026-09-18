@@ -591,7 +591,7 @@ def test_a_source_nobody_supplied_has_no_columns_at_all(
     with (release / "schools.csv").open(encoding="utf-8", newline="") as handle:
         header = next(csv.reader(handle))
     assert not [column for column in header if column.startswith("teacher_assignments")]
-    # And enrolment, which WAS supplied, is still there -- otherwise this test would
+    # And enrollment, which WAS supplied, is still there -- otherwise this test would
     # pass over a release that dropped every measure column.
     assert [column for column in header if column.startswith("grades.")]
 

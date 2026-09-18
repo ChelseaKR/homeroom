@@ -39,7 +39,7 @@ The pattern exists because :func:`float` accepts far more than a data file ever
 means. ``float("nan")`` and ``float("inf")`` succeed, and NaN is the single most
 common way an upstream export writes *no value*, so the string that most clearly
 says "nothing was measured" would otherwise become a published figure. ``float``
-also honours PEP 515 digit separators, so a garbled ``1_0`` reads as ten; it
+also honors PEP 515 digit separators, so a garbled ``1_0`` reads as ten; it
 accepts exponents CDE does not write; and ``\\d`` outside :data:`re.ASCII` matches
 Arabic-Indic and fullwidth digits, so a mojibaked cell would parse as a number
 nobody typed. Each of those is the project's own failure mode in miniature: a cell

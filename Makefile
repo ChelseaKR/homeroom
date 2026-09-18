@@ -187,7 +187,7 @@ site-offline:
 # school page. Builds the pages from fixtures, then checks the markup two ways:
 # html-validate for HTML conformance and the markup-level accessibility rules, and
 # axe-core in a headless DOM for the WCAG 2.0/2.1/2.2 A and AA rule sets, on every
-# page in both languages. Structure, EN/ES parity, and colour contrast are checked
+# page in both languages. Structure, EN/ES parity, and color contrast are checked
 # again in `test`, so `make verify` still has a floor if the node toolchain is
 # unavailable. What none of this can do is look at the pages; README.md names what
 # still needs a person.

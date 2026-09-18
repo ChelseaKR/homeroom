@@ -61,7 +61,7 @@ def enrollment_only(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     return load_artifacts(
-        _build(tmp_path_factory.mktemp("enrol"), assignments=False, absenteeism=False)
+        _build(tmp_path_factory.mktemp("enroll"), assignments=False, absenteeism=False)
     )
 
 
@@ -171,7 +171,7 @@ def test_a_withheld_cell_becoming_unreported_is_neither_a_number_nor_a_publicati
 def test_a_published_number_becoming_a_genuine_zero_is_not_just_a_number_change(
     base: tuple[dict[str, Any], dict[str, Any]],
 ) -> None:
-    """A zero is labelled in words on the page, so it is its own event here too."""
+    """A zero is labeled in words on the page, so it is its own event here too."""
     after = _mutated(base)
     _school(after)["grades"]["GR_01"]["value"] = 0
 

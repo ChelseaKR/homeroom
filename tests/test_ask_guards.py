@@ -68,7 +68,7 @@ def test_plain_figures_and_directions_are_not_judgment(sentence: str) -> None:
     assert judgment_hits(sentence) == [], sentence
 
 
-def test_numbers_are_extracted_and_normalised() -> None:
+def test_numbers_are_extracted_and_normalized() -> None:
     assert numbers_in("1,234 students, 12.5% and 7") == ["1234", "12.5", "7"]
     assert numbers_in("no digits here") == []
     assert numbers_in("Grade 3: 45") == ["3", "45"]
@@ -158,7 +158,7 @@ def test_number_forms_are_exact_not_rounded() -> None:
         "Sin dato publicado.",
     ],
 )
-def test_absence_stated_honestly_is_recognised(sentence: str) -> None:
+def test_absence_stated_honestly_is_recognized(sentence: str) -> None:
     assert says_not_published(sentence), sentence
 
 

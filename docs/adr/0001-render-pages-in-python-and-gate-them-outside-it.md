@@ -26,7 +26,7 @@ The constraints were already fixed by earlier decisions and by what the data is:
 The realistic options were a static site generator (Eleventy, Astro, Hugo), a
 Python template engine (Jinja), or rendering in the standard library. A generator
 would put a second language, a second dependency tree, and a build server between
-the data and the page, for a site with no client-side behaviour at all. Jinja
+the data and the page, for a site with no client-side behavior at all. Jinja
 would add one dependency and move the honesty rules into templates, where a
 missing `{% if %}` silently renders an empty cell, which is the exact failure mode
 this project refuses.

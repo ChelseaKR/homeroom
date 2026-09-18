@@ -90,7 +90,7 @@ The model id is whatever the account can invoke. This account could invoke
 `global.anthropic.claude-sonnet-4-6` and was refused Sonnet 5 and Opus 5, which
 is settled and does not need re-probing: the availability API reports Sonnet 5
 as AUTHORIZED for this account and `InvokeModel` still returns
-`AccessDeniedException`. Believe the invoke, not the catalogue.
+`AccessDeniedException`. Believe the invoke, not the catalog.
 
 Two traps worth writing down, both of which cost a deploy cycle:
 
@@ -118,7 +118,7 @@ the local server; in Lambda only the runtime's START/END/REPORT lines reach
 CloudWatch, retained 14 days. This is why a failing provider call is diagnosed
 by reading the IAM policy rather than a stack trace: the same silence that keeps
 a family's question out of the logs keeps the operator's error out of them too,
-and that trade is made deliberately in the reader's favour. The rate-limit key is a salted hash of the source
+and that trade is made deliberately in the reader's favor. The rate-limit key is a salted hash of the source
 address with a per-process salt, never stored. The question and one school's
 published records are sent to the model provider for the duration of the
 request; that subprocessor relationship is recorded in

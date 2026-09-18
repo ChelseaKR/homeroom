@@ -12,7 +12,7 @@ from homeroom.ask.corpus import (
     Corpus,
     CorpusDriftError,
     load_corpus,
-    normalise,
+    normalize,
 )
 
 EXPECTED_SOURCES = {
@@ -94,7 +94,7 @@ def test_a_citation_of_a_passage_that_does_not_exist_is_not_a_citation(
 
 def test_typographic_marks_and_whitespace_do_not_break_a_real_quote() -> None:
     assert (
-        normalise("\u201ca\u201d  \u2013  \u2018b\u2019 \u2014 c\u00a0d")
+        normalize("\u201ca\u201d  \u2013  \u2018b\u2019 \u2014 c\u00a0d")
         == "\"a\" - 'b' - c d"
     )
 

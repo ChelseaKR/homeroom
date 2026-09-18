@@ -59,7 +59,7 @@ Narrowing by kind reached the coverage tally, the build size and the grade span.
 It could not reach the third sort of number in the pool: the digit inside a
 measure's own label. "Grade 4" has to be sayable in a `figure` claim, because
 naming the row is half the sentence, so the label's digits stayed licensed as
-bare tokens for every kind -- and in the same committed fixture Grade 4 enrols
+bare tokens for every kind -- and in the same committed fixture Grade 4 enrolls
 9 students, so "Example Elementary enrolled 4 students in Grade 4" verified
 clean and was shown, with the number it borrowed sitting in the same sentence.
 That one is narrowed by position instead (`strip_label_references`, 2026-09-02):
@@ -109,7 +109,7 @@ starts with `rm -rf`, so absence means an interrupted publish, not "nothing to
 check". Hiding `site/` and running the old file gives 10 skipped, exit 0. It now
 fails, starting with a floor naming what is missing.
 
-### Phase 5 -- documents that did not match behaviour -- DONE
+### Phase 5 -- documents that did not match behavior -- DONE
 
 `RR-02` and the threat model said `--frozen`; the Makefile has said `--locked`
 since 2026-08-26. `AGENTS.md`'s identical-to-CI claim is now true and checked.

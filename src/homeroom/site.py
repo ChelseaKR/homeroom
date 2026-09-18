@@ -79,7 +79,7 @@ from homeroom.render import (
 
 #: Where the preview cards live. Inside the package rather than beside it, so an
 #: installed wheel carries them the same way a checkout does. They are the only
-#: bytes this project publishes that no build step produces: rasterising text
+#: bytes this project publishes that no build step produces: rasterizing text
 #: needs a font renderer and ``dependencies = []`` is a property this package
 #: keeps, so ``tools/make_social_card.py`` draws them out-of-band from the same
 #: ``i18n.py`` table the pages are rendered from, and the result is committed.
@@ -216,7 +216,7 @@ class SiteUrlError(ValueError):
     """``--site-url`` was given something that is not an https origin."""
 
 
-def normalise_site_url(site_url: str) -> str:
+def normalize_site_url(site_url: str) -> str:
     """The origin, without its trailing slash, or a hard error.
 
     A canonical link and a sitemap both publish absolute addresses, so a
@@ -422,7 +422,7 @@ def build_site(
     pointing at a file it did not also publish.
     """
     if site_url is not None:
-        site_url = normalise_site_url(site_url)
+        site_url = normalize_site_url(site_url)
     assembly = assemble_profiles(
         directory, enrollment, assignments, absenteeism_path=absenteeism
     )

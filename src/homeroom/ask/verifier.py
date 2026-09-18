@@ -136,7 +136,7 @@ class Verification:
 def _claims_list(raw: object) -> object:
     """The ``claims`` value, parsed if the model sent the array as a JSON string.
 
-    Some replies carry the array serialised inside a string. Strict
+    Some replies carry the array serialized inside a string. Strict
     ``json.loads`` is the only repair attempted; anything it rejects is
     malformed, because guessing at a claim is the one thing this module must
     never do.
@@ -280,7 +280,7 @@ A quote on another kind is still legal and still has to be verbatim; what it no
 longer does is license a number. Withholding the whole claim instead would trade
 the specific reason a reader's operator can act on (``unverifiable_number``,
 naming the digit) for a new one, and would withhold a sentence whose only fault
-is a field in the wrong slot. The licence is where the harm was.
+is a field in the wrong slot. The license is where the harm was.
 """
 
 
@@ -547,7 +547,7 @@ def _check_quote(
     looser than the schema documents ("For definition claims only"). It stays
     permitted: a verbatim passage under a note is CDE's own words and honest to
     show, and withholding a claim over the slot a field arrived in would cost a
-    true sentence. What the kind decides is the *licence*
+    true sentence. What the kind decides is the *license*
     (:data:`QUOTE_CLAIM_KINDS`) -- on any other kind the quote is displayed and
     licenses no number at all, so carrying one buys the model nothing.
     """

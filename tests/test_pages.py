@@ -65,7 +65,7 @@ from homeroom.render import (
     ENROLLMENT_URL,
     LIGHT,
     OTHER_LOCALE,
-    STATE_COLOURS,
+    STATE_COLORS,
     SiteCoverage,
     page_name,
     render_school,
@@ -456,7 +456,7 @@ def test_a_genuine_zero_renders_as_a_zero_and_says_it_is_one(built: Path) -> Non
 def test_the_three_states_are_worded_differently_in_both_languages(
     built: Path,
 ) -> None:
-    """Colour is never the only signal (WCAG 2.2 SC 1.4.1), so the words carry it."""
+    """Color is never the only signal (WCAG 2.2 SC 1.4.1), so the words carry it."""
     for locale in LOCALES:
         labels = [
             text(locale, key)
@@ -663,7 +663,7 @@ def named_section(source: str, anchor: str) -> str:
 
     The sections a page is built from are siblings under ``main`` and are the
     only elements carrying ``aria-labelledby``; the scrollable table wrappers
-    inside them are labelled by ``aria-label`` instead. So the next
+    inside them are labeled by ``aria-label`` instead. So the next
     ``aria-labelledby`` after this one is where this one ends, and a nested
     ``</section>`` cannot be mistaken for the closing tag.
     """
@@ -894,7 +894,7 @@ def assignment_coverage_numbers(cover: SiteCoverage) -> set[str]:
 
 
 def test_every_assignment_number_was_counted(built_with_assignments: Path) -> None:
-    """The D5 analogue of ``test_every_number_in_a_data_cell_was_counted``.
+    """The D5 analog of ``test_every_number_in_a_data_cell_was_counted``.
 
     Every digit on a page carrying assignment outcomes is a cell the pipeline
     read out of a source file or a coverage status it tallied. A figure Homeroom
@@ -1221,7 +1221,7 @@ def absenteeism_coverage_numbers(cover: SiteCoverage) -> set[str]:
 
 
 def test_every_absenteeism_number_was_counted(built_with_absenteeism: Path) -> None:
-    """The D3 analogue of ``test_every_number_in_a_data_cell_was_counted``: every
+    """The D3 analog of ``test_every_number_in_a_data_cell_was_counted``: every
     digit on a page with chronic absenteeism data is a rate the pipeline read or a
     coverage tally it counted, never a value Homeroom computed."""
     assembly = assemble_profiles(DIRECTORY, ENROLLMENT, absenteeism_path=ABSENTEEISM)
@@ -1648,8 +1648,8 @@ def test_source_urls_match_the_provenance_record() -> None:
 # ----------------------------------------------------------------------------------
 
 
-def luminance(colour: str) -> float:
-    raw = colour.lstrip("#")
+def luminance(color: str) -> float:
+    raw = color.lstrip("#")
     channels = [int(raw[i : i + 2], 16) / 255 for i in (0, 2, 4)]
     linear = [
         channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
@@ -1664,7 +1664,7 @@ def contrast(foreground: str, background: str) -> float:
     return (high + 0.05) / (low + 0.05)
 
 
-FOREGROUNDS = ("ink", "ink-2", "ink-3", "accent", *STATE_COLOURS)
+FOREGROUNDS = ("ink", "ink-2", "ink-3", "accent", *STATE_COLORS)
 BACKGROUNDS = ("surface", "raised", "note")
 
 
@@ -1684,20 +1684,20 @@ def test_the_focus_ring_meets_non_text_contrast(palette: dict[str, str]) -> None
 
 
 @pytest.mark.parametrize("palette", [LIGHT, DARK], ids=["light", "dark"])
-def test_each_state_colour_reads_differently_from_a_plain_number(
+def test_each_state_color_reads_differently_from_a_plain_number(
     palette: dict[str, str],
 ) -> None:
     """A state cell has to look unlike an ordinary published figure.
 
-    Colour is not the only signal, and by itself it would not be enough (SC
+    Color is not the only signal, and by itself it would not be enough (SC
     1.4.1): each state also carries its own words, tested above, and its own left
-    border. What this checks is that the colours are three distinct values and
+    border. What this checks is that the colors are three distinct values and
     that none of them reads as the ink a plain number is printed in.
     """
-    colours = [palette[token] for token in STATE_COLOURS]
-    assert len(set(colours)) == len(colours)
-    for colour in colours:
-        assert contrast(colour, palette["ink"]) >= 1.5
+    colors = [palette[token] for token in STATE_COLORS]
+    assert len(set(colors)) == len(colors)
+    for color in colors:
+        assert contrast(color, palette["ink"]) >= 1.5
 
 
 def test_both_palettes_define_the_same_tokens() -> None:

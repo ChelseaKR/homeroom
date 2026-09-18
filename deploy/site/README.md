@@ -152,7 +152,7 @@ Two things are deliberately absent:
   stack, nothing in this repository could check the two still agree, and
   getting it wrong breaks the one page that carries a script — silently, in
   front of a family, showing the fixed "not available" string that is correct
-  behaviour and hides the cause completely, which is exactly how the CORS trap
+  behavior and hides the cause completely, which is exactly how the CORS trap
   in `deploy/ask/template.yaml` behaved. `tools/ask-optin.mjs` proves that page
   in a DOM and cannot see a header added out here. Adding a CSP means first
   giving it something that can fail loudly.
@@ -428,7 +428,7 @@ Four things it needs, and where each comes from:
 | A response that is not `Content-Encoding`-transformed — it sends `Accept-Encoding: identity` and refuses anything but `identity` | CloudFront compresses only when the viewer asks for a compressed encoding. Objects are stored uncompressed, so the identity response is the committed bytes |
 | Every file under `site/` is fetchable, `CNAME` included (`NOT_PUBLISHED` is empty) | Every file is synced, and `CNAME` is an ordinary object to this origin exactly as it is to GitHub Pages |
 
-One behaviour genuinely changes, and it is not a problem: the
+One behavior genuinely changes, and it is not a problem: the
 `?live-integrity=<nonce>` it appends stops busting the cache, because the cache
 policy keys on the path alone. Freshness after a publish comes from the
 invalidation the publish issues and waits for, not from the reader's ability to

@@ -171,7 +171,7 @@ for (const [page, lang, optOut, optIn, off] of [
   const dom = visit(page);
   const d = dom.window.document;
   const buttons = d.querySelectorAll(".analytics-opt-out button");
-  check(`${page}: one button, labelled in ${lang}`, buttons.length === 1 && buttons[0].textContent === optOut, buttons[0]?.textContent);
+  check(`${page}: one button, labeled in ${lang}`, buttons.length === 1 && buttons[0].textContent === optOut, buttons[0]?.textContent);
   buttons[0].click();
   check(`${page}: opting out stores the flag and relabels`, dom.window.localStorage.getItem("homeroom.chelseakr.com:analytics-opt-out") === "1" && buttons[0].textContent === optIn && d.querySelector(".analytics-opt-out [role=status]").textContent === off);
   check(`${page}: opting out removes the GA cookies and stops hits`, !/(^|; )_ga=/.test(d.cookie) && dom.window[`ga-disable-${ID}`] === true);

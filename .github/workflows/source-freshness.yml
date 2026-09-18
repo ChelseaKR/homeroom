@@ -35,7 +35,7 @@ permissions:
   contents: read
 
 concurrency:
-  # Never cancel: a cancelled run is neither a finding nor a clean read, and
+  # Never cancel: a canceled run is neither a finding nor a clean read, and
   # this is a check whose silence must always mean "looked, nothing new".
   group: source-freshness
   cancel-in-progress: false

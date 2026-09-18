@@ -149,7 +149,7 @@ jobs:
             echo "rebuild: Actions > pages > Run workflow re-uploads the current main."
             echo "If that keeps not happening on its own, the cause is upstream --"
             echo "both publishers fire on \`workflow_run\` after \`ci\` succeeds on main,"
-            echo "so a \`ci\` run that failed or was cancelled publishes nothing and"
+            echo "so a \`ci\` run that failed or was canceled publishes nothing and"
             echo "says nothing."
             echo
             echo "Measured by \`tools/deploy_staleness.py\` in ${RUN_URL}."

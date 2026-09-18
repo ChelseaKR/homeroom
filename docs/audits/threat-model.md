@@ -24,7 +24,7 @@
   `site/ask/` carry the endpoint.
 - **ASVS target level:** L1. There is no authentication surface, no session and
   no stored PII anywhere in this project. The static pages are files served by
-  GitHub Pages with no dynamic behaviour of their own.
+  GitHub Pages with no dynamic behavior of their own.
   The ask service (ADR 0003) is a dynamic surface and is deployed: a single
   unauthenticated POST endpoint, no session, no stored data. It is assessed at
   L1 with the additions listed under trust boundary 5 below. This paragraph read
@@ -76,7 +76,7 @@
 
 ## What this model deliberately treats as the primary risk
 
-For most systems the worst outcome is unauthorised access. Here it is a number
+For most systems the worst outcome is unauthorized access. Here it is a number
 that is wrong and looks right. A district figure fifteen times too small, taken
 from the charter-only aggregate row instead of the `ALL` row, would pass every
 security control in the table above: it is a real number, published by the state,
