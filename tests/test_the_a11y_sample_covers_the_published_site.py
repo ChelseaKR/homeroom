@@ -105,6 +105,7 @@ FIXTURES = ROOT / "fixtures"
 _ATTRIBUTES = re.compile(r'\b(aria-[\w-]+|role|lang|alt|type|scope)\s*=\s*"([^"]*)"')
 _ELEMENTS = re.compile(r"<([a-zA-Z][\w-]*)")
 _CLASSES = re.compile(r'class="([^"]*)"')
+_STYLESHEET_LINK = re.compile(r'<link\b[^>]*\brel="stylesheet"')
 _HEADINGS = re.compile(r"<h([1-6])\b")
 _TAGS = re.compile(r"<(/?)([a-zA-Z][\w-]*)")
 
@@ -142,6 +143,18 @@ def _vocabulary(markup: str) -> set[str]:
     whichever school it is, while `alt=""` and a non-empty `alt` are different inputs.
     """
     found = {f"element:{name.lower()}" for name in _ELEMENTS.findall(markup)}
+    # How a page receives its stylesheet is one input here, not two. An inline
+    # `<style>` and a same-origin `<link rel="stylesheet">` deliver the same rules,
+    # and no axe rule reads which of the two carried them (contrast, the one rule
+    # that would care what the CSS says, needs a renderer and is measured off the
+    # palette in `tests/test_pages.py`). A page with no stylesheet at all is not
+    # this check's to catch -- `tests/test_published_site.py` demands exactly one
+    # on every page. It matters between #98 and the next `make publish`: the
+    # renderer links `homeroom.css` while the served tree still inlines it, which
+    # is the same transition `tests/test_published_site.py` admits in both shapes.
+    if "element:style" in found or _STYLESHEET_LINK.search(markup):
+        found.discard("element:style")
+        found.add("stylesheet")
     for match in _CLASSES.finditer(markup):
         found.update(f"class:{token}" for token in match.group(1).split())
     for name, value in _ATTRIBUTES.findall(markup):
