@@ -42,7 +42,11 @@ toolchain lives outside the product and never ships in it.
   empty cell, because there is no fall-through.
 - **The pages carry no script, no external stylesheet, no font, and no image.**
   The stylesheet is inlined and the palettes are Python dictionaries, which is
-  what lets a test measure WCAG contrast without a browser.
+  what lets a test measure WCAG contrast without a browser. *(Amended
+  2026-09-17: the renderer still emits no script, but the published pages now
+  carry one, the Google Analytics 4 loader that `src/homeroom/analytics.py`
+  adds after rendering, on the owner's decision to run GA4 on every public
+  site.)*
 - **Strings live in typed Python dictionaries** (`src/homeroom/i18n.py`), keyed by
   locale, not in gettext or ICU catalogs. A missing key raises instead of falling
   back to English, and the parity gate in `tests/test_i18n.py` fails on a key

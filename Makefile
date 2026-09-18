@@ -1,5 +1,5 @@
 .PHONY: verify sync lint format typecheck test audit data data-offline \
-        site site-offline pages node-sync htmlvalidate a11y ask-optin node-audit \
+        site site-offline pages node-sync htmlvalidate a11y ask-optin analytics-gate node-audit \
         ask-bundle ask-serve publish publish-limits dataset determinism sast \
         secret-scan secret-scan-history secret-scan-tree gitleaks-binary \
         workflow-audit verify-ci config-audit
@@ -191,7 +191,7 @@ site-offline:
 # again in `test`, so `make verify` still has a floor if the node toolchain is
 # unavailable. What none of this can do is look at the pages; README.md names what
 # still needs a person.
-pages: site-offline node-sync htmlvalidate a11y ask-optin node-audit
+pages: site-offline node-sync htmlvalidate a11y ask-optin analytics-gate node-audit
 
 node-sync:
 	npm ci
@@ -214,6 +214,25 @@ a11y:
 # exactly one POST on submit, rendered as text only.
 ask-optin:
 	node tools/ask-optin.mjs build/site-offline
+
+# Google Analytics 4 (owner decision, 2026-09-17) is added to the published pages
+# after rendering, by `homeroom.analytics`, the same step `publish` runs. The gates
+# above read the renderer's own output, which carries no script; this adds GA to a
+# copy of that output the way a publish would, validates the markup it added, runs
+# axe over every page of the copy exactly as `a11y` does over the original, and
+# runs the loader in a DOM (tools/analytics.mjs): what loads, what never loads
+# (GPC, Do Not Track, the opt-out, any other host), the button, axe with the
+# button rendered, and negative controls proving the harness sees a missing guard.
+analytics-gate:
+	rm -rf build/site-offline-analytics
+	cp -R build/site-offline build/site-offline-analytics
+	uv run --locked python -m homeroom.analytics build/site-offline-analytics
+	npx html-validate "build/site-offline-analytics/**/*.html"
+	node tools/a11y.mjs build/site-offline-analytics
+	node tools/a11y.mjs build/site-offline-analytics/ask
+	node tools/a11y.mjs build/site-offline-analytics/county
+	node tools/a11y.mjs build/site-offline-analytics/district
+	node tools/analytics.mjs build/site-offline-analytics
 
 node-audit:
 	npm audit --audit-level=high
@@ -305,6 +324,11 @@ publish:
 	# output; without it a deploy silently unsets the domain and the site
 	# answers on github.io only.
 	echo $(SITE_DOMAIN) > $(PUBLISH_STAGE)/CNAME
+	# Google Analytics 4 (owner decision, 2026-09-17): the loader, one script tag
+	# per page, the note and the opt-out slot. Nothing, if the ID in
+	# src/homeroom/analytics.py is empty. Before the weighing below, so the tree
+	# weighed is the tree served.
+	uv run python -m homeroom.analytics $(PUBLISH_STAGE)
 	# The refusal, between rendering and serving. Non-zero here stops the
 	# recipe with $(PUBLISH_DIR) untouched and $(PUBLISH_STAGE) left in place
 	# to be looked at; it prints what the tree weighs either way.

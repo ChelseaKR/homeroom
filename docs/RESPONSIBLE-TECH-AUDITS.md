@@ -74,9 +74,11 @@ this framework to a repo", step 2).
 ## C. Privacy
 
 - Data inventory: CDE public aggregate files only, listed with acquisition rules
-  in PROVENANCE.md. No PII is collected or stored; no accounts, no tracking, no
-  telemetry. The people at risk are the students inside the aggregates, protected
-  upstream by CDE's small-cell suppression.
+  in PROVENANCE.md. No PII is collected or stored by this project and there are no
+  accounts. Page views are counted by Google Analytics 4 since the owner's
+  2026-09-17 decision (the Google subprocessor record below). The people at risk
+  in the data are the students inside the aggregates, protected upstream by CDE's
+  small-cell suppression.
 - What could go wrong: undermining that suppression, either by rendering a mask as
   a value or by re-deriving a masked cell (for example, subtracting published
   grade counts from a published total). Joining third-party data could sharpen
@@ -137,6 +139,30 @@ family-facing exposure, per the deployment runbook (`deploy/ask/README.md`).
   2026-08-22 (deployment authorization, relayed with the site origin
   decision).
 
+### Subprocessor record (Google Analytics 4)
+
+- **Subprocessor:** Google LLC, Google Analytics 4, property 554882251, web
+  stream `G-PMC113MW2C`. Owner decision 2026-09-17: GA4 on every public site.
+- **What is sent, per page view:** the page address reduced to its path and any
+  `utm_*` tags, the page title, the referring site's origin, and what gtag.js
+  itself collects (browser language, screen size, browser and operating
+  system, and an approximate location Google derives from the IP address),
+  plus enhanced measurement's scrolls, outbound clicks and downloads. Never a
+  question typed on an ask page, never an identifier this project holds (it
+  holds none).
+- **Cookies:** `_ga` and `_ga_PMC113MW2C`, up to two years, and none in the
+  EEA, the UK or Switzerland, where Consent Mode denies analytics storage by
+  default. Ad storage, ad user data and ad personalization are denied
+  everywhere; Google signals and ad personalization are off.
+- **Retention at the subprocessor:** the property's 14 months of event data.
+- **When nothing is sent:** off `homeroom.chelseakr.com`, under Global Privacy
+  Control or Do Not Track, or after the reader presses "Opt out of analytics"
+  (a per-browser `localStorage` flag that also deletes the GA cookies).
+  `tools/analytics.mjs` proves each case in `make pages`.
+- **Where readers are told:** the landing page's "Privacy and analytics"
+  section, in both languages, linked from a note on every other page.
+- **Recorded:** 2026-09-17, on the owner's decision.
+
 ## D. Transparency
 
 - Commitments: every figure traces to a named public file with an access date
@@ -187,8 +213,10 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
   and a zero is invisible to a colour-blind reader; the English page is good and
   the Spanish page is an afterthought.
 - Commitments: WCAG 2.2 AA on every page in both languages, semantic HTML with
-  real landmarks and real table headers, no reliance on colour alone, no script
-  and no external asset, and equal capability in both languages.
+  real landmarks and real table headers, no reliance on colour alone, no external
+  asset, no script but the hash-pinned Google Analytics loader added at publish
+  (whose opt-out button `tools/analytics.mjs` runs axe over), and equal
+  capability in both languages.
 - Enforcement:
   - AUTO (in place): `make pages`, inside `make verify` and run in CI on every
     pull request (reporting, not merge-blocking: `main` requires no status check,

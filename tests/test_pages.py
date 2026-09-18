@@ -366,7 +366,12 @@ FETCHING_ATTRIBUTES = frozenset(
 def test_no_page_carries_a_script_or_reaches_off_the_page_for_an_asset(
     built: Path,
 ) -> None:
-    """README's "no script, no external asset, no account, no tracking", checked.
+    """The renderer's "no script, no external asset", checked.
+
+    This is the renderer's output. Since 2026-09-17 the *published* pages also
+    carry one hash-pinned Google Analytics loader, added after rendering by
+    `homeroom.analytics`; `tests/test_published_site.py` holds them to exactly
+    that, and `tools/analytics.mjs` to what it does.
 
     Neither html-validate nor axe-core has an opinion about this: a page that
     loads a font from a CDN, an analytics beacon, or a tracking pixel is
@@ -1828,13 +1833,20 @@ def test_the_roadmap_states_how_many_pages_the_accessibility_gate_reads() -> Non
     page type this gate quietly stops covering, and nothing else would say so.
     """
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    directories = A11Y_RUN.findall(makefile)
+    runs = A11Y_RUN.findall(makefile)
+    # `analytics-gate` repeats the same runs over the fixture build with Google
+    # Analytics added (2026-09-17); the count below is the original build's.
+    analytics_copy = "build/site-offline-analytics"
+    directories = [run for run in runs if not run.startswith(analytics_copy)]
     assert directories == [
         "build/site-offline",
         "build/site-offline/ask",
         "build/site-offline/county",
         "build/site-offline/district",
     ], directories
+    assert [run for run in runs if run.startswith(analytics_copy)] == [
+        run.replace("build/site-offline", analytics_copy, 1) for run in directories
+    ], runs
 
     checker = (ROOT / "tools" / "a11y.mjs").read_text(encoding="utf-8")
     assert "recursive" not in checker, (
