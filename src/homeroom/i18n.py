@@ -280,6 +280,50 @@ UI: dict[Locale, dict[str, str]] = {
             "No score, no grade, no ranking. If a figure cannot be shown honestly, "
             "it is not shown."
         ),
+        # Google Analytics 4 (owner decision, 2026-09-17). Added to the published
+        # pages after rendering by `homeroom.analytics`, which also writes these
+        # into the loader for the opt-out button. The landing page carries the
+        # full disclosure; every other page carries the note and the button.
+        "analytics_note": (
+            "This site uses Google Analytics to count visits, with its advertising "
+            "features off."
+        ),
+        "analytics_link": "Privacy and analytics",
+        "analytics_opt_out": "Opt out of analytics",
+        "analytics_opt_in": "Opt back in",
+        "analytics_off_status": "Analytics is off in this browser.",
+        "analytics_on_status": "Analytics is back on.",
+        "privacy_body": (
+            "Homeroom has no accounts. It does use Google Analytics 4, a service of "
+            "Google LLC, to count visits, and Google processes that data on this "
+            "project's behalf. Google Analytics receives each page's address and title, "
+            "the site you came from, and your browser's language, screen size, browser "
+            "and operating system, and it uses your IP address to estimate your "
+            "approximate location, such as your city. The address sent to Google keeps "
+            "only the page path and campaign tags such as utm_source; anything else in "
+            "it is removed first. With its standard settings, Google Analytics also "
+            "records scrolling to the end of a page, clicks on links to other sites, "
+            "and file downloads. A question typed on an ask page is never sent to "
+            "Google Analytics."
+        ),
+        "privacy_cookies": (
+            "Google Analytics sets two cookies: _ga, and one whose name begins with "
+            "_ga_. They hold a random identifier so a return visit can be counted, and "
+            "they last up to two years. In the European Economic Area, the United "
+            "Kingdom and Switzerland, the site tells Google not to store these cookies, "
+            "and Google Analytics receives only cookieless measurements without a "
+            "stored identifier. Advertising features are off: Google signals and ad "
+            "personalization are disabled, and advertising storage is denied "
+            "everywhere. Google Analytics keeps event-level data for 14 months."
+        ),
+        "privacy_opt_out": (
+            "Google Analytics does not load if your browser sends Global Privacy "
+            "Control or Do Not Track. The “Opt out of analytics” button on every page "
+            "turns it off too, from the next page on. That choice is saved in this "
+            "browser's local storage and deletes the Google Analytics cookies already "
+            "set. “Opt back in” undoes it, and clearing this site's data clears the "
+            "choice."
+        ),
         # The landing page. It says what is published so far rather than implying
         # the whole state is here, because a front door that overstates its
         # contents is the first dishonest thing a family would read.
@@ -639,6 +683,49 @@ UI: dict[Locale, dict[str, str]] = {
         "footer_no_ranking": (
             "Sin puntaje, sin calificación, sin clasificación. Si un dato no se "
             "puede mostrar con honestidad, no se muestra."
+        ),
+        # Google Analytics 4 (decisión de la propietaria, 2026-09-17).
+        "analytics_note": (
+            "Este sitio usa Google Analytics para contar las visitas, con sus funciones "
+            "publicitarias desactivadas."
+        ),
+        "analytics_link": "Privacidad y analíticas",
+        "analytics_opt_out": "Desactivar las analíticas",
+        "analytics_opt_in": "Volver a activarlas",
+        "analytics_off_status": "Las analíticas están desactivadas en este navegador.",
+        "analytics_on_status": "Las analíticas están activadas de nuevo.",
+        "privacy_body": (
+            "Homeroom no tiene cuentas. Sí usa Google Analytics 4, un servicio de "
+            "Google LLC, para contar las visitas, y Google trata esos datos en nombre "
+            "de este proyecto, como encargado del tratamiento. Google Analytics recibe "
+            "la dirección y el título de cada página, el sitio del que usted viene y el "
+            "idioma, el tamaño de pantalla, el navegador y el sistema operativo que "
+            "usa, y emplea su dirección IP para estimar su ubicación aproximada, como "
+            "la ciudad. La dirección que se envía a Google conserva solo la ruta de la "
+            "página y las etiquetas de campaña, como utm_source; todo lo demás se "
+            "elimina antes. Con su configuración estándar, Google Analytics también "
+            "registra cuándo se llega al final de una página, los clics en enlaces a "
+            "otros sitios y las descargas de archivos. Una pregunta escrita en una "
+            "página de preguntas nunca se envía a Google Analytics."
+        ),
+        "privacy_cookies": (
+            "Google Analytics instala dos cookies: _ga y otra cuyo nombre empieza por "
+            "_ga_. Guardan un identificador aleatorio para poder contar las visitas "
+            "repetidas y duran hasta dos años. En el Espacio Económico Europeo, el "
+            "Reino Unido y Suiza, el sitio le indica a Google que no guarde estas "
+            "cookies, y Google Analytics recibe solo mediciones sin cookies y sin un "
+            "identificador guardado. Las funciones publicitarias están desactivadas: "
+            "Google Signals y la personalización de anuncios están apagadas, y el "
+            "almacenamiento publicitario está denegado en todas partes. Google "
+            "Analytics conserva los datos de cada evento durante 14 meses."
+        ),
+        "privacy_opt_out": (
+            "Google Analytics no se carga si su navegador envía Global Privacy Control "
+            "o Do Not Track. El botón “Desactivar las analíticas”, presente en cada "
+            "página, también lo desactiva a partir de la página siguiente. Esa elección "
+            "se guarda en el almacenamiento local de este navegador y borra las cookies "
+            "de Google Analytics que ya estuvieran instaladas. “Volver a activarlas” la "
+            "deshace, y si borra los datos de este sitio, también se borra la elección."
         ),
         # La página de inicio. Dice qué se ha publicado hasta ahora en lugar de
         # dar a entender que está todo el estado, porque una puerta de entrada

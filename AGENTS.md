@@ -41,7 +41,13 @@ As of ADR 0003 it also carries an optional, opt-in AI question-answering layer
 6. **The refusal text is fixed.** Ranking, outside-the-data, unknown-school,
    and measure-not-published answers are reviewed strings in `i18n.py`, in both
    languages. The model does not author them.
-7. **The school pages carry no script and reach nowhere.** Only the ask page
+7. **The rendered school pages carry no script and reach nowhere.** Since the
+   owner's 2026-09-17 decision, the *published* pages carry exactly one script,
+   the same-origin, hash-pinned Google Analytics 4 loader that
+   `src/homeroom/analytics.py` adds after rendering (`make publish` runs it);
+   `tests/test_published_site.py` and `tools/analytics.mjs` hold it to GPC, Do
+   Not Track, the footer opt-out and the production host. Nothing else may be
+   added that way. Only the ask page
    carries a script, and it makes no request until a question is submitted.
    `tests/test_pages.py` asserts both.
 8. **EN/ES parity.** Every user-visible string exists in both locales; the

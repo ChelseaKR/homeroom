@@ -8,6 +8,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Google Analytics 4 on the published pages** (owner decision, 2026-09-17: GA4 on
+  every public site, with the privacy copy and every "no tracking" claim updated to
+  match). `src/homeroom/analytics.py` adds it after rendering, and `make publish` runs
+  it over the staged tree before weighing it, so the committed `site/` is still the
+  bytes served. Every page gets one same-origin `analytics.js`, pinned by its sha384
+  in an `integrity` attribute, and a note ("This site uses Google Analytics...") with
+  a link to the landing page's new "Privacy and analytics" section in each language
+  and an "Opt out of analytics" / "Opt back in" button remembered in `localStorage`
+  (`homeroom.chelseakr.com:analytics-opt-out`). The loader does nothing off
+  homeroom.chelseakr.com, under Global Privacy Control or Do Not Track, or after the
+  opt-out; it sets Consent Mode v2 defaults (ad storage, ad user data and ad
+  personalization denied everywhere, analytics storage denied in the EEA, the UK and
+  Switzerland), turns Google signals and ad personalization off, and sends one page
+  view whose address is the path plus `utm_*` tags. The renderer is unchanged and
+  still emits no script. `make pages` gains `analytics-gate`: GA added to a copy of
+  the fixture build, html-validate over it, and `tools/analytics.mjs` running the
+  loader in jsdom -- every load and no-load case, the button in both languages, axe
+  with the button rendered, and negative controls that remove the GPC and host
+  guards and require the harness to see GA load. `tests/test_published_site.py`
+  holds every published page to exactly that one pinned script and the note. Nine
+  interface keys (226 keys per locale). AGENTS.md rule 7, the README, the roadmap,
+  ADR 0001 and the privacy audit (with a Google subprocessor record) say what runs.
+  The published tree is 877.2 MB, 22.8 MB under the 90% budget.
+
 - **A workflow shipped that could not run, and only a nightly red build said so**
   (2026-09-13). #116 merged `ask-alarm-relay.yml`, which reads the ask service's
   CloudWatch alarm through an OIDC role named by the repository variable
@@ -607,7 +631,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   across 6 rule sets and 17 pages, 0 html-validate errors, byte-identical across
   two builds. `make data`, `make site` and `make publish` are given the acquired
   file, because an artifact that omitted a figure the pages carry would be two
-  answers to one question. 19 new bilingual strings (217 keys per locale).
+  answers to one question. 19 new bilingual strings (226 keys per locale).
 
   What did not change: the ask layer. `homeroom.ask` answers from an evidence
   bundle that carries enrollment and chronic absenteeism, and widening it means
@@ -1584,7 +1608,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed -- the refusals legitimately ship inside the JSON the script reads,
   and the question is only ever whether one is *displayed* unearned -- and
   asserts no refusal appears in what a reader sees. Found by looking at a
-  screenshot of the live page. One more bilingual string (217 keys per locale).
+  screenshot of the live page. One more bilingual string (226 keys per locale).
 - **The deployed ask page could not reach its service from a browser, and said
   so in the one string that hides why.** Both the Lambda Function URL's `Cors`
   configuration and the handler set `access-control-allow-origin`, so the
@@ -1636,7 +1660,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for, so a build without `--landing` is byte-identical to one from before it
   existed, which `tests/test_landing.py` asserts by diffing the two builds.
   html-validate and axe-core cover it in `make pages` (zero violations). Two
-  more bilingual strings (217 keys per locale).
+  more bilingual strings (226 keys per locale).
 - `homeroom.ask.http`: the HTTP edge of the ask service, a stdlib
   `ThreadingHTTPServer` for local use (`make ask-serve`) and an AWS Lambda
   Function URL handler, both thin over `AskService`: JSON in, the public JSON
@@ -1666,7 +1690,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requests on load and exactly one POST on submit, rendered as text; it runs
   in `make pages` beside html-validate and axe-core, which now cover the ask
   pages too (zero violations, both languages). Seventeen more fixed
-  bilingual strings (217 keys per locale).
+  bilingual strings (226 keys per locale).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
@@ -1873,7 +1897,7 @@ The ask service was deployed later, on 2026-08-22 (ADR 0003, `deploy/ask/`).
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 217 keys per locale, 434
+- English and Spanish as peers (`src/homeroom/i18n.py`): 226 keys per locale, 452
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
   and 10 interface strings at M3, and before the ask layer added 33 fixed
   interface strings under ADR 0003), covering every reporting category, grade span,

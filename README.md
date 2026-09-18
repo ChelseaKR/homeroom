@@ -67,7 +67,13 @@ that cannot be shown honestly is not shown at all.
   and `make sources-check` says when CDE has published a newer one.
 - Coverage is a first-class output: how many schools publish each measure is itself
   published, so absence reads as absence rather than as a clean dataset.
-- English and Spanish from the first release. No account, no tracking.
+- English and Spanish from the first release. No account.
+- Google Analytics 4 counts page views (owner decision, 2026-09-17), added to the
+  published pages after rendering by `src/homeroom/analytics.py`. It loads only on
+  homeroom.chelseakr.com, never under Global Privacy Control, Do Not Track or the
+  "Opt out of analytics" button on every page, with Google signals and ad
+  personalization off; the landing page carries the full disclosure in both
+  languages.
 
 ## Data reality
 
@@ -167,9 +173,11 @@ coverage in the next three columns. Birch Lane Elementary in Davis Joint Unified
 renders from the acquired files in English and Spanish, publishing 36 of its 40
 figures (30 counts and 6 genuine zeros) and stating in words, for the other four,
 that the state published nothing.
-Every user-visible string exists in both languages: 217 keys per locale, zero
-present in one and missing from the other, enforced by test. The pages carry no
-script, no external asset, no account, and no tracking.
+Every user-visible string exists in both languages: 226 keys per locale, zero
+present in one and missing from the other, enforced by test. The renderer's pages
+carry no script, no external asset and no account. The published pages carry one
+script, the same-origin, hash-pinned Google Analytics loader that
+`homeroom.analytics` adds after rendering, and nothing else.
 
 Chronic absenteeism (D3) is the first measure Homeroom publishes that CDE masks
 at real scale, and it is now built end to end (M3). The 2024-25 file (341,490
@@ -444,7 +452,7 @@ Governed by [portfolio-standards](https://github.com/ChelseaKR/portfolio-standar
 | Performance | Applies: the school pages are pre-rendered static HTML built from locally acquired files, with no client-side script and no network call at build time, and the pipeline is deterministic: re-running `make data` produces byte-identical artifacts. The optional ask service (ADR 0003) is a hosted route as of 2026-08-22; a measured answer takes about 5 s end to end against Bedrock claude-sonnet-4-6, and no latency objective is declared for it yet. The static pages declare none and need none: they are files. No page-weight or build-time budget is asserted in CI yet |
 | AI Development Measurement | Applies: this project is built AI-assisted and says so below. The outcome side is the metrics ledger in `docs/ROADMAP.md`, where every gate names its measurement and its AUTO/REVIEW disposition, and every day-one value was measured against a named acquired file rather than estimated. The diagnostic counters the standard names (sessions, tokens, share of generated code, acceptance rate) are not instrumented here, and by the standard's own rule they would be observe-only if they were: they never gate a merge |
 | Incident Response | Applies: `SECURITY.md` routes reports through GitHub private vulnerability reporting with a 72-hour acknowledgement target. The static site and the ask service are deployed as of 2026-08-22 and there is still no account; the ask service (ADR 0003) stores no question and keeps no user data, so the incidents this project can actually have are a wrong or mis-sourced figure on a school page and a model sentence that reached a reader unverified. The first is why masked cells are type-enforced to raise on read, why a number on a page that nothing counted fails the build, and why coverage is published beside the data; the second is why every AI claim passes a verifier and the withheld count is shown. A severity ladder and a committed postmortem template are not yet in the repository |
-| Data Governance | Applies: `PROVENANCE.md` is the register: every source is a named California Department of Education public file with its acquisition method, access date, and status, and a source that has not been acquired publishes nothing and says so in `coverage.json`. CDE small-cell masking is preserved as null, never zero and never interpolated; the CDS code is the only join key; no third-party or commercial data enters the pipeline. The artifacts are school-level public aggregates, not personal data, and the site has no account and no tracking. Raw source files are never committed and CI never fetches them. The ask service (ADR 0003) sends a reader's question and one school's published records to the model provider for the duration of the request and stores neither; the subprocessor record is in `docs/RESPONSIBLE-TECH-AUDITS.md` under Privacy, owner-approved 2026-08-22 |
+| Data Governance | Applies: `PROVENANCE.md` is the register: every source is a named California Department of Education public file with its acquisition method, access date, and status, and a source that has not been acquired publishes nothing and says so in `coverage.json`. CDE small-cell masking is preserved as null, never zero and never interpolated; the CDS code is the only join key; no third-party or commercial data enters the pipeline. The artifacts are school-level public aggregates, not personal data, and the site has no account; page views are counted by Google Analytics 4 (owner decision, 2026-09-17; subprocessor record in `docs/RESPONSIBLE-TECH-AUDITS.md`), with GPC, Do Not Track and an on-page opt-out honoured. Raw source files are never committed and CI never fetches them. The ask service (ADR 0003) sends a reader's question and one school's published records to the model provider for the duration of the request and stores neither; the subprocessor record is in `docs/RESPONSIBLE-TECH-AUDITS.md` under Privacy, owner-approved 2026-08-22 |
 | Release & Versioning | Applies |
 
 ## License

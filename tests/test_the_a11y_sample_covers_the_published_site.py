@@ -87,6 +87,7 @@ from pathlib import Path
 
 import pytest
 
+from homeroom import analytics
 from homeroom.i18n import text
 from homeroom.site import build_site
 
@@ -304,6 +305,13 @@ def fixture_build(tmp_path_factory: pytest.TempPathFactory) -> Path:
         landing=True,
         site_url="https://homeroom.example",
     )
+    # Since 2026-09-17 the published pages carry what `homeroom.analytics` adds
+    # after rendering (the Google Analytics loader's script tag, the note, the
+    # landing page's disclosure), and `make analytics-gate` runs html-validate and
+    # the same axe pass as `make a11y` over the fixture build with exactly that
+    # added. So the sample is the fixture build with it added too: the comparison
+    # below is between what is served and what those gates read.
+    analytics.add_to_tree(out)
     return out
 
 
