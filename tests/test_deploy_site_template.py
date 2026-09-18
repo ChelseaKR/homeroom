@@ -312,9 +312,13 @@ def test_the_published_tree_holds_the_six_kinds_this_file_reasons_about() -> Non
     """The floor: if the tree stops holding these, every check below narrows.
 
     `.js` joined on 2026-09-17: `analytics.js`, the Google Analytics loader
-    `homeroom.analytics` writes at the site root.
+    `homeroom.analytics` writes at the site root. `.css` joins with the first
+    republish after #98 (`homeroom.css`, the one shared stylesheet), and the
+    publish workflow already has its pass, so the tree may hold it or not --
+    and nothing else.
     """
-    assert published_kinds() == {".html", ".png", ".xml", ".txt", ".js", "CNAME"}
+    floor = {".html", ".png", ".xml", ".txt", ".js", "CNAME"}
+    assert floor <= published_kinds() <= floor | {".css"}, published_kinds()
 
 
 def test_every_action_the_publish_workflow_uses_is_pinned_to_a_full_sha() -> None:

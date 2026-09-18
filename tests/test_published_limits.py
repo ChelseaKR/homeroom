@@ -43,10 +43,15 @@ from __future__ import annotations
 from functools import cache
 from pathlib import Path
 
+import pytest
+
+from homeroom import publish_limits
 from homeroom.publish_limits import (
     PAGES_SITE_LIMIT_BYTES,
     PUBLISHED_BUDGET_BYTES,
     PUBLISHED_BUDGET_SHARE,
+    SERVED_BY_CLOUDFRONT,
+    SERVED_BY_FILE,
     SITEMAP_BYTE_BUDGET,
     SITEMAP_BYTE_LIMIT,
     SITEMAP_URL_BUDGET,
@@ -54,6 +59,7 @@ from homeroom.publish_limits import (
     NothingWasWeighed,
     mb,
     measure,
+    read_served_by,
     total_bytes,
     where_the_bytes_are,
 )
@@ -217,8 +223,25 @@ def test_the_published_tree_stays_inside_the_size_a_deploy_will_accept() -> None
     load-bearing -- rendering ask pages for all 10,534 schools rather than two
     would be about 1.1 GB and does not fit -- and that is exactly the sort of
     fact this gate exists to state before somebody spends it by accident.
+
+    **Which ceiling** follows `deploy/site/served-by` (owner decision
+    2026-09-18, #82). While it says ``github-pages`` this is the gate described
+    above, unchanged. Once the owner has moved DNS to CloudFront and flipped it
+    to ``cloudfront``, the origin is an S3 bucket with no total-size ceiling and
+    there is nothing for this budget to protect -- `pages.yml` then treats Pages
+    as the rollback copy and skips it, with a warning, when the tree outgrows
+    it. The decision is `homeroom.publish_limits._size_refusal`'s, the same
+    function `make publish` calls, so the two cannot disagree.
     """
+    served_by = read_served_by(ROOT / SERVED_BY_FILE)
     total = published_bytes()
+    if served_by == SERVED_BY_CLOUDFRONT:
+        assert publish_limits._size_refusal(published_files(), served_by) is None
+        pytest.skip(
+            f"{SERVED_BY_FILE} says {served_by}: the origin is S3, which has no "
+            f"total-size ceiling, so site/ ({mb(total)}) has no budget to be held "
+            "to. pages.yml decides per run whether the Pages rollback copy fits."
+        )
     assert total <= PUBLISHED_BUDGET_BYTES, (
         f"site/ is {mb(total)} across {len(published_files()):,} files, over "
         f"this repository's {mb(PUBLISHED_BUDGET_BYTES)} budget and "

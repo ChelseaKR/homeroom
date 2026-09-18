@@ -2,16 +2,24 @@
 
 **Nothing here has been applied.** There is no `homeroom-site` stack, no
 bucket, no distribution, no IAM role and no certificate. `homeroom.chelseakr.com`
-is still a CNAME to `chelseakr.github.io`, measured on 2026-09-05:
+is still a CNAME to `chelseakr.github.io`, measured again on 2026-09-18:
 
 ```
-$ dig +short homeroom.chelseakr.com
-chelseakr.github.io.
-185.199.108.153
-185.199.111.153
-185.199.110.153
-185.199.109.153
+$ dig homeroom.chelseakr.com +noall +answer
+homeroom.chelseakr.com.	288	IN	CNAME	chelseakr.github.io.
+chelseakr.github.io.	299	IN	A	185.199.111.153
+chelseakr.github.io.	299	IN	A	185.199.108.153
+chelseakr.github.io.	299	IN	A	185.199.110.153
+chelseakr.github.io.	299	IN	A	185.199.109.153
 ```
+
+**The decision is taken.** On 2026-09-18 the owner chose this origin (#82,
+option 1), because the next `make publish` carries D5 and does not fit on
+GitHub Pages. **[`CUTOVER.md`](CUTOVER.md) is the owner's commands, in order**
+-- certificate, plan and apply of each phase, the four variables, the first
+sync, verification on the `*.cloudfront.net` name, the DNS switch, the flip
+of `served-by`, and the rollback -- with what each should print. This file
+stays the reasoning.
 
 GitHub Pages serves every family reading these pages today.
 `.github/workflows/pages.yml` is unchanged and still publishes after ci
@@ -34,6 +42,7 @@ from a plan.
 | Edge | CloudFront with Origin Access Control (not the legacy OAI) |
 | Publish | `.github/workflows/site-publish.yml`, GitHub OIDC, no stored key |
 | Today's host | GitHub Pages, untouched, and it stays that way until step 7 |
+| The switch | `deploy/site/served-by`, which says `github-pages` until DNS moves |
 
 ## Why
 
@@ -198,9 +207,11 @@ of a kind this site does not publish goes too. Then the workflow lists the
 bucket and diffs that against `find site -type f`, and fails on any difference
 in either direction. That comparison, not the filter semantics, is the proof.
 
-**Content-Type is stated, not guessed.** The site publishes five kinds:
-`.html`, `.png`, `.xml`, `.txt`, and the extensionless `CNAME`. The CLI guesses
-from the extension, which is right for four of them and gives `CNAME`
+**Content-Type is stated, not guessed.** The site publishes six kinds today:
+`.html`, `.png`, `.xml`, `.txt`, `.js` (the Google Analytics loader) and the
+extensionless `CNAME`, and a seventh, `.css`, arrives with the first republish
+after #98 (`homeroom.css`, the one shared stylesheet). The CLI guesses from the
+extension, which is right for most of them and gives `CNAME`
 `binary/octet-stream` — a file a browser offers to download. So each kind is
 synced in its own pass with `--content-type`, and afterwards one object of each
 kind is read back with `head-object` and its type asserted.
@@ -213,14 +224,70 @@ matters because the next thing to read the origin is the live sentinel, and a
 comparison against an edge that has not turned over yet reports a difference
 that is not there.
 
-Six passes are written out rather than looped. A shell `for` loop exits with
+Eight passes are written out rather than looped. A shell `for` loop exits with
 only its last iteration's status and would swallow a failed upload in any
 earlier one — the same reason `make secret-scan` runs its two scans as two
 commands.
 
+## The switch that keeps GitHub Pages serving until DNS moves
+
+`deploy/site/served-by` is one committed word naming the origin the domain
+points at. `make publish`, `tests/test_published_limits.py` and `pages.yml` all
+read it, through `homeroom.publish_limits`, so the three cannot hold the same
+tree to different ceilings.
+
+| `served-by` | `make publish` and the suite | `pages.yml` |
+|---|---|---|
+| `github-pages` (committed today) | the 900 MB budget under the 1 GB Pages ceiling, exactly as before | deploys every tree; a tree Pages cannot take is an **error**, because families are on Pages |
+| `cloudfront` (after the DNS switch) | no total-size budget, because S3 has none; the 100 MiB per-file limit still binds, because `site/` is committed | deploys the rollback copy when it fits under 1 GB, and **skips it with a warning** when it does not |
+
+The flip comes after DNS, never before. `pages.yml` enforces the order: if
+`served-by` says `cloudfront`, the tree does not fit, and the domain still
+resolves to `*.github.io`, the run fails rather than leave families on an
+older tree with every check green. The verdict and the upload are separate
+jobs, so a skipped commit creates no `github-pages` deployment record for
+`tools/deploy_staleness.py` to mistake for one that was served.
+
+Once a tree over 1 GB is published, the rollback in "Rolling back" below
+still works but serves the last tree GitHub Pages accepted, which is older. The
+D5 tree is 1,060.9 MB without #98's shared stylesheet and about 943.8 MB with
+it, so with #98 the Pages copy keeps receiving it.
+
+## Headers: GitHub Pages today, and this distribution
+
+Measured on 2026-09-18 with `curl -sI https://homeroom.chelseakr.com/` against
+the template's `ResponseHeadersPolicy` and the publish workflow's
+`--cache-control`:
+
+| Header | GitHub Pages today | This distribution |
+|---|---|---|
+| `Content-Security-Policy` | none | none -- parity, see "Two things are deliberately absent" |
+| `Strict-Transport-Security` | none | `max-age=300` at first, then a year |
+| `X-Content-Type-Options` | none | `nosniff` |
+| `X-Frame-Options` | none | `DENY` |
+| `Referrer-Policy` | none (the browser default) | `same-origin` |
+| `Cache-Control` | `max-age=600` | `public, max-age=300, s-maxage=86400` |
+| `Access-Control-Allow-Origin` | `*` | none; nothing on the site is fetched cross-origin |
+| HTTP | 301 to HTTPS | 301 to HTTPS |
+
+**Google Analytics is unaffected.** Neither origin sends a CSP, so nothing
+blocks `https://www.googletagmanager.com` or the collection hosts; the loader
+sends its own scrubbed `page_location` and `page_referrer`, so `same-origin`
+costs it nothing; and `DENY` concerns framing, which GA does not use. The
+allowlist a CSP would need is in "Before changing any of this" below.
+
+Two behaviors differ that no header shows. GitHub Pages answers an
+extensionless path (`/57726786056246.en`) with the `.html` page; S3 answers
+404. Nothing this site links, lists in its sitemap or names as canonical is
+extensionless. And a missing page on GitHub Pages is its own 404 page, where
+here it is S3's short XML error body with the same 404 status, which is what
+`tools/verify_live_site.py` requires.
+
 ## Cutover, in order, with what to check after each step
 
-Every step before 7 is invisible to families. Step 7 is the cutover.
+Every step before 7 is invisible to families. Step 7 is the cutover. The
+exact commands, with the expected plan output of each phase, are in
+[`CUTOVER.md`](CUTOVER.md); this section is why each step is where it is.
 
 **0. Preflight, read-only.**
 
@@ -362,6 +429,10 @@ the domain has not changed, and so the sentinel now grades the new origin with
 no edit to any code. Watch the daily run
 (`.github/workflows/live-integrity.yml`, 13:07 UTC) for a few days, then raise
 the DNS TTL and `HstsMaxAgeSeconds` back up.
+
+**8. Flip `deploy/site/served-by` to `cloudfront`**, in its own pull request,
+after step 7 has checked out. That is what lets `make publish` render the D5
+tree, which does not fit under the Pages budget.
 
 **Do not, as part of the cutover:** remove `.github/workflows/pages.yml`,
 unpublish the GitHub Pages site, or delete `site/CNAME`. Each of those is what

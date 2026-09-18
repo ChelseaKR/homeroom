@@ -18,6 +18,15 @@
 # Every action is pinned to the full 40-char commit SHA of its tag, each one
 # verified against the tag with `gh api repos/OWNER/REPO/commits/TAG` on
 # 2026-08-22, per SECURITY-AND-SUPPLY-CHAIN-STANDARD §6.
+#
+# The owner moved hosting to the S3 + CloudFront origin in deploy/site/ on
+# 2026-09-18 (#82), and this file is what keeps GitHub Pages serving until DNS
+# moves. `deploy/site/served-by` records which origin the domain points at.
+# While it says `github-pages` this deploys every tree, as before; a tree Pages
+# cannot take is an error, because families are on Pages. Once the owner has
+# moved DNS and flipped it to `cloudfront`, Pages is the rollback copy: this
+# still deploys every tree that fits under the Pages ceiling, and skips, with a
+# warning, one that does not. deploy/site/CUTOVER.md has the order.
 name: pages
 
 # zizmor: ignore[dangerous-triggers]
@@ -46,27 +55,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  # Two jobs, so that a commit Pages cannot take leaves no trace in Pages. The
+  # `github-pages` environment records a deployment for every job that declares
+  # it, whether or not a step inside ever uploads anything, and
+  # tools/deploy_staleness.py reads those records as "this commit is what Pages
+  # serves". A skip inside one job would have written exactly that false record.
+  verdict:
+    name: can GitHub Pages take this tree
     # A failed ci run must not publish. workflow_dispatch has no ci run attached
     # and is a deliberate act by a person, so it is allowed through.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      deploy: ${{ steps.pages-verdict.outputs.deploy }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # workflow_run checks out the default branch's tip by default, which
-          # is not necessarily the commit ci just passed. Publish the commit
-          # that was actually verified.
+          # is not necessarily the commit ci just passed. Weigh the commit that
+          # was actually verified.
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           persist-credentials: false
 
@@ -80,6 +92,53 @@ jobs:
           test -f site/index.html || { echo "site/index.html is missing; run make publish" >&2; exit 1; }
           test -f site/CNAME || { echo "site/CNAME is missing; publishing would unset the custom domain" >&2; exit 1; }
           echo "publishing $(find site -name '*.html' | wc -l | tr -d ' ') pages for $(cat site/CNAME)"
+
+      - name: Can GitHub Pages take this tree, and is it still the origin?
+        id: pages-verdict
+        # The same module and the same ceiling `make publish` and the test suite
+        # use, run with the runner's own python3: homeroom.publish_limits imports
+        # only the standard library, so no dependency install is needed to ask.
+        #
+        # deploy=false happens only when served-by says `cloudfront`. That word
+        # is supposed to follow the DNS change, never lead it, and the guard
+        # below holds it to that: if the domain still resolves to GitHub Pages,
+        # skipping would strand families on an older tree with every run green,
+        # so it fails instead.
+        run: |
+          set -euo pipefail
+          served_by="$(tr -d '[:space:]' < deploy/site/served-by)"
+          verdict="$(PYTHONPATH=src python3 -m homeroom.publish_limits site --served-by "${served_by}" --pages-verdict)"
+          echo "${verdict}" >> "${GITHUB_OUTPUT}"
+          if [ "${verdict}" = "deploy=false" ]; then
+            domain="$(tr -d '[:space:]' < site/CNAME)"
+            canonical="$(python3 -c 'import socket, sys; print(socket.gethostbyname_ex(sys.argv[1])[0])' "${domain}")"
+            case "${canonical}" in
+              *.github.io|*.github.io.)
+                echo "::error::deploy/site/served-by says cloudfront, but ${domain} still resolves to ${canonical}: families are on GitHub Pages and this tree cannot go there. Move DNS first (deploy/site/CUTOVER.md), or set served-by back to github-pages." >&2
+                exit 1
+                ;;
+            esac
+            echo "${domain} resolves to ${canonical}; the Pages rollback copy is skipped for this commit"
+          fi
+
+  publish:
+    needs: verdict
+    if: needs.verdict.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The same commit the verdict weighed, for the same reason.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          persist-credentials: false
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
