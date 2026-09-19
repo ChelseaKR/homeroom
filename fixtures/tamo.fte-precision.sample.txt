@@ -1,0 +1,6 @@
+Academic Year	Aggregate Level	County Code	District Code	School Code	County Name	District Name	School Name	Charter School	DASS	School Grade Span	Teacher Experience Level	Teacher Credential Level	Subject Area	Total FTE	Clear FTE (count)	Out-of-Field FTE (count)	Intern FTE (count)	Ineffective FTE (count)	Incomplete FTE (count)	Unknown FTE (count)	N/A FTE (count)	Clear FTE (percent)	Out-of-Field FTE (percent)	Intern FTE (percent)	Ineffective FTE (percent)	Incomplete FTE (percent)	Unknown FTE FTE (percent)	N/A FTE (percent)
+2023-24	T	00			State			All	All	ALL	ALL	ALL	TA	278927.09	230039.41	12112.94	6213.83	16855.11	12797.18	176.13	732.61	82.5	4.3	2.2	6.0	4.6	0.1	0.3
+2023-24	D	01	10017		Yolo	Davis Joint Unified		All	All	ALL	ALL	ALL	TA	29.76	27.06	0.40	1.00	0.04		0.00	1.26	90.9	1.3	3.4	0.1		0.0	4.2
+2023-24	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	No	No	GRK6	EXP	FC	MATH	0.99	0.99	0.99	0.99	0.99	0.99	0.99	0.99	99.9	99.9	99.9	99.9	99.9	99.9	99.9
+2023-24	S	01	10017	0112345	Yolo	Davis Joint Unified	Example Elementary	No	No	GRK6	ALL	ALL	TA	1.0	0.1	0.125	0.25	0.33	0.5	0.667		10.0	12.5	25.0	33.0	50.0	66.7	
+2023-24	S	01	10017	0154321	Yolo	Davis Joint Unified	Ejemplo Charter Academy	Yes	No	GRK6	ALL	ALL	TA	*	*	*	*	*	*	*	*	*	*	*	*	*	*	*
