@@ -30,7 +30,7 @@ import pytest
 from homeroom.i18n import LOCALES, text
 from homeroom.landing import render_landing
 from homeroom.profiles import assemble_profiles
-from homeroom.render import page_name
+from homeroom.render import REPOSITORY_URL, page_name
 from homeroom.site import build_site
 from tests.test_pages import (
     ABSENTEEISM,
@@ -255,3 +255,49 @@ def test_the_landing_page_is_deterministic() -> None:
     profiles = list(assembly.profiles)
     first = render_landing(profiles, is_fixture=True)
     assert first == render_landing(profiles, is_fixture=True)
+
+
+def test_the_front_door_links_the_repository_it_is_built_from(index: Path) -> None:
+    """DISC-02: the one published page that says where this site's code lives.
+
+    `DISCOVERY-AND-ADOPTION-STANDARD.md` §1 asks that the homepage named in the
+    GitHub About link back to `github.com/<owner>/<repo>`, and its reasoning is
+    the one that matters here: a site that neither links its repository nor
+    carries the owner's name in its host cannot be told apart from an unrelated
+    site. Measured on `origin/main` on 2026-09-13, `site/index.html` contained
+    no occurrence of the string `github` at all.
+
+    Both halves are asserted, and the second is the one that would rot quietly.
+    The URL comes from `REPOSITORY_URL`, so a rename that moved the constant
+    without moving this page fails here. The link *text* is asserted per locale
+    from the same catalog the renderer reads, because a Spanish reader reaching
+    an English label is how this site would first tell them it is not for them
+    -- and a single shared label would pass a URL-only check for ever.
+    """
+    document = parse(index)
+    assert REPOSITORY_URL in document.hrefs, document.hrefs
+    markup = index.read_text(encoding="utf-8")
+    for locale in LOCALES:
+        expected = text(locale, "landing_source_link")
+        assert f'<a href="{REPOSITORY_URL}">{expected}</a>' in markup, (
+            locale,
+            expected,
+        )
+        assert text(locale, "landing_source_body") in markup, locale
+
+
+def test_no_school_page_gained_the_repository_link(built: Path) -> None:
+    """It is the front door's line, and deliberately only the front door's.
+
+    Not a style preference: `site/` is committed and republished by hand, the
+    published tree is at 86.8% of the ceiling its deploy is subject to
+    (`homeroom.publish_limits`, issue #82), and 21,069 school pages times two
+    locales is the multiplier that turns any per-page addition into megabytes.
+    This asserts the scope rather than leaving it to be re-litigated: if the
+    link is ever wanted on every page, that is a size decision and this test is
+    where it is recorded as having been taken.
+    """
+    school_pages = [p for p in built.glob("*.html") if p.name != "index.html"]
+    assert school_pages, "no school page was built, so this checked nothing"
+    for page in school_pages:
+        assert REPOSITORY_URL not in page.read_text(encoding="utf-8"), page.name

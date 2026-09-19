@@ -30,6 +30,7 @@ from homeroom.browse import counties, county_page_name
 from homeroom.i18n import LOCALES, Locale, text
 from homeroom.profiles import SchoolProfile
 from homeroom.render import (
+    REPOSITORY_URL,
     _cde,
     _esc,
     _social_meta,
@@ -43,6 +44,30 @@ LANDING_STYLE = """
 .county-list { columns: 12rem; column-gap: 2rem; padding-left: 1.3rem; }
 .county-list li { margin: 0 0 .5rem; break-inside: avoid; }
 """
+
+
+def _source_link(locale: Locale) -> str:
+    """One sentence, in this language, and the link out to the repository.
+
+    Every page on this site names the CDE download page each figure came from,
+    so a reader can check a number against the state's own file. Until this
+    line, nothing named the code that turned those files into a sentence about
+    a real school -- the one thing a reader who distrusts this site cannot get
+    to from anywhere on it. It sits on the front door rather than on all 21,069
+    school pages: the pages are committed bytes republished by hand, the
+    published tree is already at 86.8% of the ceiling it deploys under
+    (`homeroom.publish_limits`, issue #82), and a link every page carries is a
+    link the front door already carries 23,310 times over.
+
+    The link text is a sentence in its own language rather than a bare URL: a
+    screen reader announces link text out of context, and "https://github.com/
+    ChelseaKR/homeroom" read character by character is not what was meant.
+    """
+    return (
+        f"<p>{_esc(text(locale, 'landing_source_body'))} "
+        f'<a href="{_esc(REPOSITORY_URL)}">'
+        f"{_esc(text(locale, 'landing_source_link'))}</a></p>"
+    )
 
 
 def _section(profiles: list[SchoolProfile], locale: Locale) -> str:
@@ -65,6 +90,7 @@ def _section(profiles: list[SchoolProfile], locale: Locale) -> str:
         f'<ul class="county-list">\n{items}\n</ul>\n'
         f"<p>{_esc(text(locale, 'footer_no_ranking'))}</p>\n"
         f"<p>{_esc(text(locale, 'footer_unaffiliated'))}</p>\n"
+        f"{_source_link(locale)}\n"
         "</section>"
     )
 

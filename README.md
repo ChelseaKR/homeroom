@@ -173,7 +173,7 @@ coverage in the next three columns. Birch Lane Elementary in Davis Joint Unified
 renders from the acquired files in English and Spanish, publishing 36 of its 40
 figures (30 counts and 6 genuine zeros) and stating in words, for the other four,
 that the state published nothing.
-Every user-visible string exists in both languages: 226 keys per locale, zero
+Every user-visible string exists in both languages: 228 keys per locale, zero
 present in one and missing from the other, enforced by test. The renderer's pages
 carry no script and no account, and reach nothing off this origin: since
 2026-09-18 each school, county, district and landing page links a single

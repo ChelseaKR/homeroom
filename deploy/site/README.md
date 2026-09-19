@@ -463,7 +463,7 @@ prices are not.
 | | Measured | At list price |
 |---|---|---|
 | Objects | 23,311 | — |
-| Bytes of content | 877,171,145 (0.817 GiB) | **$0.020/month** S3 Standard @ $0.023/GB-month |
+| Bytes of content | 877,171,581 (0.817 GiB) | **$0.020/month** S3 Standard @ $0.023/GB-month |
 | Superseded versions, worst case | one full generation for 30 days | +$0.020/month |
 | A full republish | 23,311 PUTs | **$0.117** @ $0.005/1,000 |
 | An invalidation | 1 path (`/*`) | **$0.000** — 1,000 paths/month are free |
@@ -475,11 +475,12 @@ The steady state is **about two cents a month plus twelve cents per full
 republish**, and CloudFront's always-free tier (1 TB out and 10,000,000
 requests per month, not a 12-month trial) absorbs the serving.
 
-`du -sm site` says 879 and the table says 877,171,145 bytes, and both are
+`du -sm site` says 879 and the table says 877,171,581 bytes, and both are
 right: `du` counts 4 KiB filesystem blocks, and 23,311 small files carry about
 42 MiB of block slack that does not exist in a bucket. S3 bills content.
 (Re-measured 2026-09-17, after Google Analytics added a script tag and a note to
-every page and `analytics.js` to the root.)
+every page and `analytics.js` to the root, and again on 2026-09-18 after the front
+door gained its two-line link to the source, 436 bytes.)
 
 **What the traffic actually is: unknown, and unmeasurable from here.** GitHub
 Pages gives the owner no access log, and this stack turns CloudFront logging

@@ -82,6 +82,20 @@ ABSENTEEISM_URL = "https://www.cde.ca.gov/ds/ad/filesabd.asp"
 ASSIGNMENTS_URL = "https://www.cde.ca.gov/ds/ad/filestamo.asp"
 """CDE's page for D5. Mirrors PROVENANCE.md; tested for agreement with it."""
 
+REPOSITORY_URL = "https://github.com/ChelseaKR/homeroom"
+"""Where the code that renders these pages, and its record, is published.
+
+The front door links it (`homeroom.landing`), which is the one thing a reader
+who wants to check this site cannot do from anything else on it: the pages name
+CDE's download pages, and nothing named the code that turned those files into a
+sentence about their child's school.
+
+Declared once, so the address the site gives for its own source cannot become
+two addresses. `tools/sources_check.py` puts the same URL in the User-Agent it
+introduces itself to CDE with, and `tests/test_sources_check.py` holds that one
+to this constant rather than to a second copy of the literal.
+"""
+
 LIGHT: dict[str, str] = {
     "surface": "#fbfbf8",
     "raised": "#ffffff",
