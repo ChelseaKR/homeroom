@@ -19,7 +19,10 @@ school pages, so the render is **1,060.9 MB, 106% of the 1 GB GitHub Pages
 allows**. With #98's shared stylesheet it is about 943.8 MB: under the Pages
 ceiling but over this repository's 900 MB budget, so `make publish` still
 refuses it while GitHub Pages is the origin. After the move there is no
-total-size ceiling at all.
+total-size ceiling at all. Rendered in full on 2026-09-18 with #98 and the
+#131 fix, which prints FTE counts at the file's own precision, the tree is
+**944.0 MB (944,014,201 bytes, 23,312 files)**: `publish-limits` passes it as
+served by CloudFront, and at 94.4% of 1 GB the Pages rollback copy still fits.
 
 ## What was checked read-only on 2026-09-18
 
@@ -269,11 +272,19 @@ gh pr create --repo "$REPO" --fill
 ```
 
 Merge it when ci is green. Then the D5 republish, which `make publish` now
-holds to no total-size ceiling -- but **not before #131 is fixed**: D5's FTE
-counts currently print at one decimal where the CDE file carries two, so a
-republish made today would put wrong numbers on 20,844 cells (25.9%) and
-print 0.0 for 184 cells that reported a non-zero figure. Fix #131 first,
-then:
+holds to no total-size ceiling. It waited on #131, which is fixed: D5 printed
+FTE counts at one decimal where the CDE file carries two, which would have put
+wrong numbers on 20,844 school cells (25.9%) and `0.0` on 184 non-zero ones.
+The counts now print at the file's own precision, and 0 of those cells
+differ. CI cannot see the acquired file, so check it where it is (about five
+seconds; `test_every_fte_cell_in_the_acquired_file_prints_as_published` must
+say PASSED, not SKIPPED):
+
+```sh
+uv run --locked pytest tests/test_fte_precision.py -v
+```
+
+Then:
 
 ```sh
 ASK_ENDPOINT=$(aws cloudformation describe-stacks --stack-name homeroom-ask \

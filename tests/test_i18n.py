@@ -184,7 +184,20 @@ def test_strings_returns_the_catalog_for_one_locale() -> None:
 
 @pytest.mark.parametrize(
     ("value", "expected"),
-    [(0, "0"), (1, "1"), (1234, "1,234"), (5731260, "5,731,260"), (85.5, "85.5")],
+    [
+        (0, "0"),
+        (1, "1"),
+        (1234, "1,234"),
+        (5731260, "5,731,260"),
+        (85.5, "85.5"),
+        # Issue #131: grouped, never rounded. D5 publishes FTE to two decimals.
+        (29.76, "29.76"),
+        (0.125, "0.125"),
+        (0.04, "0.04"),
+        (278927.09, "278,927.09"),
+        # And never in exponent notation, which a float's own format falls into.
+        (0.00001, "0.00001"),
+    ],
 )
 def test_counts_are_grouped_the_way_both_locales_write_them(
     value: float, expected: str

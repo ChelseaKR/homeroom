@@ -330,6 +330,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **D5 printed FTE counts to one decimal, under a sentence saying every figure is
+  printed exactly as the state published it** (#131, 2026-09-18).
+  `homeroom.i18n.format_number` wrote every non-integer to one place, and
+  `tamo2324.txt` publishes FTE counts to two. Over the file's whole-school rows,
+  20,844 of 80,512 count cells (25.9%) would have printed a different number from
+  the file, and 184 non-zero cells would have printed `0.0` beside the cells
+  labeled a reported zero. The district and statewide columns were 3,849 of 8,144
+  (47.3%). D5 is not yet published, so no family read any of them.
+
+  The formatter groups thousands and never rounds now. A cell prints as the
+  shortest decimal that is the same number (`29.76`, `0.125`, and `0.40` as
+  `0.4`), and 0 of the 80,512 and 0 of the 8,144 differ. Every D2 cell is an
+  integer and every D3 rate carries one decimal, so nothing else on a page
+  changes. Rendered in full from the acquired files, every D5 cell on all 21,068
+  school pages (948,060 cells across the school, district and statewide columns)
+  matches the file, and the tree is 944.0 MB across 23,312 files.
+
+  The existing check could not see this. It built its expected digits with the
+  same `format_number`, and every FTE in `fixtures/tamo.sample.txt` is a whole
+  number. `tests/test_fte_precision.py` reads the expected value from the file's
+  own text instead and compares every rendered D5 cell with it as a `Decimal`. A
+  new fixture carries 0.1, 0.125, 0.25, 0.33, 0.5, 0.667 and 1.0, two-decimal
+  counts, a non-zero figure that rounds to zero, CDE's trailing zeros, a genuine
+  zero, an empty cell, a masked school and a school the file never mentions. A
+  negative control puts the one-decimal format back and asserts the round trip
+  names the cells it breaks. Where `data/raw/tamo2324.txt` exists, the file also
+  checks every whole-school, district and statewide cell of the acquired file,
+  with the one-decimal format as its control. `deploy/site/CUTOVER.md` step 9
+  no longer holds the D5 republish on #131.
+
 - **The `secret-scan` job read 1 of `main`'s 138 commits, and said so in its own logs**
   (2026-09-13). The job was one step, `gitleaks/gitleaks-action@v3.0.0`, and that
   action does not scan a repository -- it scans the range the triggering event hands

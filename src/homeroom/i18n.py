@@ -28,6 +28,7 @@ count never forces a verb to agree with it in two grammars at once.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Literal
 
 from homeroom.assignments import OUTCOME_NAMES
@@ -1134,16 +1135,39 @@ def outcome_name(locale: Locale, outcome: str) -> str:
 
 
 def format_number(value: float) -> str:
-    """A count as both locales write it.
+    """A published figure as both locales write it, at the precision it was published.
 
     Spanish as written in California, like English, groups thousands with a comma;
     that is the convention CDE's own Spanish materials and the state's Spanish
     ballot and school notices use, so one formatter serves both pages. If a locale
     that groups differently is ever added, this is the single place it changes.
+
+    Grouping is the only thing this does to a number. It never rounds. Until
+    2026-09-18 every non-integer printed to one decimal, which was harmless while
+    every non-integer the pages carried was a D3 rate that CDE itself publishes to
+    one decimal. D5's FTE counts are published to two, so the one-decimal format
+    changed 20,844 of the 80,512 school count cells in ``tamo2324.txt`` (25.9%)
+    and printed 184 non-zero cells as ``0.0`` beside the ones labeled a reported
+    zero (issue #131). The district and statewide columns were worse: 3,849 of
+    8,144 (47.3%).
+
+    ``repr`` of a float is the shortest decimal string that reads back as the
+    same float, so for a cell parsed from a published decimal of up to 15
+    significant digits (every CDE cell is far shorter) it is that decimal
+    (``0.125`` stays ``0.125``, ``29.76`` stays ``29.76``), less any trailing
+    zeros (``0.40`` prints ``0.4``), which change how the digits look and not
+    which number they state. :class:`~decimal.Decimal` is what writes it out,
+    because it groups thousands and never falls back to exponent notation the
+    way a float's own formatting does for very large or very small values.
+
+    Every D2 cell is an integer and every D3 rate carries one decimal (both
+    files scanned 2026-09-18), so for both this prints exactly what the
+    one-decimal format did. Only D5 changes.
     """
-    if float(value).is_integer():
-        return f"{int(value):,}"
-    return f"{value:,.1f}"
+    number = float(value)
+    if number.is_integer():
+        return f"{int(number):,}"
+    return f"{Decimal(repr(number)):,f}"
 
 
 __all__ = [
