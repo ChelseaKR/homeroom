@@ -31,11 +31,23 @@ bytes that would be published rather than a projection from a sample. It is
 deliberately not a *fast* check -- it cannot answer before the render it is
 weighing has happened -- and the thing it is early to is the irreversible step,
 which is the one that mattered.
+
+The owner took #82's first answer on 2026-09-18: move to the S3 + CloudFront
+origin in `deploy/site/`. Which origin serves the domain is recorded in one
+committed file, `deploy/site/served-by`, and the size budget follows it. While
+it says ``github-pages`` everything above holds unchanged, which is what keeps
+GitHub Pages serving families until the owner moves DNS. Once it says
+``cloudfront`` there is no total-size ceiling to refuse against -- S3 has none --
+and GitHub Pages becomes the rollback copy: `.github/workflows/pages.yml` still
+deploys to it whenever the tree fits under the Pages ceiling, and skips it,
+loudly, when it does not. Flipping the file is the owner's step and comes after
+the DNS change, never before; `deploy/site/CUTOVER.md` has the order.
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -69,7 +81,42 @@ SITEMAP_BYTE_BUDGET = int(SITEMAP_BYTE_LIMIT * PUBLISHED_BUDGET_SHARE)
 
 #: The Pages limits page states this one too, and it is the ceiling a *source*
 #: file crosses rather than a tree: nothing GitHub serves may exceed 100 MB.
+#: It binds on either origin, because `site/` is committed and GitHub refuses a
+#: push carrying any file over 100 MiB whatever serves the result.
 PAGES_FILE_LIMIT_BYTES = 100 * 1024 * 1024
+
+# ----------------------------------------------------------------------------------
+# Which origin serves the site, and so which ceiling applies
+# ----------------------------------------------------------------------------------
+
+#: GitHub Pages, via `.github/workflows/pages.yml`. The 1 GB ceiling applies.
+SERVED_BY_PAGES = "github-pages"
+
+#: The S3 bucket behind CloudFront in `deploy/site/`, via
+#: `.github/workflows/site-publish.yml`. No total-size ceiling applies.
+SERVED_BY_CLOUDFRONT = "cloudfront"
+
+SERVED_BY_CHOICES = (SERVED_BY_PAGES, SERVED_BY_CLOUDFRONT)
+
+#: Where the repository records which of the two the domain points at, relative
+#: to the repository root. One word, committed, read by the Makefile's `publish`
+#: target, by `tests/test_published_limits.py` and by `pages.yml`, so the three
+#: cannot disagree about which ceiling the tree is held to.
+SERVED_BY_FILE = Path("deploy") / "site" / "served-by"
+
+
+def read_served_by(path: Path) -> str:
+    """The origin `path` records, refusing anything but the two known names.
+
+    A typo here would otherwise pick a ceiling silently: an unknown word must
+    stop the publish and the suite, not fall through to either branch.
+    """
+    value = path.read_text(encoding="utf-8").strip()
+    if value not in SERVED_BY_CHOICES:
+        raise ValueError(
+            f"{path} says {value!r}; it must say one of {', '.join(SERVED_BY_CHOICES)}"
+        )
+    return value
 
 
 class NothingWasWeighed(Exception):
@@ -146,9 +193,24 @@ def where_the_bytes_are(files: tuple[tuple[Path, int], ...]) -> str:
 # ----------------------------------------------------------------------------------
 
 
-def _size_refusal(files: tuple[tuple[Path, int], ...]) -> str | None:
+def pages_can_take(files: tuple[tuple[Path, int], ...]) -> bool:
+    """Whether GitHub Pages would accept this tree at all: under both its ceilings.
+
+    The ceiling, not the budget. This is the question `pages.yml` asks once
+    Pages is the rollback copy rather than the origin families are served from:
+    a tree between the 90% budget and the ceiling is a tree Pages can still hold,
+    and a rollback copy that is current is worth more than the margin.
+    """
+    return total_bytes(files) <= PAGES_SITE_LIMIT_BYTES and all(
+        size <= PAGES_FILE_LIMIT_BYTES for _, size in files
+    )
+
+
+def _size_refusal(
+    files: tuple[tuple[Path, int], ...], served_by: str = SERVED_BY_PAGES
+) -> str | None:
     total = total_bytes(files)
-    if total <= PUBLISHED_BUDGET_BYTES:
+    if served_by == SERVED_BY_CLOUDFRONT or total <= PUBLISHED_BUDGET_BYTES:
         return None
     return (
         f"the rendered tree is {mb(total)} across {len(files):,} files, over the "
@@ -224,16 +286,20 @@ def _sitemap_refusals(root: Path, files: tuple[tuple[Path, int], ...]) -> list[s
     return _sitemap_caps(sizes[sitemap], source.count("<loc>"))
 
 
-def refusals(root: Path) -> list[str]:
+def refusals(root: Path, served_by: str = SERVED_BY_PAGES) -> list[str]:
     """Every reason this rendered tree must not replace the published one.
 
     Empty means it may. `NothingWasWeighed` is raised rather than returned,
-    because a tree that could not be measured is not a tree that passed.
+    because a tree that could not be measured is not a tree that passed. The
+    default is the stricter origin, so a caller that does not say which origin
+    serves the site is held to the ceiling that has one.
     """
+    if served_by not in SERVED_BY_CHOICES:
+        raise ValueError(f"unknown origin {served_by!r}")
     files = measure(root)
     found = [
         refusal
-        for refusal in (_size_refusal(files), _file_refusal(files))
+        for refusal in (_size_refusal(files, served_by), _file_refusal(files))
         if refusal is not None
     ]
     return found + _sitemap_refusals(root, files)
@@ -274,6 +340,23 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="the rendered directory to weigh, e.g. build/publish-site",
     )
+    parser.add_argument(
+        "--served-by",
+        choices=SERVED_BY_CHOICES,
+        default=SERVED_BY_PAGES,
+        help=(
+            f"which origin serves the domain, as {SERVED_BY_FILE} records it; "
+            "the default is the one with a ceiling"
+        ),
+    )
+    parser.add_argument(
+        "--pages-verdict",
+        action="store_true",
+        help=(
+            "print deploy=true or deploy=false for pages.yml: whether GitHub "
+            "Pages can take this tree, given which origin serves the domain"
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -287,22 +370,80 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    if args.pages_verdict:
+        return _pages_verdict(files, args.served_by)
+
     total = total_bytes(files)
-    found = refusals(args.tree)
-    print(
-        f"publish-limits: {args.tree} is {mb(total)} across {len(files):,} files, "
-        f"{total / PAGES_SITE_LIMIT_BYTES:.1%} of the "
-        f"{mb(PAGES_SITE_LIMIT_BYTES)} Pages ceiling, with "
-        f"{mb(max(PUBLISHED_BUDGET_BYTES - total, 0))} left under the "
-        f"{PUBLISHED_BUDGET_SHARE:.0%} budget.",
-        flush=True,
-    )
+    found = refusals(args.tree, args.served_by)
+    if args.served_by == SERVED_BY_CLOUDFRONT:
+        rollback = (
+            "fits, so pages.yml keeps the rollback copy current"
+            if pages_can_take(files)
+            else "does not fit, so pages.yml will skip it and a DNS rollback "
+            "would serve the last tree Pages accepted"
+        )
+        print(
+            f"publish-limits: {args.tree} is {mb(total)} across {len(files):,} "
+            "files, served by CloudFront from S3, which has no total-size "
+            f"ceiling. As the GitHub Pages rollback copy it is "
+            f"{total / PAGES_SITE_LIMIT_BYTES:.1%} of the "
+            f"{mb(PAGES_SITE_LIMIT_BYTES)} ceiling and {rollback}.",
+            flush=True,
+        )
+    else:
+        print(
+            f"publish-limits: {args.tree} is {mb(total)} across {len(files):,} "
+            f"files, {total / PAGES_SITE_LIMIT_BYTES:.1%} of the "
+            f"{mb(PAGES_SITE_LIMIT_BYTES)} Pages ceiling, with "
+            f"{mb(max(PUBLISHED_BUDGET_BYTES - total, 0))} left under the "
+            f"{PUBLISHED_BUDGET_SHARE:.0%} budget.",
+            flush=True,
+        )
     if not found:
         return 0
     for refusal in found:
         print(f"publish-limits: REFUSED: {refusal}", flush=True)
     print(WHAT_TO_DO, flush=True)
     return 1
+
+
+def _pages_verdict(files: tuple[tuple[Path, int], ...], served_by: str) -> int:
+    """What `pages.yml` asks before uploading: may this tree go to GitHub Pages?
+
+    Printed as ``deploy=true`` or ``deploy=false`` for ``$GITHUB_OUTPUT``. While
+    Pages is the origin, a tree it cannot take is an error: ci's
+    `tests/test_published_limits.py` should have refused it first, and saying
+    ``false`` would leave families on an older tree without failing anything.
+    Once CloudFront is the origin, Pages is the rollback copy, and a tree too
+    large for it is skipped with a warning rather than failed.
+    """
+    total = total_bytes(files)
+    if pages_can_take(files):
+        print("deploy=true", flush=True)
+        return 0
+    where = (
+        f"site/ is {mb(total)}, {total / PAGES_SITE_LIMIT_BYTES:.1%} of the "
+        f"{mb(PAGES_SITE_LIMIT_BYTES)} GitHub Pages ceiling"
+    )
+    # Annotations go to stderr: stdout is appended to $GITHUB_OUTPUT, where a
+    # line that is not name=value is an error in a different step.
+    if served_by == SERVED_BY_PAGES:
+        print(
+            f"::error::{where}, and {SERVED_BY_FILE} says GitHub Pages serves "
+            "the domain. Nothing here can deploy it.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 1
+    print(
+        f"::warning::{where}. CloudFront serves the domain ({SERVED_BY_FILE}), "
+        "so the Pages rollback copy is skipped and keeps the last tree it "
+        "accepted; a DNS rollback now serves that older tree.",
+        file=sys.stderr,
+        flush=True,
+    )
+    print("deploy=false", flush=True)
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover

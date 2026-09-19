@@ -27,12 +27,12 @@
 #      every pass, and an inventory comparison afterwards that fails if the
 #      bucket holds one key the checkout does not.
 #   2. Content-Type must be right, per kind. The site publishes .html, .png,
-#      .xml, .txt, .js (the Google Analytics loader, since 2026-09-17) and the
+#      .xml, .txt, .js (the Google Analytics loader, since 2026-09-17), .css
+#      (`homeroom.css`, from the first republish after #98) and the
 #      extensionless CNAME. The CLI guesses from the extension, which is right
 #      for most of those and gives CNAME `binary/octet-stream` -- a file a
-#      browser offers to download. Each kind
-#      is synced in its own pass with its type stated, and the types are read
-#      back from the bucket afterwards.
+#      browser offers to download. Each kind is synced in its own pass with its
+#      type stated, and the types are read back from the bucket afterwards.
 #   3. A republish must reach readers. CloudFront is invalidated on `/*`, which
 #      is one invalidation path and therefore free; naming the 23,310 paths
 #      individually would be $111 a publish.
@@ -142,7 +142,7 @@ jobs:
           # the one that decides how long a family can still be reading a page
           # this project has already corrected.
           CACHING: public, max-age=300, s-maxage=86400
-        # Seven passes, written out rather than looped. A shell `for` loop exits
+        # Eight passes, written out rather than looped. A shell `for` loop exits
         # with only its last iteration's status and would swallow a failed
         # upload in any earlier one -- the same reason `make secret-scan` keeps
         # its history pass and its working-tree pass as two separate targets.
@@ -150,7 +150,7 @@ jobs:
         # `--delete` is scoped by each pass's own filters, which apply to the
         # bucket listing as well as the local tree, so each pass removes the
         # objects of its own kind that the checkout no longer publishes. The
-        # seventh pass excludes all six kinds, which leaves it with nothing to
+        # eighth pass excludes all seven kinds, which leaves it with nothing to
         # upload and everything else to delete: that is what removes an object
         # of a kind this site does not publish, put there by hand or left by an
         # older layout.
@@ -175,8 +175,11 @@ jobs:
             --exclude '*' --include '*.js' \
             --content-type 'text/javascript; charset=utf-8' --cache-control "${CACHING}"
           aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
+            --exclude '*' --include '*.css' \
+            --content-type 'text/css; charset=utf-8' --cache-control "${CACHING}"
+          aws s3 sync site/ "s3://${BUCKET}/" --delete --only-show-errors \
             --exclude '*.html' --exclude '*.png' --exclude '*.xml' \
-            --exclude '*.txt' --exclude 'CNAME' --exclude '*.js'
+            --exclude '*.txt' --exclude 'CNAME' --exclude '*.js' --exclude '*.css'
 
       - name: The bucket holds exactly what the checkout publishes
         env:
@@ -227,6 +230,12 @@ jobs:
           expect CNAME 'text/plain; charset=utf-8'
           expect social-card.en.png 'image/png'
           expect analytics.js 'text/javascript; charset=utf-8'
+          # The shared stylesheet (#98) exists from the first republish after
+          # that change; until then the pages inline it and there is no .css
+          # object to read back.
+          if [ -f site/homeroom.css ]; then
+            expect homeroom.css 'text/css; charset=utf-8'
+          fi
 
       - name: Invalidate the distribution and wait for it
         env:

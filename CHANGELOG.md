@@ -8,6 +8,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The move to S3 + CloudFront, ready for the owner to run** (owner decision
+  2026-09-18, #82: "Move to S3 hosting"). The next `make publish` carries D5 and
+  weighs 1,060.9 MB -- the committed 877.2 MB plus 8,723 bytes on each of 21,068
+  school pages -- which GitHub Pages cannot take. Nothing is applied and no DNS
+  record is touched. `deploy/site/CUTOVER.md` is the owner's commands in order:
+  the us-east-1 certificate, a change-set plan and then an apply for each of the
+  template's two phases with the expected plan rows, the four `SITE_*` repository
+  variables that arm `site-publish.yml` (unset today, so it skips), the first
+  sync, verification on the `*.cloudfront.net` name with
+  `tools/verify_live_site.py --sample 0`, the Route 53 switch, and the rollback as
+  one record. Checked read-only first: the account already has the GitHub OIDC
+  provider (`CreateOidcProvider=false`), no stack or certificate exists, and
+  `validate-template` and `cfn-lint` accept the template. About $0.02-0.05 a month
+  plus $0.12 a full republish.
+
+  The switch that keeps Pages serving until DNS moves is one committed word,
+  `deploy/site/served-by` (`github-pages`), read by `make publish`,
+  `tests/test_published_limits.py` and `pages.yml` through
+  `homeroom.publish_limits`. While it says `github-pages` nothing changes. Once
+  the owner has moved DNS and flipped it to `cloudfront`, the 900 MB budget stops
+  applying (S3 has no total-size ceiling; the 100 MiB per-file limit still does,
+  because `site/` is committed), and `pages.yml` keeps the Pages rollback copy
+  current when the tree fits under 1 GB and skips it with a warning when it does
+  not. It fails instead if the word was flipped while the domain still resolves
+  to GitHub Pages. `site-publish.yml` gains a `.css` pass for #98's
+  `homeroom.css`, and `deploy/site/README.md` records the header comparison with
+  GitHub Pages as measured: no CSP on either, so the Google Analytics hosts stay
+  reachable.
+
 - **Nothing on the published site said where its code lives** (2026-09-18,
   DISCOVERY-AND-ADOPTION-STANDARD DISC-02). Measured on `origin/main`:
   `site/index.html` -- the page served at the root of homeroom.chelseakr.com, and

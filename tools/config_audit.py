@@ -96,8 +96,8 @@ REQUIRED_VARIABLES: dict[str, Requirement] = {
         purpose="the bucket site-publish.yml syncs the committed site/ tree into",
         when_unset="skips",
         how_to_set=(
-            "Set to the SiteBucketName output of the deploy/site stack. "
-            "deploy/site/README.md carries the deploy."
+            "Set to the BucketName output of the deploy/site stack. "
+            "deploy/site/CUTOVER.md step 3 carries the exact commands."
         ),
     ),
     "SITE_CLOUDFRONT_DISTRIBUTION_ID": Requirement(

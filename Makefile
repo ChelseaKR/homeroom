@@ -348,9 +348,17 @@ publish:
 # the committed tree to -- one module declares them, both read it -- so a tree
 # this refuses is a tree `make verify` would fail on, and neither can quietly
 # start using a different number from the other.
+#
+# Which ceiling applies follows `deploy/site/served-by`, the one committed word
+# saying which origin the domain points at (owner decision 2026-09-18, #82):
+# `github-pages` holds the tree to the 1 GB Pages ceiling as before, and
+# `cloudfront` holds it to no total size, because S3 has none. The file is read
+# here rather than passed by hand so `make publish` and the test suite cannot be
+# holding the same tree to two different ceilings.
 PUBLISH_TREE ?= $(PUBLISH_DIR)
+SERVED_BY := $(shell tr -d '[:space:]' < deploy/site/served-by)
 publish-limits:
-	uv run python -m homeroom.publish_limits $(PUBLISH_TREE)
+	uv run python -m homeroom.publish_limits $(PUBLISH_TREE) --served-by $(SERVED_BY)
 
 # ----------------------------------------------------------------------------
 # The gates that used to live only in CI.
