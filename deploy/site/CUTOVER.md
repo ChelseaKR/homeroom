@@ -269,7 +269,11 @@ gh pr create --repo "$REPO" --fill
 ```
 
 Merge it when ci is green. Then the D5 republish, which `make publish` now
-holds to no total-size ceiling:
+holds to no total-size ceiling -- but **not before #131 is fixed**: D5's FTE
+counts currently print at one decimal where the CDE file carries two, so a
+republish made today would put wrong numbers on 20,844 cells (25.9%) and
+print 0.0 for 184 cells that reported a non-zero figure. Fix #131 first,
+then:
 
 ```sh
 ASK_ENDPOINT=$(aws cloudformation describe-stacks --stack-name homeroom-ask \
