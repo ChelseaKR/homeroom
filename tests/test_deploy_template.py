@@ -192,6 +192,22 @@ def test_the_relay_role_is_not_created_without_a_repository_to_trust() -> None:
     assert 'Default: ""' in block.split("\n\n")[0]
 
 
+def test_every_documented_deploy_grants_named_iam() -> None:
+    """A named IAM role needs CAPABILITY_NAMED_IAM, or the deploy is refused.
+
+    AlarmRelayRole sets `RoleName`, and CloudFormation rejects a named IAM
+    resource under `CAPABILITY_IAM` with `InsufficientCapabilities`. Until
+    2026-10-01 both documented deploy commands passed `CAPABILITY_IAM`, so the
+    one owner step that switches the ask alarm relay on would have failed.
+    """
+    readme = (ROOT / "deploy" / "ask" / "README.md").read_text(encoding="utf-8")
+    body = TEMPLATE.read_text(encoding="utf-8")
+    assert "RoleName:" in uncommented(resource("AlarmRelayRole"))
+    for name, text in (("README.md", readme), ("template.yaml", body)):
+        assert "--capabilities CAPABILITY_IAM" not in text, name
+        assert "--capabilities CAPABILITY_NAMED_IAM" in text, name
+
+
 def test_the_logs_expire() -> None:
     assert "RetentionInDays:" in resource("LogGroup")
 
