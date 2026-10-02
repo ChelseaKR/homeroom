@@ -66,6 +66,7 @@ from homeroom.render import (
     ENROLLMENT_URL,
     LIGHT,
     OTHER_LOCALE,
+    PRINT_STYLE,
     STATE_COLORS,
     STYLESHEET,
     STYLESHEET_NAME,
@@ -487,7 +488,7 @@ def test_the_stylesheet_carries_every_rule_the_pages_used_to_inline(
     county list unstyled with nothing to notice it.
     """
     css = (built / STYLESHEET_NAME).read_text(encoding="utf-8")
-    assert css == STYLESHEET + BROWSE_STYLE + LANDING_STYLE
+    assert css == STYLESHEET + BROWSE_STYLE + LANDING_STYLE + PRINT_STYLE
     for selector in (".browse-list", ".crumb", ".langs", ".county-list"):
         assert selector in css, selector
 
@@ -1821,6 +1822,137 @@ def test_each_state_color_reads_differently_from_a_plain_number(
 
 def test_both_palettes_define_the_same_tokens() -> None:
     assert set(LIGHT) == set(DARK)
+
+
+# ----------------------------------------------------------------------------------
+# Print (#91): what survives a school page going to paper
+# ----------------------------------------------------------------------------------
+#
+# jsdom does no layout, so nothing here can say whether a page fits on a sheet;
+# that is a person with a real browser, recorded in
+# docs/accessibility-walkthrough.md. What a string can settle is settled here.
+
+HEX_COLOR = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+
+
+def print_block(css: str) -> str:
+    """The body of the stylesheet's one `@media print` block, braces matched."""
+    start = css.find("@media print")
+    assert start != -1, "the published stylesheet carries no print rules"
+    assert css.count("@media print") == 1, "more than one print block"
+    opening = css.index("{", start)
+    depth = 0
+    for index in range(opening, len(css)):
+        depth += {"{": 1, "}": -1}.get(css[index], 0)
+        if depth == 0:
+            return css[opening + 1 : index]
+    raise AssertionError("the print block never closes")
+
+
+def print_rules(css: str) -> list[tuple[str, str]]:
+    """The print block's innermost rules as (selector, declarations)."""
+    return [
+        (selector.strip(), body.strip())
+        for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", print_block(css))
+    ]
+
+
+def test_the_print_palette_meets_wcag_aa_on_paper() -> None:
+    """The contrast test, run a second time with the print rules applied."""
+    from homeroom import render
+
+    palette = render.PRINT
+    assert set(palette) == set(LIGHT)
+    for foreground in FOREGROUNDS:
+        for background in BACKGROUNDS:
+            ratio = contrast(palette[foreground], palette[background])
+            assert ratio >= 4.5, (foreground, background, round(ratio, 2))
+
+
+def test_the_print_rules_carry_no_color_only_signal(built: Path) -> None:
+    """Monochrome-safe, asserted over the stylesheet the build writes.
+
+    Every print token is a neutral gray, so a black-and-white printer loses
+    nothing a color printer keeps. The three state tokens are the ink itself:
+    on paper a withheld or unpublished cell is told apart by its words alone,
+    which is the rule (SC 1.4.1) the screen already keeps, not a new one.
+    """
+    from homeroom import render
+
+    for name, value in render.PRINT.items():
+        raw = value.lstrip("#")
+        assert len(raw) == 6 and raw[0:2] == raw[2:4] == raw[4:6], (name, value)
+    for token in STATE_COLORS:
+        assert render.PRINT[token] == render.PRINT["ink"], token
+
+    css = (built / STYLESHEET_NAME).read_text(encoding="utf-8")
+    block = print_block(css)
+    assert css.index("@media print") > css.index("prefers-color-scheme: dark"), (
+        "the print block has to come after the dark palette to override it"
+    )
+    assert set(HEX_COLOR.findall(block)) <= set(render.PRINT.values())
+    for smell in ("rgb(", "hsl(", "color-mix(", "filter:"):
+        assert smell not in block, smell
+
+
+def test_print_hides_only_page_chrome_and_writes_no_cell_text(built: Path) -> None:
+    """What may vanish on paper, and what may be added there, both pinned.
+
+    The language switcher, the ask link and the skip link are chrome: on a
+    sheet they are links nobody can follow. Nothing else may be hidden, and no
+    rule may generate text except the source link's own address, so a cell's
+    printed words are exactly its screen words.
+    """
+    from homeroom import render
+
+    css = (built / STYLESHEET_NAME).read_text(encoding="utf-8")
+    rules = print_rules(css)
+    assert rules, "the print block has no rules"
+    hidden = {
+        part.strip()
+        for selector, body in rules
+        if "display: none" in body
+        for part in selector.split(",")
+    }
+    # Pinned here rather than read back from `PRINT_HIDDEN`, so widening the
+    # list to a cell or a section fails this test instead of moving it.
+    assert hidden == {".skip-link", ".site nav", ".ask"}, hidden
+    assert set(render.PRINT_HIDDEN) == hidden
+    for selector, body in rules:
+        if "content:" in body:
+            assert selector == ".sources a[href]::after", selector
+        for smell in ("visibility", "opacity", "font-size: 0", "transparent"):
+            assert smell not in body, (selector, smell)
+
+    for locale in LOCALES:
+        markup = page(built, EXAMPLE, locale).read_text(encoding="utf-8")
+        for chrome in (
+            re.search(r"<nav\b.*?</nav>", markup, re.S),
+            re.search(r'<p class="ask">.*?</p>', markup, re.S),
+            re.search(r'<a class="skip-link".*?</a>', markup, re.S),
+        ):
+            if chrome is not None:
+                assert "<td" not in chrome.group(0), (locale, chrome.group(0))
+
+
+def test_a_withheld_cell_prints_its_words_and_no_digit(built: Path) -> None:
+    """The issue's own line: a withheld cell prints the words, never a dash.
+
+    The print rules hide no cell and generate no cell text (asserted above), so
+    a cell's printed text is its markup text. Here that text is held to the
+    state's label in each language, with no digit and no dash standing in for
+    the figure.
+    """
+    print_block((built / STYLESHEET_NAME).read_text(encoding="utf-8"))
+    for locale in LOCALES:
+        label = text(locale, "state_withheld_label")
+        cells = cells_with(parse(page(built, CHARTER, locale)), "m-withheld")
+        assert cells, locale
+        for body in cells:
+            assert label in body, (locale, body)
+            assert not any(character.isdigit() for character in body), (locale, body)
+            for dash in ("-", chr(0x2013), chr(0x2014)):  # hyphen, en, em
+                assert dash not in body, (locale, body)
 
 
 # ----------------------------------------------------------------------------------

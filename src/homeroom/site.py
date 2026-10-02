@@ -69,6 +69,7 @@ from homeroom.render import (
     ASSIGNMENTS_URL,
     DIRECTORY_URL,
     ENROLLMENT_URL,
+    PRINT_STYLE,
     STYLESHEET,
     STYLESHEET_NAME,
     SiteCoverage,
@@ -132,13 +133,15 @@ def published_stylesheet() -> str:
     and no rule changes precedence. `BROWSE_STYLE` and `LANDING_STYLE` are
     class-scoped to elements only those page kinds carry, so a school page
     reading them is 297 bytes it never applies -- against 5,017 bytes a page
-    saved by not carrying the base sheet at all.
+    saved by not carrying the base sheet at all. `PRINT_STYLE` (#91) comes
+    last, after the dark palette, so paper gets the paper palette whatever
+    theme the screen was in.
 
     The ask pages are not here. They keep their stylesheet inline, and README's
     reason is theirs alone: `tools/ask-optin.mjs` asserts an ask page issues no
     request until a question is submitted, and a linked stylesheet is a request.
     """
-    return STYLESHEET + BROWSE_STYLE + LANDING_STYLE
+    return STYLESHEET + BROWSE_STYLE + LANDING_STYLE + PRINT_STYLE
 
 
 def _publish_stylesheet(out_dir: Path) -> Path:

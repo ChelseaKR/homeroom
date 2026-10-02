@@ -363,6 +363,24 @@ hardest thing on the site to get right.
    - Failure: the legend's wording and the cells' wording differ, so hearing a
      state in a table does not connect to the explanation.
 
+7. **Printed, in each language (#91).** Open the browser's print preview with
+   color off (black and white), then print one sheet if a printer is to hand.
+   The print rules hide only the language switcher, the ask link and the skip
+   link; they are tested as strings in `tests/test_pages.py`, and nothing there
+   can say how long the page is on paper, because jsdom does no layout.
+   - Pass: a withheld cell prints "withheld to protect privacy" / "retenido
+     para proteger la privacidad" and never a dash or a digit; the four states
+     are told apart in grayscale by their words; no table is cut off at the
+     right edge; the unofficial notice, the fixture notice where there is one,
+     the coverage line and each source with its access date and CDE address
+     are on paper. Record the number of sheets and the browser in the print
+     record below.
+   - Failure: any state reads only as a shade of gray, a table loses columns
+     off the edge of the sheet, a row splits across two sheets so a figure and
+     its state land apart, or a source prints with no address. More than one
+     sheet is not a failure on its own; it is the number the issue's
+     `print/<cds>.<locale>.html` fallback would have to be weighed against.
+
 ## Ask page
 
 `site/ask/57726786056246.en.html` and `site/ask/57726786056246.es.html`. The
@@ -451,6 +469,18 @@ and 1.4.10 at 320 CSS pixels and 400% zoom.
 | School page | Spanish (`es`) | UNMET | UNMET | UNMET | — | — | — |
 | Ask page | English (`en`) | UNMET | UNMET | UNMET | — | — | — |
 | Ask page | Spanish (`es`) | UNMET | UNMET | UNMET | — | — | — |
+
+## The print record
+
+Step 7 of the school page, kept apart from the record above because it is
+neither keyboard, screen reader nor reflow, and because its result is a
+measurement -- how many sheets -- as well as a pass or a failure. Nothing below
+has been printed.
+
+| Printed page | Language | Sheets | Monochrome | Browser | Date printed | Printed by | Findings |
+|---|---|---|---|---|---|---|---|
+| School page | English (`en`) | — | UNMET | — | — | — | — |
+| School page | Spanish (`es`) | — | UNMET | — | — | — | — |
 
 ## When the record is full
 

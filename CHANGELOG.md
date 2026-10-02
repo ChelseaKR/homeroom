@@ -8,6 +8,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A school page can be printed for a meeting** (#91). School-site council,
+  ELAC and IEP meetings happen on paper, so the shared `homeroom.css` now ends
+  in one `@media print` block: 876 bytes written once rather than once per
+  page, which is what #98 made possible. The page markup is unchanged.
+  On paper the language switcher, the ask link and the skip link are hidden,
+  tables stop scrolling and fit the sheet, rows do not split across sheets, and
+  each source prints its CDE address beside its access date. The paper palette
+  is grays only, and the three state colors are the ink itself, so a withheld
+  cell is told apart by its words ("withheld to protect privacy" / "retenido
+  para proteger la privacidad") and never by a hue the printer may not have.
+  `tests/test_pages.py` runs the contrast check a second time over that
+  palette, pins the hidden selectors to those three, refuses generated text
+  anywhere but the source address, and holds a withheld fixture cell to its
+  words with no digit and no dash. How many sheets a page takes is not tested
+  and cannot be in jsdom; it is step 7 of the school page in
+  `docs/accessibility-walkthrough.md`, with its own record, unprinted. The
+  ask pages keep their inline stylesheet and do not carry the print rules.
+  The served tree still inlines its stylesheet until the next `make publish`,
+  so the rules reach readers then and not before.
+
 - **The move to S3 + CloudFront, ready for the owner to run** (owner decision
   2026-09-18, #82: "Move to S3 hosting"). The next `make publish` carries D5 and
   weighs 1,060.9 MB -- the committed 877.2 MB plus 8,723 bytes on each of 21,068
