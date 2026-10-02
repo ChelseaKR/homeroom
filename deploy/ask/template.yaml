@@ -19,7 +19,7 @@
 #
 # The two phases, in order:
 #   aws cloudformation deploy --template-file deploy/ask/template.yaml \
-#     --stack-name homeroom-ask --capabilities CAPABILITY_IAM \
+#     --stack-name homeroom-ask --capabilities CAPABILITY_NAMED_IAM \
 #     --parameter-overrides DeployFunction=false SiteOrigin=https://<site> \
 #       Provider=bedrock Model=<model> BedrockModelArns=<arns>
 #   ./deploy/ask/build.sh                       -> dist/ask-lambda.zip (code + bundle + SDK)

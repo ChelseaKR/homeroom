@@ -139,7 +139,7 @@ aws s3 cp dist/ask-lambda.zip \
   s3://homeroom-ask-code-014248889144/ask/$(git rev-parse --short HEAD).zip \
   --region us-west-2
 aws cloudformation deploy --template-file deploy/ask/template.yaml \
-  --stack-name homeroom-ask --region us-west-2 --capabilities CAPABILITY_IAM \
+  --stack-name homeroom-ask --region us-west-2 --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides file://params.json               # see the trap above
 ```
 
@@ -189,6 +189,12 @@ S3 and read one school per request -- a small change to
      ```json
      { "ParameterKey": "AlarmRelayRepository", "ParameterValue": "ChelseaKR/homeroom" }
      ```
+
+     Redeploy with `--capabilities CAPABILITY_NAMED_IAM`, as the command
+     above now does. The role has a fixed name (`homeroom-ask-alarm-relay`),
+     and CloudFormation refuses a named IAM resource under `CAPABILITY_IAM`
+     with `InsufficientCapabilities`, so the command this README carried until
+     2026-10-01 would have stopped at this step.
 
      That creates `AlarmRelayRole` -- a role whose entire policy is
      `cloudwatch:DescribeAlarms` and `sns:GetTopicAttributes`, assumable only

@@ -87,7 +87,8 @@ REQUIRED_VARIABLES: dict[str, Requirement] = {
         how_to_set=(
             'Add {"ParameterKey": "AlarmRelayRepository", "ParameterValue": '
             '"ChelseaKR/homeroom"} to the gitignored deploy/ask/params.json and '
-            "redeploy deploy/ask/template.yaml, which creates AlarmRelayRole; then "
+            "redeploy deploy/ask/template.yaml with --capabilities "
+            "CAPABILITY_NAMED_IAM, which creates AlarmRelayRole; then "
             "set this variable to the stack's AlarmRelayRoleArn output. "
             "deploy/ask/README.md, 'Still open', carries both steps."
         ),
