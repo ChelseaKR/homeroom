@@ -134,6 +134,25 @@ DARK: dict[str, str] = {
 }
 """The dark palette. Same token names, so no rule needs to know the theme."""
 
+PRINT: dict[str, str] = {
+    "surface": "#ffffff",
+    "raised": "#ffffff",
+    "note": "#ffffff",
+    "rule": "#999999",
+    "rule-strong": "#000000",
+    "ink": "#000000",
+    "ink-2": "#333333",
+    "ink-3": "#444444",
+    "accent": "#000000",
+    "zero": "#000000",
+    "withheld": "#000000",
+    "nothing": "#000000",
+}
+"""The paper palette (#91): neutral grays only, so a black-and-white printer
+loses nothing. The state tokens are the ink itself, so on a sheet the four cell
+states are told apart by their words alone -- which they already are on screen
+(SC 1.4.1) -- and never by a hue the printer may not have."""
+
 STATE_COLORS: tuple[str, ...] = ("zero", "withheld", "nothing")
 """The tokens that carry a measure state. Color is never the only signal: each
 state also carries its own words, so a reader who cannot see the difference still
@@ -243,6 +262,46 @@ footer p { color: var(--ink-2); font-size: .92rem; }
 }
 """
 )
+
+PRINT_HIDDEN: tuple[str, ...] = (".skip-link", ".site nav", ".ask")
+"""Page chrome that is a link nobody can follow on paper: the skip link, the
+language switcher and the ask link. Nothing else is hidden in print; a test
+holds the print block to exactly this list."""
+
+PRINT_STYLE = (
+    f"""
+@media print {{
+  :root {{
+    color-scheme: light;
+{tokens(PRINT, indent="    ")}  }}
+  {", ".join(PRINT_HIDDEN)} {{ display: none; }}
+"""
+    + """  body { font-size: 10.5pt; line-height: 1.35; }
+  .wrap { max-width: none; padding: 0; }
+  h1 { font-size: 18pt; }
+  h2 { margin-top: 1.2rem; padding-top: .6rem; break-after: avoid; }
+  .eyebrow { margin-top: 0; }
+  .scroll { overflow: visible; }
+  table { min-width: 0; }
+  tr, .note, .identity, .states, .sources dd { break-inside: avoid; }
+  a { text-decoration: none; }
+  .sources a[href]::after { content: " (" attr(href) ")"; word-break: break-all; }
+  main, footer { padding-bottom: 0; }
+}
+"""
+)
+"""Print rules (#91), shipped in the shared stylesheet and nowhere else.
+
+They are appended last, after the dark palette, so the paper palette wins over
+whichever theme the reader's screen was in. No script and no page bytes: since
+#98 the school pages link `homeroom.css`, so these cost their own length once,
+not once per page. The ask pages keep their stylesheet inline and do not carry
+them; printing the ask page is out of scope.
+
+What a string cannot settle is whether a page fits on a sheet: jsdom does no
+layout. That is measured by a person in a real browser and recorded in
+`docs/accessibility-walkthrough.md`.
+"""
 
 #: The one stylesheet the published tree carries, at the root of the site.
 #:
