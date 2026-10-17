@@ -414,12 +414,13 @@ keeps the founding rule intact:
   cost-bounded shape in `deploy/ask/` is applied: one Lambda behind a Function
   URL in `us-west-2`, CORS and a server-side origin check locked to
   `https://homeroom.chelseakr.com`, reserved concurrency 2, a daily cap of 400
-  model calls per warm container, six requests per client per minute, and a
-  CloudWatch alarm at 400 daily invocations to an SNS topic in the same stack.
-  The cap is per container, not a shared ledger (`deploy/ask/template.yaml`
-  `DailyCap`), so with reserved concurrency 2 the worst case is two containers
-  each spending it; reserved concurrency is the bound that actually holds, and
-  RR-09 carries this as an open item. The deployed model
+  model calls, six requests per client per minute, and a CloudWatch alarm at
+  400 daily invocations to an SNS topic in the same stack. The live stack
+  counts that cap in each container's memory, and a recycled container starts
+  again at zero, so it is not a ceiling. The template now counts it in one
+  shared DynamoDB item per UTC day with a conditional update, refusing if the
+  counter cannot be reached (`deploy/ask/README.md`, "The daily cap"); it
+  holds once the owner redeploys, and RR-09 carries it until then. The deployed model
   is Bedrock `global.anthropic.claude-sonnet-4-6` -- the model the recorded
   evaluations name and the only Claude this account can invoke. `make site`
   still renders no ask page and no link until it is given an endpoint, so a

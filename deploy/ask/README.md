@@ -21,6 +21,12 @@ Parameters as applied: `DeployFunction=true`, `SiteOrigin=https://homeroom.chels
 `DailyInvocationAlarm=400`, and `BedrockModelArns` set to exactly the
 inference-profile ARN and the two foundation-model ARNs it routes to.
 
+**The template is ahead of the live stack.** As of 2026-10-17 the template
+counts the daily cap in a shared DynamoDB table (`CapTable`) rather than in each
+container's memory. The stack applied on 2026-08-22 still runs the in-memory
+cap until a person redeploys it; see [The daily cap](#the-daily-cap) for what
+changed and [Re-deploying](#re-deploying-by-a-person) for the steps.
+
 ## Rolling it back
 
 Two steps, in this order, so no page is ever left pointing at a service that is
@@ -58,25 +64,59 @@ One AWS Lambda function (Python 3.12, arm64, 512 MB, 40 s) behind a Lambda
 Function URL, `AuthType: NONE`, with CORS allowing exactly one origin (the
 site's) and one method (POST). The function runs `homeroom.ask.http.lambda_handler`,
 which is the same code the local server runs. The evidence bundle and the
-corpus ship inside the package; no database, no storage, no account.
+corpus ship inside the package; no storage and no account. The one table,
+`CapTable`, holds a count per day and nothing a reader sent.
 
 Cost is bounded three ways, because one is not enough:
 
 1. **Reserved concurrency** (default 2): at most two questions in flight
-   across the whole function. This is the bound that actually holds under
-   abuse; everything below is per container.
-2. **The service's own limits**: six requests per client per minute and a
-   daily cap of 400 model calls (two per answered question) per warm
-   container, both from the environment. A refused request costs nothing and
-   returns a fixed string; the page is complete without it.
+   across the whole function.
+2. **The service's own limits**: six requests per client per minute (per
+   container, in memory) and a daily cap of `DailyCap` model calls (two per
+   answered question) across the whole function, counted in `CapTable`. A
+   refused request costs nothing and returns a fixed string; the page is
+   complete without it.
 3. **A CloudWatch alarm** on daily invocations, to an SNS topic if one is
    given. Pair it with an AWS Budgets alert on the account; budgets are
    account-level and not in this template.
 
-The in-memory daily cap is per container, which is honest about what it is: a
-bound on what one running copy spends, not a ledger. With reserved concurrency
-2 the worst case is two containers each spending their cap. A shared counter
-(DynamoDB, one item, conditional increment) is the upgrade if that matters.
+### The daily cap
+
+Until 2026-10-17 the cap was counted in each container's memory. That was
+described here as "two containers each spending their cap" at reserved
+concurrency 2, and it was weaker than that: Lambda recycles execution
+environments, and a fresh one starts its count at zero, so a day could see any
+number of caps spent one after another. It was no ceiling.
+
+The template now gives the function one DynamoDB table, `CapTable`, with one
+item per UTC day: `{"day": "YYYY-MM-DD", "calls": N, "expires_at": <epoch>}`.
+Before any model call the service makes one `UpdateItem` that adds the calls it
+needs **only if** the day's total stays within `DailyCap`
+(`attribute_not_exists(calls) OR calls <= DailyCap - n`). DynamoDB applies the
+condition and the add atomically, so two containers reserving at once cannot
+both take the last calls, and a recycled container reads the same total as the
+one before it. Calls reserved and not made (a provider error, a question that
+needed only the first call) are given back with a second conditional
+`UpdateItem` that never takes the count below zero.
+
+- **Fail closed.** If the table cannot be reached -- throttled, denied,
+  missing, timed out (two seconds, two attempts) -- the service makes no model
+  call and returns its fixed "not available" string. A failed give-back leaves
+  the calls counted, which only ever errs toward spending less.
+- **Least privilege.** The role may `dynamodb:UpdateItem` on `CapTable`'s ARN
+  and nothing else; the condition is the read, so there is no `GetItem`.
+- **On-demand billing, TTL on.** A few hundred writes a day is cents a year.
+  TTL deletes each day's item two days after the day ends; the key is the
+  date, so a late deletion changes nothing.
+- **What it holds.** A date, a count, an expiry time. No question, no address,
+  no hash of either. The privacy section below is unchanged by it.
+- **Locally**, without `HOMEROOM_ASK_CAP_TABLE`, the service counts in memory
+  as before; the evaluation harness does too.
+
+The symptom of a broken counter is the same as the `BedrockModelArns` trap
+below: every question returns `unavailable` with `model_calls: 0`. Check the
+role's `daily-cap-counter` policy and the function's `HOMEROOM_ASK_CAP_TABLE`
+before anything else.
 
 ## Provider and credentials
 
@@ -142,6 +182,25 @@ aws cloudformation deploy --template-file deploy/ask/template.yaml \
   --stack-name homeroom-ask --region us-west-2 --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides file://params.json               # see the trap above
 ```
+
+The first redeploy after 2026-10-17 also creates `CapTable`, grants the role
+`UpdateItem` on it and sets `HOMEROOM_ASK_CAP_TABLE`, all in the same stack
+update as the new code, so there is no moment when the new code runs without
+its table. No new parameter is needed. Then check the counter is counting, with
+the operator's own credentials (the function's role cannot read it):
+
+```sh
+TABLE=$(aws cloudformation describe-stacks --stack-name homeroom-ask --region us-west-2 \
+  --query "Stacks[0].Outputs[?OutputKey=='CapTableName'].OutputValue" --output text)
+# ask one question on the live ask page, then:
+aws dynamodb get-item --table-name "$TABLE" --region us-west-2 \
+  --key "{\"day\":{\"S\":\"$(date -u +%F)\"}}"
+# expect "calls": {"N": "2"} (or 1 for a refusal the model classified)
+```
+
+An `unavailable` answer with no item written means the counter is not
+reachable; see [The daily cap](#the-daily-cap). Rolling back to the previous
+`CodeKey` is safe: older code ignores the table, which stays and costs nothing.
 
 Then re-publish the site so the pages and the service agree:
 
@@ -214,9 +273,9 @@ S3 and read one school per request -- a small change to
   measured token counts (roughly 1.5k uncached input, 7.8k cached, 500 output
   per answered question), 400 calls a day is on the order of a dollar a day;
   reserved concurrency 2 is the bound that actually holds under abuse.
-- **The daily cap is per warm container**, not a shared ledger, so the worst
-  case is two containers each spending it. A DynamoDB item with a conditional
-  increment is the upgrade if that ever matters.
+- **The shared daily cap is in the template and not yet applied.** Until the
+  owner redeploys, the live function still counts its cap per container, which
+  is no ceiling (see [The daily cap](#the-daily-cap)).
 - **A person reading a sample of real answers in each language** (RR-07,
   RR-08). The evaluations are automated scorers; nobody has read the Spanish
   narration as a Spanish speaker.

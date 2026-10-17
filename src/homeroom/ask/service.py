@@ -4,7 +4,9 @@ The pipeline, in order, with where each request can stop:
 
 1. Validate the request (locale, CDS shape, question length). Malformed stops.
 2. Rate limit per client and reserve two model calls from the daily cap.
-   Refused stops, with a fixed string; the page is complete without it.
+   Refused stops, with a fixed string; the page is complete without it. A cap
+   that cannot be read (the shared counter is unreachable) also stops: no
+   model call is made on a budget nobody can see.
 3. Load the school's evidence. An unknown CDS stops with a fixed refusal and
    no model call.
 4. Ask the model to structure the question (call one). Run the lexical
@@ -16,7 +18,8 @@ The pipeline, in order, with where each request can stop:
 7. Verify every claim. Withhold and count the failures. Return the rest.
 
 Nothing here writes a question anywhere: no log, no file, no cache. The only
-thing that persists between requests is the rate-limit bucket and the cap.
+things that persist between requests are the rate-limit bucket and the cap's
+count of model calls, which is a number per UTC day and nothing else.
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ from pathlib import Path
 
 from homeroom.ask.corpus import Corpus
 from homeroom.ask.evidence import SchoolEvidence, load_school
-from homeroom.ask.limits import DailyCap, RateLimiter
+from homeroom.ask.limits import Cap, CapUnavailable, DailyCap, RateLimiter
 from homeroom.ask.narration import (
     NARRATE_TOOL,
     PROMPT_VERSION,
@@ -139,13 +142,13 @@ class AskService:
         corpus: Corpus,
         provider: Provider | None,
         limiter: RateLimiter | None = None,
-        cap: DailyCap | None = None,
+        cap: Cap | None = None,
     ) -> None:
         self._root = bundle_root
         self._corpus = corpus
         self._provider = provider
         self._limiter = limiter or RateLimiter()
-        self._cap = cap or DailyCap()
+        self._cap: Cap = cap or DailyCap()
 
     @property
     def provenance(self) -> dict[str, object]:
@@ -212,7 +215,17 @@ class AskService:
                 refusal_key="ask_refusal_unavailable",
                 evidence=evidence,
             )
-        if not self._cap.reserve(2):
+        try:
+            reserved = self._cap.reserve(2)
+        except CapUnavailable:
+            return self._stop(
+                "unavailable",
+                "unavailable",
+                locale,
+                refusal_key="ask_refusal_unavailable",
+                evidence=evidence,
+            )
+        if not reserved:
             return self._stop(
                 "cap_reached",
                 "cap_reached",
@@ -249,6 +262,13 @@ class AskService:
                 evidence=evidence,
                 usage=usage,
             )
+
+    def _reserve_retry(self) -> bool:
+        """One more call for a retry, or none; an unreadable cap is a none."""
+        try:
+            return self._cap.reserve(1)
+        except CapUnavailable:
+            return False
 
     def _call(
         self, user: str, tool: dict[str, object], max_tokens: int, usage: dict[str, int]
@@ -326,7 +346,7 @@ class AskService:
         )
         raw_claims, model = self._call(user, NARRATE_TOOL, NARRATE_MAX_TOKENS, usage)
         claims = parse_claims(raw_claims)
-        if _all_malformed(claims) and self._cap.reserve(1):
+        if _all_malformed(claims) and self._reserve_retry():
             # The reply was not a claims list at all (a serialization slip, not
             # a content problem). One more try, paid for; then it stands.
             raw_claims, model = self._call(

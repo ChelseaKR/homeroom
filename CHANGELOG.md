@@ -350,6 +350,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The ask service's daily cap was no ceiling** (ADR 0003, "Cost is bounded
+  from the first commit"). `DailyCap=400` was counted in each Lambda
+  container's memory. The docs called the worst case two containers each
+  spending it; it was worse, because Lambda recycles execution environments
+  and a fresh one starts at zero. `homeroom.ask.limits.SharedDailyCap` counts
+  in one DynamoDB item per UTC day through an injectable `DayCounter`;
+  `DynamoDayCounter` adds the calls with one conditional `UpdateItem` that
+  refuses when the total would pass the cap, gives unused calls back with a
+  second that never goes below zero, and raises when the table cannot be
+  reached, which the service turns into its fixed "not available" answer with
+  no model call. `deploy/ask/template.yaml` adds `CapTable` (on-demand, TTL on
+  `expires_at`), grants the role `dynamodb:UpdateItem` on that table only, and
+  sets `HOMEROOM_ASK_CAP_TABLE`; without it (local use, the evaluation harness)
+  the in-memory cap is unchanged. boto3 is imported lazily, by name, from the
+  package `anthropic[bedrock]` already puts in the Lambda zip. The item holds
+  a date, a count and an expiry, nothing from a request.
+  `tests/test_ask_limits.py` runs it against a fake table that applies the same
+  conditions, including concurrent reservations from eight "containers" taking
+  exactly the cap. **Not applied:** the live stack counts per container until
+  the owner redeploys; `deploy/ask/README.md` has the steps and a check.
+
 - **The ask service's usage totals left out cache writes.** The provider adapter
   already read `cache_creation_input_tokens` into `ToolReply.cache_write_tokens`,
   and `AskService` summed only the cache reads, so the request that writes the

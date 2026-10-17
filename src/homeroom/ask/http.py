@@ -22,6 +22,10 @@ Configuration is from the environment only:
 ``HOMEROOM_ASK_MODEL``        model id (default ``claude-sonnet-5``; required for bedrock)
 ``HOMEROOM_ASK_ORIGIN``       the site origin allowed to call (CORS and an Origin check)
 ``HOMEROOM_ASK_DAILY_CAP``    model calls per UTC day (default 400)
+``HOMEROOM_ASK_CAP_TABLE``    DynamoDB table holding the shared daily count. Set,
+                              the cap is one ceiling across every running copy and
+                              refuses if the table cannot be reached; unset (local
+                              use), it is counted in this process's memory
 ``HOMEROOM_ASK_PER_MINUTE``   requests per client per minute (default 6)
 """
 
@@ -37,7 +41,13 @@ from pathlib import Path
 from typing import Any
 
 from homeroom.ask.corpus import load_corpus
-from homeroom.ask.limits import DailyCap, RateLimiter
+from homeroom.ask.limits import (
+    Cap,
+    DailyCap,
+    DynamoDayCounter,
+    RateLimiter,
+    SharedDailyCap,
+)
 from homeroom.ask.provider import Provider, provider_from_env
 from homeroom.ask.service import AskRequest, AskService
 
@@ -59,6 +69,20 @@ def client_key(address: str) -> str:
     return hashlib.sha256(_SALT + address.encode("utf-8")).hexdigest()[:32]
 
 
+def cap_from_env(env: dict[str, str]) -> Cap:
+    """The shared cap when a counter table is named, the in-memory one otherwise.
+
+    The deployed template always names the table. The in-memory cap is a bound
+    on one process only, and a recycled Lambda execution environment starts it
+    again at zero, so it is for local use and the evaluation harness.
+    """
+    limit = int(env.get("HOMEROOM_ASK_DAILY_CAP", "400"))
+    table = env.get("HOMEROOM_ASK_CAP_TABLE", "").strip()
+    if table:
+        return SharedDailyCap(limit=limit, counter=DynamoDayCounter(table))
+    return DailyCap(limit=limit)
+
+
 def service_from_env(
     environ: dict[str, str] | None = None, provider: Provider | None = None
 ) -> AskService:
@@ -78,7 +102,7 @@ def service_from_env(
         corpus=load_corpus(Path(corpus_root)) if corpus_root else load_corpus(),
         provider=provider if provider is not None else provider_from_env(env),
         limiter=RateLimiter(per_minute=float(env.get("HOMEROOM_ASK_PER_MINUTE", "6"))),
-        cap=DailyCap(limit=int(env.get("HOMEROOM_ASK_DAILY_CAP", "400"))),
+        cap=cap_from_env(env),
     )
 
 

@@ -6,9 +6,10 @@
 #
 # One Lambda function behind a Function URL, CORS and a server-side origin check
 # locked to the site's origin, cost bounded three ways: reserved concurrency (at
-# most N requests in flight), the service's own per-client rate limit and daily
-# cap (env below), and a CloudWatch alarm on daily invocations to an SNS topic
-# created here.
+# most N requests in flight), the service's own per-client rate limit and a
+# daily cap shared by every execution environment (one DynamoDB item per UTC
+# day, CapTable below), and a CloudWatch alarm on daily invocations to an SNS
+# topic created here.
 #
 # Deploying (by a person):
 #
@@ -68,7 +69,9 @@ Parameters:
   DailyCap:
     Type: Number
     Default: 400
-    Description: Model calls per UTC day, per warm container (two per answered question).
+    Description: >-
+      Model calls per UTC day across the whole function (two per answered
+      question), counted in CapTable. A ceiling, not a per-container budget.
   PerMinute:
     Type: Number
     Default: 6
@@ -167,6 +170,34 @@ Resources:
               - Effect: Allow
                 Action: sns:GetTopicAttributes
                 Resource: !Ref AlarmTopic
+  # The shared daily cap. One item per UTC day, {day, calls, expires_at}, and
+  # nothing else: no question, no address, no key derived from either. Every
+  # write is one conditional UpdateItem (homeroom.ask.limits.DynamoDayCounter)
+  # that adds the calls only if the day's total stays within DailyCap, which
+  # DynamoDB applies atomically, so the cap holds across every execution
+  # environment, recycled or concurrent. Until 2026-10-17 the cap was counted in
+  # each container's memory, and a fresh container started at zero, so it was no
+  # ceiling at all. If the table cannot be reached the service refuses: no model
+  # call is made on a budget nobody can read.
+  #
+  # On-demand billing: at most a few hundred writes a day, which is cents a
+  # year. TTL deletes a day's item two days after it ends; the key is the date,
+  # so a late deletion changes nothing.
+  CapTable:
+    Type: AWS::DynamoDB::Table
+    Condition: FunctionPhase
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: day
+          AttributeType: S
+      KeySchema:
+        - AttributeName: day
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
   Role:
     Type: AWS::IAM::Role
     Condition: FunctionPhase
@@ -187,6 +218,16 @@ Resources:
               - Effect: Allow
                 Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
                 Resource: !Ref BedrockModelArns
+        # UpdateItem on the one table, and nothing else. The conditional update
+        # is the read, so no GetItem; the function cannot scan, delete, or
+        # reach any other table.
+        - PolicyName: daily-cap-counter
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:UpdateItem
+                Resource: !GetAtt CapTable.Arn
 
   LogGroup:
     Type: AWS::Logs::LogGroup
@@ -223,6 +264,7 @@ Resources:
           HOMEROOM_ASK_MODEL: !Ref Model
           HOMEROOM_ASK_ORIGIN: !Ref SiteOrigin
           HOMEROOM_ASK_DAILY_CAP: !Ref DailyCap
+          HOMEROOM_ASK_CAP_TABLE: !Ref CapTable
           HOMEROOM_ASK_PER_MINUTE: !Ref PerMinute
           ANTHROPIC_API_KEY: !If [UsesAnthropic, !Ref ApiKey, !Ref AWS::NoValue]
 
@@ -321,6 +363,12 @@ Outputs:
     Description: >-
       Put this in the repository variable ASK_ALARM_RELAY_ROLE_ARN so
       .github/workflows/ask-alarm-relay.yml can read the alarm's state.
+  CapTableName:
+    Condition: FunctionPhase
+    Value: !Ref CapTable
+    Description: >-
+      The shared daily-cap counter. Read today's item to see what has been
+      spent: aws dynamodb get-item --key '{"day":{"S":"YYYY-MM-DD"}}'.
   FunctionUrl:
     Condition: FunctionPhase
     Value: !GetAtt Url.FunctionUrl
