@@ -348,6 +348,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   register is checked against that constraint, so a page the fetcher would
   refuse can never be registered as checkable.
 
+### Changed
+
+- **The ask layer has a spend envelope: $50 a month** (owner decision,
+  2026-10-17). `DailyCap` in `deploy/ask/template.yaml`, and
+  `homeroom.ask.limits.DEFAULT_DAILY_CAP`, default to 214 model calls a day:
+  at the published list rates and the usage the 157 recorded evaluation cases
+  measured, the average call costs about $0.0075, and 214 is the most a day
+  that keeps a 31-day month inside $50 ($49.86). `tests/test_ask_limits.py`
+  re-derives it from `evals/results/`. That is an average: the recorded runs
+  never counted cache writes, a call that writes the cached system prompt
+  costs about 2.8 times as much, and a month of cold-cache questions at the
+  same cap is about $141. `deploy/ask/README.md` ("The spend envelope") states
+  those worst cases and gives the owner the commands for an account-level AWS
+  Budget at $50/month as the dollar backstop; nothing here creates one. The
+  README records that widening the ask layer to more schools is no longer
+  blocked on budget grounds, because the cap is one daily ceiling however
+  many schools share it; it remains a separate change and is not in this one.
+  **Not applied:** the live stack still runs a per-container cap of 400, and
+  the applied `params.json` sets `DailyCap=400`, which overrides the new
+  default until the owner changes it at the redeploy.
+
 ### Fixed
 
 - **`deploy/ask/README.md` carried the AWS account id** in two ARNs and the

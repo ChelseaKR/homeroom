@@ -66,12 +66,19 @@ Parameters:
     Default: ""
     NoEcho: true
     Description: Anthropic API key, only when Provider=anthropic. Never committed anywhere.
+  # 214 is the owner's $50/month envelope (2026-10-17) at the measured average
+  # cost of a model call, about $0.0075: 214 x 31 days x $0.0075 = $49.86.
+  # Average, not worst case -- a call that writes the prompt cache instead of
+  # reading it costs about 2.8 times as much. README.md beside this file has
+  # the derivation and the AWS Budget that backstops it in dollars.
   DailyCap:
     Type: Number
-    Default: 400
+    Default: 214
+    MinValue: 0
     Description: >-
       Model calls per UTC day across the whole function (two per answered
-      question), counted in CapTable. A ceiling, not a per-container budget.
+      question, 1.8 per recorded evaluation case), counted in CapTable. A ceiling, not a per-container
+      budget. 214 holds the $50/month envelope at the measured average cost.
   PerMinute:
     Type: Number
     Default: 6
@@ -83,7 +90,9 @@ Parameters:
   DailyInvocationAlarm:
     Type: Number
     Default: 400
-    Description: Alarm when invocations in 24h exceed this (the daily cap).
+    Description: >-
+      Alarm when invocations in 24h exceed this. An abuse signal, not the cap:
+      invocations count preflights and refusals as well as model calls.
   AlarmRelayRepository:
     Type: String
     Default: ""

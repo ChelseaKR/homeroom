@@ -287,7 +287,14 @@ was a decision about which schools to put in front of families. Widening the ask
 layer is a different decision, about an approved spend envelope: the service
 calls a paid model per question, a CloudWatch alarm watches daily invocations
 against that envelope, and it is the one surface here that can be asked something
-nobody reviewed. That decision has not been made. The two halves cannot drift
+nobody reviewed. The envelope half of that decision was made on 2026-10-17: the
+owner set it at **$50 a month**, and the ask service's daily cap defaults to the
+214 model calls a day that hold it at the measured average cost
+(`deploy/ask/README.md`, "The spend envelope", with the worst cases and the
+account budget behind it). Because the cap is one daily ceiling for the whole
+function, more schools would share it rather than raise it, so widening is no
+longer blocked on budget grounds. It has not happened: which schools, and
+reading what a wider ask layer says, remain a separate change. The two halves cannot drift
 apart quietly, because a school page carrying an ask link with nothing behind it
 fails `test_no_published_link_points_at_a_page_that_was_not_published`.
 
@@ -425,8 +432,10 @@ keeps the founding rule intact:
   counts that cap in each container's memory, and a recycled container starts
   again at zero, so it is not a ceiling. The template now counts it in one
   shared DynamoDB item per UTC day with a conditional update, refusing if the
-  counter cannot be reached (`deploy/ask/README.md`, "The daily cap"); it
-  holds once the owner redeploys, and RR-09 carries it until then. The deployed model
+  counter cannot be reached (`deploy/ask/README.md`, "The daily cap"), and
+  defaults it to 214 calls, the owner's $50/month envelope of 2026-10-17 at
+  the measured average cost. Both hold once the owner redeploys, and RR-09
+  carries them until then. The deployed model
   is Bedrock `global.anthropic.claude-sonnet-4-6` -- the model the recorded
   evaluations name and the only Claude this account can invoke. `make site`
   still renders no ask page and no link until it is given an endpoint, so a

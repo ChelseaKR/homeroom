@@ -63,6 +63,19 @@ class RateLimiter:
         return True
 
 
+DEFAULT_DAILY_CAP = 214
+"""Model calls per UTC day that hold the owner's $50/month envelope (2026-10-17).
+
+At the configured model's published list rates and the token counts the 157
+recorded evaluation cases measured (``evals/results/``), the average model call
+costs about $0.0075, so $50 over a 31-day month is 214 calls a day ($49.86).
+That is an average, not a worst case: ``deploy/ask/README.md`` carries the
+derivation, the cold-cache and maximum-output figures, and the account budget
+that backstops it in dollars. ``deploy/ask/template.yaml`` ``DailyCap`` is the
+deployed value; this is the default for anything that does not set one.
+"""
+
+
 def utc_today() -> dt.date:
     return dt.datetime.now(dt.UTC).date()
 
@@ -94,7 +107,7 @@ class DailyCap:
     (structure, narrate), a refusal before the model costs none.
     """
 
-    limit: int = 400
+    limit: int = DEFAULT_DAILY_CAP
     today: Callable[[], dt.date] = utc_today
     _day: dt.date | None = None
     _used: int = 0
@@ -133,7 +146,8 @@ class DayCounter(Protocol):
         ...
 
     def subtract(self, day: dt.date, calls: int) -> None:
-        """Give back up to ``calls`` from ``day``'s count, never below zero."""
+        """Give back ``calls`` from ``day``'s count, or nothing if that would
+        take it below zero."""
         ...
 
 

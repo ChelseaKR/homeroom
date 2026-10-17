@@ -21,7 +21,7 @@ Configuration is from the environment only:
 ``HOMEROOM_ASK_PROVIDER``     ``anthropic`` | ``bedrock`` | unset (service answers "unavailable")
 ``HOMEROOM_ASK_MODEL``        model id (default ``claude-sonnet-5``; required for bedrock)
 ``HOMEROOM_ASK_ORIGIN``       the site origin allowed to call (CORS and an Origin check)
-``HOMEROOM_ASK_DAILY_CAP``    model calls per UTC day (default 400)
+``HOMEROOM_ASK_DAILY_CAP``    model calls per UTC day (default 214, the $50/month envelope)
 ``HOMEROOM_ASK_CAP_TABLE``    DynamoDB table holding the shared daily count. Set,
                               the cap is one ceiling across every running copy and
                               refuses if the table cannot be reached; unset (local
@@ -42,6 +42,7 @@ from typing import Any
 
 from homeroom.ask.corpus import load_corpus
 from homeroom.ask.limits import (
+    DEFAULT_DAILY_CAP,
     Cap,
     DailyCap,
     DynamoDayCounter,
@@ -76,7 +77,7 @@ def cap_from_env(env: dict[str, str]) -> Cap:
     on one process only, and a recycled Lambda execution environment starts it
     again at zero, so it is for local use and the evaluation harness.
     """
-    limit = int(env.get("HOMEROOM_ASK_DAILY_CAP", "400"))
+    limit = int(env.get("HOMEROOM_ASK_DAILY_CAP", str(DEFAULT_DAILY_CAP)))
     table = env.get("HOMEROOM_ASK_CAP_TABLE", "").strip()
     if table:
         return SharedDailyCap(limit=limit, counter=DynamoDayCounter(table))

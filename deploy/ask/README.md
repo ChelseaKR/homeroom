@@ -123,6 +123,80 @@ below: every question returns `unavailable` with `model_calls: 0`. Check the
 role's `daily-cap-counter` policy and the function's `HOMEROOM_ASK_CAP_TABLE`
 before anything else.
 
+## The spend envelope
+
+**$50 a month, the owner's decision of 2026-10-17.** `DailyCap` defaults to
+**214 model calls a day**, which holds it at the measured average cost:
+
+| | Per model call | 214 calls a day, 31-day month |
+|---|---|---|
+| Measured average (warm cache) | $0.0075 | **$49.86** |
+| Every call writes the cache instead of reading it | $0.0213 | about $141 |
+| Cold cache and every call at its `max_tokens` output | $0.0408 | about $271 |
+
+The measurement is the provider's own usage counts on all 157 recorded
+evaluation cases in `evals/results/global.anthropic.claude-sonnet-4-6/`
+(2026-08-22, real schools): 282 model calls, 1.80 a case, and per case on
+average 1,568 uncached input, 443 output and 7,152 cache-read tokens. The rates
+are the model's published list rates per million tokens -- $3 input, $15
+output, $0.30 cache read, $3.75 five-minute cache write -- and Bedrock's own
+pricing page is the one to re-read before relying on a total. 214 calls at
+$0.0075 is $1.61 a day, and times 31 days is the whole derivation;
+`tests/test_ask_limits.py` recomputes it from the committed results, so a
+cap that stops fitting the measurement fails the suite.
+
+**The average is not a ceiling in dollars**, and the measurement under it was
+incomplete: until 2026-10-17 the service did not count cache-write tokens at
+all (`CHANGELOG.md`), so the recorded runs show what a warm cache costs and
+say nothing about a cold one. The cached system prompt is about 3,980 tokens a
+call. A call that writes it instead of reading it costs about 2.8 times the
+average, so a month in which every call paid a fresh cache write spends about
+$141 at the same cap -- sparse questions come close to that, because the
+five-minute cache expires between them and only a question's second call can
+read what its first wrote -- and one in which every call also ran to its
+output limit (600 tokens to structure, 2,500 to narrate) about $271. The cap bounds
+calls, not dollars. The next live evaluation run records cache writes, and the
+cap should be re-derived from it.
+
+So the dollar bound is an **AWS Budget at $50/month**, set by the owner. It is
+account-level and alerts; it does not stop anything, which is the cap's job.
+Commands, not run from this repository:
+
+```sh
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+cat > budget.json <<'JSON'
+{"BudgetName": "homeroom-ask-50-month", "BudgetType": "COST", "TimeUnit": "MONTHLY",
+ "BudgetLimit": {"Amount": "50", "Unit": "USD"}}
+JSON
+cat > notify.json <<'JSON'
+[{"Notification": {"NotificationType": "ACTUAL", "ComparisonOperator": "GREATER_THAN",
+                   "Threshold": 80, "ThresholdType": "PERCENTAGE"},
+  "Subscribers": [{"SubscriptionType": "EMAIL", "Address": "<owner address>"}]},
+ {"Notification": {"NotificationType": "FORECASTED", "ComparisonOperator": "GREATER_THAN",
+                   "Threshold": 100, "ThresholdType": "PERCENTAGE"},
+  "Subscribers": [{"SubscriptionType": "EMAIL", "Address": "<owner address>"}]}]
+JSON
+aws budgets create-budget --account-id "$ACCOUNT" \
+  --budget file://budget.json --notifications-with-subscribers file://notify.json
+rm budget.json notify.json          # they name an address; keep them out of git
+```
+
+or the same in the console: Billing and Cost Management > Budgets > Create
+budget > monthly cost budget, $50, alerts at 80% actual and 100% forecasted.
+It is deliberately unfiltered. Claude on Bedrock can appear in billing under
+its own product name rather than as "Amazon Bedrock", so a service filter is
+easy to get wrong in the direction that never fires; an unfiltered budget
+counts the account's other spend too (the site origin is cents a month) and
+errs toward alerting early. AWS cost data lags by hours, so the alert is a
+same-day signal at best -- the cap is what holds within the day.
+
+Raising the envelope, or changing the model, means re-deriving `DailyCap`
+from a new measurement, and is a fresh owner decision (`AGENTS.md`). Widening
+the ask layer to more schools does not move the cap, which is per day for the
+whole function however many schools share it, so budget no longer blocks it;
+which schools, and reviewing what a wider layer says, are still a separate
+change.
+
 ## Provider and credentials
 
 `Provider=bedrock` is the keyless path and is what is deployed: the function's
@@ -193,7 +267,11 @@ aws cloudformation deploy --template-file deploy/ask/template.yaml \
 The first redeploy after 2026-10-17 also creates `CapTable`, grants the role
 `UpdateItem` on it and sets `HOMEROOM_ASK_CAP_TABLE`, all in the same stack
 update as the new code, so there is no moment when the new code runs without
-its table. No new parameter is needed. Then check the counter is counting, with
+its table. No new parameter is needed, but one has to change: the applied
+`params.json` sets `DailyCap` to 400, and a value there overrides the
+template's new default. Set it to `214` (or delete the entry) before this
+deploy, or the shared cap holds 400 calls a day -- a real ceiling, at about
+$93 a month at the measured average rather than $50. Then check the counter is counting, with
 the operator's own credentials (the function's role cannot read it):
 
 ```sh
@@ -275,14 +353,14 @@ S3 and read one school per request -- a small change to
 
   No GitHub token grant is needed. The workflow files the issue with the
   built-in `GITHUB_TOKEN` under `issues: write`.
-- **No account budget.** Budgets are account-level and touch other projects, so
-  this stack does not create one. At Bedrock Sonnet 4.6 list prices and the
-  measured token counts (roughly 1.5k uncached input, 7.8k cached, 500 output
-  per answered question), 400 calls a day is on the order of a dollar a day;
-  reserved concurrency 2 is the bound that actually holds under abuse.
-- **The shared daily cap is in the template and not yet applied.** Until the
-  owner redeploys, the live function still counts its cap per container, which
-  is no ceiling (see [The daily cap](#the-daily-cap)).
+- **No account budget yet.** The $50/month backstop in
+  [The spend envelope](#the-spend-envelope) is the owner's to create; budgets
+  are account-level and touch other projects, so this stack does not create
+  one.
+- **The shared daily cap, and its $50/month default, are in the template and
+  not yet applied.** Until the owner redeploys, the live function still counts
+  a cap of 400 per container, which is no ceiling (see
+  [The daily cap](#the-daily-cap)).
 - **A person reading a sample of real answers in each language** (RR-07,
   RR-08). The evaluations are automated scorers; nobody has read the Spanish
   narration as a Spanish speaker.

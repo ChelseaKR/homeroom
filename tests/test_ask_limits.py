@@ -10,6 +10,7 @@ conditions the real one does; nothing reaches the network.
 from __future__ import annotations
 
 import datetime as dt
+import json
 import threading
 import types
 from pathlib import Path
@@ -20,6 +21,7 @@ import pytest
 from homeroom.ask import http as ask_http
 from homeroom.ask.corpus import Corpus
 from homeroom.ask.limits import (
+    DEFAULT_DAILY_CAP,
     CapUnavailable,
     DailyCap,
     DynamoDayCounter,
@@ -315,7 +317,7 @@ def test_the_environment_chooses_the_shared_cap_when_a_table_is_named(
     assert cap.counter.client is None  # nothing is contacted until a reservation
     local = ask_http.cap_from_env({"HOMEROOM_ASK_CAP_TABLE": "  "})
     assert isinstance(local, DailyCap)
-    assert local.limit == 400
+    assert local.limit == DEFAULT_DAILY_CAP
 
 
 def structure_measures(_: str) -> dict[str, object]:
@@ -407,3 +409,80 @@ def test_a_retry_is_skipped_when_the_cap_becomes_unreadable(
     assert response.claims == ()
     assert attempts["n"] == 1
     assert response.usage["model_calls"] == 2
+
+
+# The owner's spend envelope for the ask layer (owner decision, 2026-10-17).
+ENVELOPE_DOLLARS_PER_MONTH = 50.0
+LONGEST_MONTH_DAYS = 31
+# Published list rates, dollars per million tokens, for the model the recorded
+# evaluations ran on and the stack deploys (Bedrock global inference profile).
+# Re-read the Bedrock pricing page before relying on them; a model change means
+# new rates and a new measurement, and this test then has to be re-derived.
+RATES = {
+    "input_tokens": 3.00,
+    "output_tokens": 15.00,
+    "cache_read_tokens": 0.30,
+    "cache_write_tokens": 3.75,
+}
+RESULTS = (
+    Path(__file__).resolve().parent.parent
+    / "evals"
+    / "results"
+    / "global.anthropic.claude-sonnet-4-6"
+)
+
+
+def _recorded_usage() -> list[dict[str, int]]:
+    rows = []
+    for path in sorted(RESULTS.glob("*.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        rows.extend(case["usage"] for case in data["cases"])
+    return rows
+
+
+def test_the_default_cap_holds_the_envelope_at_the_measured_average() -> None:
+    """214 calls a day is derived from committed measurements, not typed in.
+
+    Every recorded evaluation case carries the provider's own usage counts. At
+    the published rates their average model call costs about $0.0075, and the
+    cap is the most calls a day that keep a 31-day month inside $50.
+    """
+    rows = _recorded_usage()
+    assert len(rows) == 157
+    calls = sum(row["model_calls"] for row in rows)
+    dollars = sum(
+        row.get(kind, 0) * rate / 1_000_000
+        for row in rows
+        for kind, rate in RATES.items()
+    )
+    per_call = dollars / calls
+    month = DEFAULT_DAILY_CAP * LONGEST_MONTH_DAYS * per_call
+    assert month <= ENVELOPE_DOLLARS_PER_MONTH
+    one_more = (DEFAULT_DAILY_CAP + 1) * LONGEST_MONTH_DAYS * per_call
+    assert one_more > ENVELOPE_DOLLARS_PER_MONTH, "the cap leaves envelope unused"
+    template = (
+        Path(__file__).resolve().parent.parent / "deploy" / "ask" / "template.yaml"
+    ).read_text(encoding="utf-8")
+    block = template.split("  DailyCap:\n", 1)[1].split("\n  PerMinute:", 1)[0]
+    assert f"Default: {DEFAULT_DAILY_CAP}\n" in block
+
+
+def test_a_cold_cache_is_the_worst_case_the_readme_states() -> None:
+    """Average is not worst case. If every call wrote the prompt cache instead of
+    reading it, the same cap would spend about 2.8 times the average; the deploy
+    README says so and puts an account budget behind the cap for that reason."""
+    rows = _recorded_usage()
+    calls = sum(row["model_calls"] for row in rows)
+    warm = sum(row.get(kind, 0) * rate for row in rows for kind, rate in RATES.items())
+    cold = warm + sum(
+        row.get("cache_read_tokens", 0)
+        * (RATES["cache_write_tokens"] - RATES["cache_read_tokens"])
+        for row in rows
+    )
+    assert round(cold / warm, 1) == 2.8
+    cold_month = DEFAULT_DAILY_CAP * LONGEST_MONTH_DAYS * cold / 1_000_000 / calls
+    assert round(cold_month) == 141
+    readme = (
+        Path(__file__).resolve().parent.parent / "deploy" / "ask" / "README.md"
+    ).read_text(encoding="utf-8")
+    assert "about $141" in readme
