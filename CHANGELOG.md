@@ -1249,6 +1249,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The repository takes no money, on purpose.** A committed `.github/FUNDING.yml` with every
+  key empty overrides the account-wide Ko-fi default, which this repository had inherited
+  without any document saying so (owner decision 2026-10-17).
+
 - **The live sentinel compares a spine every run and rotates through the school
   pages** (2026-09-05). `tools/verify_live_site.py` fetched every published file,
   which was eight of them. Publishing all 10,534 schools made it 21,076, so the
