@@ -350,6 +350,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The README's Pages size figure was a month old.** It said `site/` was at
+  86.8% of GitHub Pages' 1 GB; `make publish-limits` over the committed tree
+  reports 877.2 MB across 23,311 files, 87.7%, with 22.8 MB left under the 90%
+  budget (2026-10-17). The three places that state it now give that figure, say
+  which command produced it, and keep the earlier one as history.
+
 - **The ask service's daily cap was no ceiling** (ADR 0003, "Cost is bounded
   from the first commit"). `DailyCap=400` was counted in each Lambda
   container's memory. The docs called the worst case two containers each

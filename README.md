@@ -147,7 +147,8 @@ never reaches a runner, so the real dataset is built on the machine that acquire
 files. Uploading it to a release is a step the owner takes.
 
 None of this touches `site/`. The dataset travels in a release, not on Pages, which is
-why it can be built while the published tree is at 86.8% of its 1 GB ceiling.
+why it can be built while the published tree is at 87.7% of its 1 GB ceiling
+(`make publish-limits`, 2026-10-17).
 
 ## Status
 
@@ -305,12 +306,17 @@ and `tests/test_published_site.py` gates them in `make verify` on a machine with
 no acquired file present.
 
 Publishing every school put a number on that trade, and then the number started
-making decisions. `site/` is 867.6 MB across 23,310 files, against the 1 GB
-GitHub Pages allows a published site — 86.8% of the cap, from 212 KB the same
-morning — and it packs to about 46 MB in git because the pages differ from each
-other in so few bytes. This paragraph said 836 MB across 21,076 files until
-2026-09-05, which was the tree before the same day's 2,234 county and district
-pages went on top of it.
+making decisions. `site/` is 877.2 MB across 23,311 files, against the 1 GB
+GitHub Pages allows a published site — 87.7% of the cap, as
+`make publish-limits` (`homeroom.publish_limits`, the same measurement
+`make publish` and `tests/test_published_limits.py` use) reported it on
+2026-10-17. It was 867.6 MB across 23,310 files, 86.8%, when every school first
+went on, from 212 KB the same morning, and it packed to about 46 MB in git
+because the pages differ from each other in so few bytes. This paragraph said
+836 MB across 21,076 files until 2026-09-05, which was the tree before the same
+day's 2,234 county and district pages went on top of it, and 86.8% until
+2026-10-17, after the tree had grown to 877.2 MB. Re-run `make publish-limits`
+rather than trusting this figure.
 
 What the cap is now deciding, measured rather than estimated. Publishing D5 on
 the school pages, decided in ADR 0005 and not yet republished, is 8,723 bytes a
@@ -359,8 +365,8 @@ That limit is written down for a build to read, in
 `sitemap.xml` against the sitemap protocol's 50,000 URLs and 50 MB, and any
 single file against the 100 MB Pages will serve. Each fails at 90% of its limit
 rather than at it, so a tree that trips one is still a tree Pages will serve
-while it is sorted out — at 86.8% of the ceiling, the site has about 32 MB of
-that budget left, which is less than one new section on every page, as the D5
+while it is sorted out — at 87.7% of the ceiling, the site has 22.8 MB of
+that budget left (`make publish-limits`, 2026-10-17), which is less than one new section on every page, as the D5
 figure above shows. `tests/test_published_limits.py` holds the committed tree to
 those numbers, and to one more the sentinel sets: no published file may be
 larger than half of what `tools/verify_live_site.py` can fetch, because past
