@@ -220,7 +220,13 @@ class AskService:
                 refusal_key="ask_refusal_cap_reached",
                 evidence=evidence,
             )
-        usage = {"model_calls": 0, "input_tokens": 0, "output_tokens": 0}
+        usage = {
+            "model_calls": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+        }
         try:
             return self._answer(request, question, locale, evidence, usage)
         except ProviderRateLimited:
@@ -255,9 +261,12 @@ class AskService:
         usage["model_calls"] += 1
         usage["input_tokens"] += reply.input_tokens
         usage["output_tokens"] += reply.output_tokens
-        usage["cache_read_tokens"] = (
-            usage.get("cache_read_tokens", 0) + reply.cache_read_tokens
-        )
+        # Both cache figures, not only the read: a cache write is billed above
+        # the base input rate, and it is what the first request after the
+        # cache expires pays. Summing the reads alone made a cold request look
+        # cheaper than a warm one.
+        usage["cache_read_tokens"] += reply.cache_read_tokens
+        usage["cache_write_tokens"] += reply.cache_write_tokens
         return reply.input, reply.model
 
     def _answer(

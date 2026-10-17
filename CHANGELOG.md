@@ -350,6 +350,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The ask service's usage totals left out cache writes.** The provider adapter
+  already read `cache_creation_input_tokens` into `ToolReply.cache_write_tokens`,
+  and `AskService` summed only the cache reads, so the request that writes the
+  cached system prompt -- billed above the base input rate -- reported as the
+  cheapest kind. `usage` now carries `cache_write_tokens` beside
+  `cache_read_tokens`, both zero-initialized so the shape is the same however
+  far a request got; the evaluation harness records `usage` per case, so the
+  next live run carries it. Committed results are not rewritten: they are from
+  a recorded run. `usage` is counts only and holds nothing derived from the
+  question; `tests/test_ask_service.py` asserts both.
+
 - **D5 printed FTE counts to one decimal, under a sentence saying every figure is
   printed exactly as the state published it** (#131, 2026-09-18).
   `homeroom.i18n.format_number` wrote every non-integer to one place, and

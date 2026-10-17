@@ -12,7 +12,12 @@ import pytest
 from homeroom.ask.corpus import Corpus
 from homeroom.ask.limits import DailyCap, RateLimiter
 from homeroom.ask.narration import PROMPT_VERSION, SYSTEM_PROMPT
-from homeroom.ask.provider import ProviderError, ProviderRateLimited, ScriptedProvider
+from homeroom.ask.provider import (
+    ProviderError,
+    ProviderRateLimited,
+    ScriptedProvider,
+    ToolReply,
+)
 from homeroom.ask.service import STATUSES, AskRequest, AskService
 from homeroom.i18n import text
 
@@ -526,3 +531,90 @@ def test_a_malformed_narration_is_retried_once_and_paid_for(
     assert response.claims == ()
     assert response.withheld_reasons == {"malformed": 1}
     assert response.usage["model_calls"] == 2
+
+
+class _MeteredProvider(ScriptedProvider):
+    """A scripted provider that also reports token usage, the way the SDK does.
+
+    Each call returns the next row of ``meters``: (input, output, cache read,
+    cache write). The first row is a cold cache (the stable system prompt is
+    written), the second a warm one (it is read back).
+    """
+
+    meters: list[tuple[int, int, int, int]]
+
+    def __init__(
+        self,
+        replies: dict[str, Callable[[str], dict[str, object]]],
+        meters: list[tuple[int, int, int, int]],
+    ) -> None:
+        super().__init__(replies)
+        self.meters = list(meters)
+
+    def call_tool(
+        self, *, system: str, user: str, tool: dict[str, object], max_tokens: int
+    ) -> ToolReply:
+        reply = super().call_tool(
+            system=system, user=user, tool=tool, max_tokens=max_tokens
+        )
+        tokens_in, tokens_out, read, write = self.meters.pop(0)
+        return ToolReply(
+            input=reply.input,
+            model=reply.model,
+            input_tokens=tokens_in,
+            output_tokens=tokens_out,
+            cache_read_tokens=read,
+            cache_write_tokens=write,
+        )
+
+
+def test_usage_counts_cache_writes_as_well_as_cache_reads(
+    fixture_bundle: Path, corpus: Corpus
+) -> None:
+    """A cache write is billed above the base input rate; leaving it out of the
+    totals made the request that pays for the cache look like the cheapest one."""
+    provider = _MeteredProvider(
+        {
+            "structure_question": structure("measures", ["absenteeism.total"]),
+            "answer_with_claims": GOOD_CLAIMS,
+        },
+        meters=[(1500, 120, 0, 7800), (1600, 480, 7800, 0)],
+    )
+    svc = service(fixture_bundle, corpus, provider)
+    question = "Is absenteeism a problem here? SECRET-QUESTION"
+    response = svc.answer(AskRequest(cds=EXAMPLE, locale="en", question=question))
+    assert response.status == "answered"
+    assert response.usage == {
+        "model_calls": 2,
+        "input_tokens": 3100,
+        "output_tokens": 600,
+        "cache_read_tokens": 7800,
+        "cache_write_tokens": 7800,
+    }
+    # The public JSON carries the totals and nothing derived from the question:
+    # usage is counts only, and the question is not echoed anywhere in it.
+    public = json.dumps(response.to_json(public=True), ensure_ascii=False)
+    assert json.loads(public)["usage"]["cache_write_tokens"] == 7800
+    assert "SECRET-QUESTION" not in public
+
+
+def test_usage_carries_both_cache_counters_even_when_a_call_fails(
+    fixture_bundle: Path, corpus: Corpus
+) -> None:
+    """The usage shape does not depend on how far the request got."""
+
+    def broken(_: str) -> dict[str, object]:
+        raise ProviderError("down")
+
+    svc = service(
+        fixture_bundle, corpus, ScriptedProvider({"structure_question": broken})
+    )
+    response = svc.answer(AskRequest(cds=EXAMPLE, locale="en", question="How many?"))
+    assert response.status == "unavailable"
+    assert response.usage == {
+        "model_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+    }
