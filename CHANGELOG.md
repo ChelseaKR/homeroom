@@ -348,7 +348,73 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   register is checked against that constraint, so a page the fetcher would
   refuse can never be registered as checkable.
 
+### Changed
+
+- **The ask layer has a spend envelope: $50 a month** (owner decision,
+  2026-10-17). `DailyCap` in `deploy/ask/template.yaml`, and
+  `homeroom.ask.limits.DEFAULT_DAILY_CAP`, default to 214 model calls a day:
+  at the published list rates and the usage the 157 recorded evaluation cases
+  measured, the average call costs about $0.0075, and 214 is the most a day
+  that keeps a 31-day month inside $50 ($49.86). `tests/test_ask_limits.py`
+  re-derives it from `evals/results/`. That is an average: the recorded runs
+  never counted cache writes, a call that writes the cached system prompt
+  costs about 2.8 times as much, and a month of cold-cache questions at the
+  same cap is about $141. `deploy/ask/README.md` ("The spend envelope") states
+  those worst cases and gives the owner the commands for an account-level AWS
+  Budget at $50/month as the dollar backstop; nothing here creates one. The
+  README records that widening the ask layer to more schools is no longer
+  blocked on budget grounds, because the cap is one daily ceiling however
+  many schools share it; it remains a separate change and is not in this one.
+  **Not applied:** the live stack still runs a per-container cap of 400, and
+  the applied `params.json` sets `DailyCap=400`, which overrides the new
+  default until the owner changes it at the redeploy.
+
 ### Fixed
+
+- **`deploy/ask/README.md` carried the AWS account id** in two ARNs and the
+  code bucket's name, while `deploy/site/CUTOVER.md` keeps account ids out of
+  git on purpose. The ARNs now read `<account-id>`, and the redeploy reads the
+  bucket from the stack's `CodeBucketName` output instead of spelling it. The
+  id remains in this repository's history; it identifies an account and grants
+  nothing on its own.
+
+- **The README's Pages size figure was a month old.** It said `site/` was at
+  86.8% of GitHub Pages' 1 GB; `make publish-limits` over the committed tree
+  reports 877.2 MB across 23,311 files, 87.7%, with 22.8 MB left under the 90%
+  budget (2026-10-17). The three places that state it now give that figure, say
+  which command produced it, and keep the earlier one as history.
+
+- **The ask service's daily cap was no ceiling** (ADR 0003, "Cost is bounded
+  from the first commit"). `DailyCap=400` was counted in each Lambda
+  container's memory. The docs called the worst case two containers each
+  spending it; it was worse, because Lambda recycles execution environments
+  and a fresh one starts at zero. `homeroom.ask.limits.SharedDailyCap` counts
+  in one DynamoDB item per UTC day through an injectable `DayCounter`;
+  `DynamoDayCounter` adds the calls with one conditional `UpdateItem` that
+  refuses when the total would pass the cap, gives unused calls back with a
+  second that never goes below zero, and raises when the table cannot be
+  reached, which the service turns into its fixed "not available" answer with
+  no model call. `deploy/ask/template.yaml` adds `CapTable` (on-demand, TTL on
+  `expires_at`), grants the role `dynamodb:UpdateItem` on that table only, and
+  sets `HOMEROOM_ASK_CAP_TABLE`; without it (local use, the evaluation harness)
+  the in-memory cap is unchanged. boto3 is imported lazily, by name, from the
+  package `anthropic[bedrock]` already puts in the Lambda zip. The item holds
+  a date, a count and an expiry, nothing from a request.
+  `tests/test_ask_limits.py` runs it against a fake table that applies the same
+  conditions, including concurrent reservations from eight "containers" taking
+  exactly the cap. **Not applied:** the live stack counts per container until
+  the owner redeploys; `deploy/ask/README.md` has the steps and a check.
+
+- **The ask service's usage totals left out cache writes.** The provider adapter
+  already read `cache_creation_input_tokens` into `ToolReply.cache_write_tokens`,
+  and `AskService` summed only the cache reads, so the request that writes the
+  cached system prompt -- billed above the base input rate -- reported as the
+  cheapest kind. `usage` now carries `cache_write_tokens` beside
+  `cache_read_tokens`, both zero-initialized so the shape is the same however
+  far a request got; the evaluation harness records `usage` per case, so the
+  next live run carries it. Committed results are not rewritten: they are from
+  a recorded run. `usage` is counts only and holds nothing derived from the
+  question; `tests/test_ask_service.py` asserts both.
 
 - **D5 printed FTE counts to one decimal, under a sentence saying every figure is
   printed exactly as the state published it** (#131, 2026-09-18).

@@ -221,3 +221,32 @@ def test_the_code_bucket_is_private() -> None:
         "RestrictPublicBuckets: true",
     ):
         assert setting in bucket, setting
+
+
+def test_the_daily_cap_is_one_shared_counter_not_one_per_container() -> None:
+    """An in-memory cap restarts at zero in every fresh execution environment.
+
+    Until 2026-10-17 the function counted its cap in memory, so a recycled or
+    second container spent another full cap and reserved concurrency times the
+    cap was not a ceiling either. The function must be told where the shared
+    count lives, or `homeroom.ask.http.cap_from_env` falls back to memory.
+    """
+    table = uncommented(resource("CapTable"))
+    assert "Type: AWS::DynamoDB::Table" in table
+    assert "BillingMode: PAY_PER_REQUEST" in table
+    assert "AttributeName: day" in table
+    assert "KeyType: HASH" in table
+    ttl = table.split("TimeToLiveSpecification:", 1)[1]
+    assert "AttributeName: expires_at" in ttl
+    assert "Enabled: true" in ttl
+    assert "HOMEROOM_ASK_CAP_TABLE: !Ref CapTable" in resource("Function")
+
+
+def test_the_function_may_only_update_the_counter_table() -> None:
+    """Least privilege: one action, one table. The conditional update is the read."""
+    role = uncommented(resource("Role"))
+    grant = role.split("PolicyName: daily-cap-counter", 1)[1]
+    assert "Action: dynamodb:UpdateItem" in grant
+    assert "Resource: !GetAtt CapTable.Arn" in grant
+    assert role.count("dynamodb:") == 1, "the role grants a second DynamoDB action"
+    assert "dynamodb:*" not in role

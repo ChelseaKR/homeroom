@@ -51,7 +51,10 @@ and one Lambda, whose observability is deliberately thin -- the runtime's
 START/END/REPORT lines and a 14-day retention, with no request body and no
 question ever logged (that is a privacy requirement, not an oversight; see
 `docs/RESPONSIBLE-TECH-AUDITS.md`). What is watched instead is spend and volume:
-a CloudWatch alarm on daily invocations against the approved envelope. OTel
+a CloudWatch alarm on daily invocations against the approved envelope ($50 a
+month, owner decision 2026-10-17, held by a shared daily cap of 214 model calls
+in the template and backstopped by an account budget the owner sets;
+`deploy/ask/README.md`, "The spend envelope"). OTel
 stays out of scope; opt-in `--log-format json` is the entry point if the
 pipeline ever needs it.
 
