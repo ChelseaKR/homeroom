@@ -350,6 +350,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`deploy/ask/README.md` carried the AWS account id** in two ARNs and the
+  code bucket's name, while `deploy/site/CUTOVER.md` keeps account ids out of
+  git on purpose. The ARNs now read `<account-id>`, and the redeploy reads the
+  bucket from the stack's `CodeBucketName` output instead of spelling it. The
+  id remains in this repository's history; it identifies an account and grants
+  nothing on its own.
+
 - **The README's Pages size figure was a month old.** It said `site/` was at
   86.8% of GitHub Pages' 1 GB; `make publish-limits` over the committed tree
   reports 877.2 MB across 23,311 files, 87.7%, with 22.8 MB left under the 90%

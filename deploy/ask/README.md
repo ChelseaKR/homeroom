@@ -8,12 +8,17 @@ and this directory is what was applied.
 |---|---|
 | Stack | `homeroom-ask` |
 | Region | `us-west-2` |
-| Stack ARN | `arn:aws:cloudformation:us-west-2:014248889144:stack/homeroom-ask/4c826de0-9e29-11f1-9e5f-0642c3e5a3a7` |
+| Stack ARN | `arn:aws:cloudformation:us-west-2:<account-id>:stack/homeroom-ask/4c826de0-9e29-11f1-9e5f-0642c3e5a3a7` |
 | Function URL | `https://vlbgna342rtuvkikbuwuwgosuu0jgvdp.lambda-url.us-west-2.on.aws/` |
 | Model | Bedrock `global.anthropic.claude-sonnet-4-6` |
 | Site origin | `https://homeroom.chelseakr.com` |
-| Alarm topic | `arn:aws:sns:us-west-2:014248889144:homeroom-ask-alarms` (**still no subscriber**, re-measured 2026-09-12) |
+| Alarm topic | `arn:aws:sns:us-west-2:<account-id>:homeroom-ask-alarms` (**still no subscriber**, re-measured 2026-09-12) |
 | Alarm relay | `.github/workflows/ask-alarm-relay.yml` -> a GitHub issue (needs the `ASK_ALARM_RELAY_ROLE_ARN` repository variable; see below) |
+
+`<account-id>` stands for the AWS account the stack is in. Like
+`deploy/site/CUTOVER.md`, this file keeps account ids, and so every full ARN,
+out of git: `aws sts get-caller-identity` prints it, and the stack's outputs
+name every resource a command below needs.
 
 Parameters as applied: `DeployFunction=true`, `SiteOrigin=https://homeroom.chelseakr.com`,
 `Provider=bedrock`, `Model=global.anthropic.claude-sonnet-4-6`,
@@ -175,8 +180,10 @@ inside it. Phase one already ran; a redeploy is phase two only.
 make data                                               # acquired files -> data/out
 make ask-bundle                                         # -> data/out/ask
 ./deploy/ask/build.sh                                   # -> dist/ask-lambda.zip
+BUCKET=$(aws cloudformation describe-stacks --stack-name homeroom-ask --region us-west-2 \
+  --query "Stacks[0].Outputs[?OutputKey=='CodeBucketName'].OutputValue" --output text)
 aws s3 cp dist/ask-lambda.zip \
-  s3://homeroom-ask-code-014248889144/ask/$(git rev-parse --short HEAD).zip \
+  "s3://$BUCKET/ask/$(git rev-parse --short HEAD).zip" \
   --region us-west-2
 aws cloudformation deploy --template-file deploy/ask/template.yaml \
   --stack-name homeroom-ask --region us-west-2 --capabilities CAPABILITY_NAMED_IAM \
