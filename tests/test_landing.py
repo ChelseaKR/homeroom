@@ -5,8 +5,9 @@ it is a claim: a front door that says "California school data" over a list of
 three schools tells a family the state is covered when it is not. So these tests
 check the structure the accessibility gates assume, and then they check that the
 page names both languages, carries the non-affiliation and no-ranking notices,
-reaches nowhere, and states that the list is what has been published so far
-rather than what exists.
+reaches nowhere, and states what has been published -- every active school, with
+the count this build rendered, or "published so far" for a build of fewer
+(ADR 0007).
 
 It linked every published school directly until 2026-09-05. At 10,534 schools
 that made the front door a wall of 21,069 names, so it lists counties now and
@@ -126,7 +127,8 @@ def test_the_landing_page_carries_both_languages_each_marked(index: Path) -> Non
     markup = index.read_text(encoding="utf-8")
     for locale in LOCALES:
         assert f'<section lang="{locale}"' in markup, locale
-        assert text(locale, "landing_status") in markup, locale
+        status = text(locale, "landing_status").format(count=len(SCHOOLS))
+        assert status in markup, locale
         assert text(locale, "landing_counties_heading") in markup, locale
 
 
@@ -231,9 +233,17 @@ def test_the_landing_page_publishes_no_figure(index: Path) -> None:
     Every figure on this site sits beside its suppression state, its year, and its
     source. None of that fits in a list of links, so the rule here is that the
     list carries no digits at all rather than digits without their context.
+
+    One number is allowed, and it is not about any school: how many schools the
+    site publishes, in the status line (ADR 0007). It is taken out by its exact
+    sentence, so a digit anywhere else on the page still fails.
     """
-    document = parse(index)
-    assert not NUMBER.findall(document.body_text), document.body_text
+    body = parse(index).body_text
+    for locale in LOCALES:
+        status = text(locale, "landing_status").format(count=len(SCHOOLS))
+        assert status in body, locale
+        body = body.replace(status, "")
+    assert not NUMBER.findall(body), body
 
 
 def test_a_fixture_landing_page_says_the_data_is_not_real(index: Path) -> None:

@@ -337,10 +337,19 @@ UI: dict[Locale, dict[str, str]] = {
             "set. “Opt back in” undoes it, and clearing this site's data clears the "
             "choice."
         ),
-        # The landing page. It says what is published so far rather than implying
-        # the whole state is here, because a front door that overstates its
-        # contents is the first dishonest thing a family would read.
+        # The landing page (ADR 0007). Every active school has been published since
+        # 2026-09-05, so the front door says so, with the count the build actually
+        # rendered. A front door that overstates its contents is the first
+        # dishonest thing a family would read, so a build of fewer schools (a
+        # `--cds` build) keeps the earlier "published so far" wording instead.
+        "landing_title": (
+            "Homeroom: California public school enrollment, in English and Spanish"
+        ),
         "landing_status": (
+            "Homeroom publishes every active California public school, {count} of "
+            "them, from California Department of Education public files."
+        ),
+        "landing_status_partial": (
             "Homeroom is in development. The schools published so far are the ones "
             "reached through the counties below, built from California Department "
             "of Education public files. More are added as each source is acquired "
@@ -363,9 +372,17 @@ UI: dict[Locale, dict[str, str]] = {
         "landing_counties_heading": "Find a school by county",
         "browse_county_heading": "{county} County",
         "browse_districts_label": "School districts",
-        "browse_schools_label": "Schools published so far",
+        "browse_schools_label": "Public schools",
         "browse_all_counties": "All counties",
         "browse_in_county": "In {county} County",
+        # What a search result shows for a county or district page (ADR 0007).
+        "browse_county_title": "{county} County schools by district",
+        "browse_district_title": "{district} ({county} County): public schools",
+        "browse_district_description": (
+            "Each public school in {district}, {county} County, with its {year} "
+            "enrollment and chronic absenteeism from California Department of "
+            "Education files."
+        ),
         # The ask layer (ADR 0003). Fixed strings the model never writes: the
         # labels around its output and every refusal.
         "ask_label_ai": (
@@ -759,11 +776,21 @@ UI: dict[Locale, dict[str, str]] = {
             "de Google Analytics que ya estuvieran instaladas. “Volver a activarlas” la "
             "deshace, y si borra los datos de este sitio, también se borra la elección."
         ),
-        # La página de inicio. Dice qué se ha publicado hasta ahora en lugar de
-        # dar a entender que está todo el estado, porque una puerta de entrada
-        # que exagera su contenido sería lo primero deshonesto que leería una
-        # familia.
+        # La página de inicio (ADR 0007). Desde el 2026-09-05 se publican todas
+        # las escuelas activas, y la puerta de entrada lo dice con el número que
+        # la compilación realmente generó. Una compilación de menos escuelas
+        # conserva el texto anterior, porque una puerta de entrada que exagera su
+        # contenido sería lo primero deshonesto que leería una familia.
+        "landing_title": (
+            "Homeroom: matrícula de las escuelas públicas de California, en inglés "
+            "y español"
+        ),
         "landing_status": (
+            "Homeroom publica todas las escuelas públicas activas de California, "
+            "{count} en total, a partir de archivos públicos del Departamento de "
+            "Educación de California."
+        ),
+        "landing_status_partial": (
             "Homeroom está en desarrollo. Las escuelas publicadas hasta ahora son "
             "las que se alcanzan a través de los condados de abajo, creadas a "
             "partir de archivos públicos del Departamento de Educación de "
@@ -790,9 +817,18 @@ UI: dict[Locale, dict[str, str]] = {
         "landing_counties_heading": "Busque una escuela por condado",
         "browse_county_heading": "Condado de {county}",
         "browse_districts_label": "Distritos escolares",
-        "browse_schools_label": "Escuelas publicadas hasta ahora",
+        "browse_schools_label": "Escuelas públicas",
         "browse_all_counties": "Todos los condados",
         "browse_in_county": "En el condado de {county}",
+        # Lo que muestra un resultado de búsqueda para una página de condado o de
+        # distrito (ADR 0007).
+        "browse_county_title": "Escuelas del condado de {county} por distrito",
+        "browse_district_title": "{district} (condado de {county}): escuelas públicas",
+        "browse_district_description": (
+            "Cada escuela pública de {district}, en el condado de {county}, con su "
+            "matrícula {year} y su ausentismo crónico, según archivos del "
+            "Departamento de Educación de California."
+        ),
         # La capa de preguntas (ADR 0003). Cadenas fijas que el modelo nunca
         # escribe: las etiquetas alrededor de su respuesta y cada negativa.
         "ask_label_ai": (
