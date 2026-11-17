@@ -179,7 +179,11 @@ def test_a_tree_over_the_pages_budget_is_refused_with_the_numbers() -> None:
 
     refusal = publish_limits._size_refusal(over)
     assert refusal is not None
-    assert "900.0 MB budget" in refusal
+    # The budget is named by its own value: 960.0 MB while the 96% bridge of
+    # ADR 0008 lasts, 900.0 MB again from the `served-by` flip.
+    # `tests/test_hosting_decision.py` pins which of the two it is.
+    assert f"{publish_limits.mb(PUBLISHED_BUDGET_BYTES)} budget" in refusal
+    assert "960.0 MB budget" in refusal or "900.0 MB budget" in refusal
     assert "1,000.0 MB GitHub allows" in refusal
     assert "docs.github.com" in refusal
     assert "(root)" in refusal
@@ -274,6 +278,12 @@ def test_the_refusal_points_at_the_open_decision_without_taking_it() -> None:
     assert "#82" in guidance
     assert "`site/` has not been touched" in guidance
     assert "not a budget to raise" in guidance
+    # The bridge of 2026-11-17 raised it once (ADR 0008). The refusal has to say
+    # so, or the next reader meets a 96% budget under a sentence that says it
+    # is never raised.
+    assert "ADR 0008" in guidance
+    assert "temporary bridge" in guidance
+    assert "deploy/site/CUTOVER.md" in guidance
 
 
 # ----------------------------------------------------------------------------------

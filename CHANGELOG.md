@@ -15,6 +15,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The hosting decision has its own record** (#82, ADR 0008). The owner chose
+  on 2026-09-18 to move the domain to the S3 + CloudFront origin in
+  `deploy/site/`; until now that lived only in the deploy record, the cutover
+  commands and a docstring. ADR 0008 states the options, the decision, what it
+  costs and how it is reversed. It is still not applied, and
+  `tests/test_hosting_decision.py` holds its status line to
+  `deploy/site/served-by`, so flipping the switch fails the suite until the ADR
+  says the move happened. `deploy/site/CUTOVER.md` now carries a full render
+  of the next publish made 2026-11-17 with both search-title branches merged:
+  953,659,316 bytes in 23,312 files, 95.4% of the Pages ceiling, refused under
+  the 900 MB budget and passed as served by CloudFront. `deploy/site/README.md`
+  corrects one claim: Cloudflare's 20,000-file cap is the free plan's, and its
+  paid plans allow 100,000.
+
 - **The front door says what is published, and county and district pages get
   search titles** (ADR 0007, owner decision 2026-11-17). The status line no
   longer says "in development ... published so far": it says Homeroom publishes
@@ -387,6 +401,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   refuse can never be registered as checkable.
 
 ### Changed
+
+- **The tree's publish budget is 96% of the Pages ceiling, as a temporary
+  bridge** (#82, ADR 0008, owner decision 2026-11-17). The next publish is
+  953,659,316 bytes: GitHub Pages accepts it and the 900 MB budget refused it.
+  Rather than hold D5 and the search titles until the CloudFront cutover,
+  `SITE_BUDGET_SHARE` in `src/homeroom/publish_limits.py` is 0.96 (960.0 MB)
+  while `deploy/site/served-by` says `github-pages`. It admits that tree with
+  6.3 MB to spare, still refuses 40 MB short of GitHub's ceiling, and leaves
+  the sitemap budgets at 90%. It ends at the flip: the pull request that sets
+  `served-by` to `cloudfront` sets the share back to 90%, and
+  `tests/test_hosting_decision.py` fails until it does. The refusal text no
+  longer says the budget is never raised; it says it was raised once, why,
+  and that the cutover is what comes next.
 
 - **The ask layer has a spend envelope: $50 a month** (owner decision,
   2026-10-17). `DailyCap` in `deploy/ask/template.yaml`, and

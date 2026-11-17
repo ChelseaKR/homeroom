@@ -14,7 +14,7 @@ chelseakr.github.io.	299	IN	A	185.199.109.153
 ```
 
 **The decision is taken.** On 2026-09-18 the owner chose this origin (#82,
-option 1), because the next `make publish` carries D5 and does not fit on
+option 1; recorded as ADR 0008), because the next `make publish` carries D5 and does not fit on
 GitHub Pages. **[`CUTOVER.md`](CUTOVER.md) is the owner's commands, in order**
 -- certificate, plan and apply of each phase, the four variables, the first
 sync, verification on the `*.cloudfront.net` name, the DNS switch, the flip
@@ -238,7 +238,7 @@ tree to different ceilings.
 
 | `served-by` | `make publish` and the suite | `pages.yml` |
 |---|---|---|
-| `github-pages` (committed today) | the 900 MB budget under the 1 GB Pages ceiling, exactly as before | deploys every tree; a tree Pages cannot take is an **error**, because families are on Pages |
+| `github-pages` (committed today) | a budget under the 1 GB Pages ceiling: 960 MB (96%) since 2026-11-17, as a temporary bridge so the D5 tree can be published before the cutover; 900 MB (90%) before that and again from the flip (ADR 0008) | deploys every tree; a tree Pages cannot take is an **error**, because families are on Pages |
 | `cloudfront` (after the DNS switch) | no total-size budget, because S3 has none; the 100 MiB per-file limit still binds, because `site/` is committed | deploys the rollback copy when it fits under 1 GB, and **skips it with a warning** when it does not |
 
 The flip comes after DNS, never before. `pages.yml` enforces the order: if
@@ -592,12 +592,18 @@ two cents a month. Publishing the ask layer for every school — the thing that
 does not fit today — would take the origin to 1.09 GiB and about $0.027 a
 month.
 
-**Cloudflare Pages was not an option**, and not marginally: it caps a
-deployment at **20,000 files**, and `site/` is **23,311**. The site exceeded
-that limit before this question was asked, by 3,311 files, and the county and
-district pages that made the site navigable are 2,234 of them. Its 25 MiB
-per-file limit would have been fine; the file count is what rules it out, and no
-amount of shrinking pages changes a file count.
+**Cloudflare Pages was not an option** on its free plan, and not marginally:
+the free plan caps a site at **20,000 files**, and `site/` is **23,311**. The
+site exceeded that limit before this question was asked, by 3,311 files, and
+the county and district pages that made the site navigable are 2,234 of them.
+Its 25 MiB per-file limit would have been fine; the file count is what rules it
+out, and no amount of shrinking pages changes a file count.
+
+Corrected 2026-11-17: Cloudflare's paid plans allow 100,000 files (Pages on a
+paid zone plan, or Workers static assets on Workers Paid at $5 a month), so a
+paid Cloudflare account would hold the site. It was still not chosen: about a
+hundred times this origin's cost, a new vendor and subprocessor record, and no
+prepared rollback. ADR 0008 lists it with the other options.
 
 ## Before changing any of this, decide
 

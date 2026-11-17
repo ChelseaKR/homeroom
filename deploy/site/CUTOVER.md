@@ -1,7 +1,8 @@
 # Moving homeroom.chelseakr.com to S3 + CloudFront: the owner's commands
 
 The owner decided on 2026-09-18 to move hosting to the origin in this directory
-(issue #82, option 1). **Nothing below has been run.** No stack, bucket,
+(issue #82, option 1; the decision record is ADR 0008). **Nothing below has
+been run.** No stack, bucket,
 distribution, role or certificate exists, no repository variable is set, and
 the DNS record is unchanged. Every command here is the owner's, run in this
 order, from a checkout of `main` at the repository root.
@@ -24,6 +25,13 @@ total-size ceiling at all. Rendered in full on 2026-09-18 with #98 and the
 **944.0 MB (944,014,201 bytes, 23,312 files)**: `publish-limits` passes it as
 served by CloudFront, and at 94.4% of 1 GB the Pages rollback copy still fits.
 
+Re-rendered in full on 2026-11-17 from `main` at `392b653c`, with the two
+search-title branches (`seo/titles-hreflang`, `seo/landing-titles`) merged in
+so the tree is the one the next publish would write: **953.7 MB (953,659,316 bytes,
+23,312 files)**, 95.4% of 1 GB. `publish-limits` refuses it while `served-by`
+says `github-pages` (53.7 MB over the 900 MB budget) and passes it as served
+by CloudFront; the Pages rollback copy still fits, with 46.3 MB to spare.
+
 ## What was checked read-only on 2026-09-18
 
 | | |
@@ -44,6 +52,28 @@ the render to the Pages ceiling, and a tree Pages cannot take is an error.
 **It changes to `cloudfront` in step 9, after DNS has moved, never before.**
 If it is flipped while the domain still resolves to GitHub Pages, `pages.yml`
 fails rather than leave families on an older tree.
+
+## The bridge: 96% of the Pages ceiling, until step 9
+
+On 2026-11-17 the owner chose to publish the next tree on GitHub Pages before
+this cutover rather than after it (ADR 0008, "The bridge"). GitHub accepts the
+953,659,316-byte tree; this repository's 900 MB budget is what refused it. So
+`SITE_BUDGET_SHARE` in `src/homeroom/publish_limits.py` is 96% (960.0 MB)
+instead of 90%, as a temporary bridge:
+
+- It admits that one tree with 6.3 MB to spare and refuses anything larger,
+  40 MB short of GitHub's own ceiling. No new per-page feature fits under it.
+- The sitemap budgets are untouched, still 90%.
+- **It ends in step 9.** The pull request that flips `served-by` sets
+  `SITE_BUDGET_SHARE` back to `PUBLISHED_BUDGET_SHARE` (90%), and
+  `tests/test_hosting_decision.py` fails that pull request until it does.
+  After the flip no total-size budget is applied at all, so the 90% that comes
+  back is only what a later return to `github-pages` would be held to.
+
+If the bridge publish has already been made when this is run, two things below
+read differently: the first sync in step 4 uploads the D5 tree (about 953.7 MB
+and 23,312 files, still about $0.12), and the `make publish` at the end of
+step 9 is not needed unless something has merged since.
 
 ## 0. Session setup
 
@@ -265,11 +295,29 @@ Only after step 8 checks out:
 ```sh
 git switch -c deploy/served-by-cloudfront origin/main
 printf 'cloudfront\n' > deploy/site/served-by
-git add deploy/site/served-by
-git commit -S -m "deploy: cloudfront serves the domain"
+# The bridge ends here: the tree's budget goes back to the standing 90%.
+sed -i '' 's/^SITE_BUDGET_SHARE = 0.96$/SITE_BUDGET_SHARE = PUBLISHED_BUDGET_SHARE/' \
+  src/homeroom/publish_limits.py
+grep -n '^SITE_BUDGET_SHARE' src/homeroom/publish_limits.py   # = PUBLISHED_BUDGET_SHARE
+```
+
+Rewrite the `Status:` line of `docs/adr/0008-serve-the-site-from-s3-behind-cloudfront.md`
+so it no longer says "Not applied" and gives the date DNS moved, then:
+
+```sh
+uv run --locked pytest tests/test_hosting_decision.py tests/test_publish_budget.py \
+  tests/test_published_limits.py -q
+git add deploy/site/served-by src/homeroom/publish_limits.py \
+  docs/adr/0008-serve-the-site-from-s3-behind-cloudfront.md
+git commit -S -m "deploy: cloudfront serves the domain, and the 96% bridge ends"
 git push -u origin deploy/served-by-cloudfront
 gh pr create --repo "$REPO" --fill
 ```
+
+`test_hosting_decision.py` fails until all three files agree. The comments in
+`tests/test_published_limits.py` and the refusal text in `publish_limits.py`
+describe the bridge in the present tense; put them in the past tense in the
+same pull request.
 
 Merge it when ci is green. Then the D5 republish, which `make publish` now
 holds to no total-size ceiling. It waited on #131, which is fixed: D5 printed
