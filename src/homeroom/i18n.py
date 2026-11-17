@@ -77,6 +77,18 @@ UI: dict[Locale, dict[str, str]] = {
         "language_nav": "Language",
         "switch_language_hint": "Read this page in Spanish",
         "eyebrow": "California public school",
+        # The title and description a search result shows (ADR 0006). They name
+        # the city, because many schools share a name, and the word people search
+        # with, because the page is enrollment. `page_title` and
+        # `meta_description` stay as the wording for a school whose directory
+        # row has no city or county (CDE writes "No Data"), which none of the
+        # 10,534 active schools has today.
+        "page_title_with_city": "{school}, {city} CA: {year} enrollment",
+        "meta_description_with_city": (
+            "{school} in {city}, {county} County: {year} enrollment by grade and "
+            "student group, and chronic absenteeism where the state publishes it. "
+            "From California Department of Education files. No score, no ranking."
+        ),
         "page_title": "{school}, {year} school year",
         "meta_description": (
             "Enrollment for {school} in {district}, taken from California Department "
@@ -482,6 +494,16 @@ UI: dict[Locale, dict[str, str]] = {
         "language_nav": "Idioma",
         "switch_language_hint": "Lea esta página en inglés",
         "eyebrow": "Escuela pública de California",
+        # El título y la descripción que muestra un resultado de búsqueda (ADR
+        # 0006). `page_title` y `meta_description` quedan para una escuela cuya
+        # fila del directorio no trae la ciudad o el condado.
+        "page_title_with_city": "{school}, {city} CA: matrícula {year}",
+        "meta_description_with_city": (
+            "{school} en {city}, condado de {county}: matrícula {year} por grado y "
+            "grupo de estudiantes, y ausentismo crónico donde el estado lo publica. "
+            "De archivos del Departamento de Educación de California. Sin puntaje, "
+            "sin clasificación."
+        ),
         "page_title": "{school}, ciclo escolar {year}",
         "meta_description": (
             "Matrícula de {school} en {district}, tomada de archivos públicos del "

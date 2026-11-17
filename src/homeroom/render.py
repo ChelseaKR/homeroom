@@ -1072,6 +1072,65 @@ def _social_meta(
     )
 
 
+def school_title(profile: SchoolProfile, locale: Locale) -> str:
+    """A school page's title, before the site name: name, city, year (ADR 0006).
+
+    Many California schools share a name, so the title says where the school is
+    and what the page holds. A directory row with no city (CDE's "No Data") keeps
+    the wording the page carried before, rather than a title with a hole in it.
+    """
+    school = profile.school
+    if school.city:
+        return text(locale, "page_title_with_city").format(
+            school=school.name, city=school.city, year=profile.academic_year
+        )
+    return text(locale, "page_title").format(
+        school=school.name, year=profile.academic_year
+    )
+
+
+def school_description(profile: SchoolProfile, locale: Locale) -> str:
+    """A school page's meta description (ADR 0006), with the same fallback."""
+    school = profile.school
+    if school.city and school.county:
+        return text(locale, "meta_description_with_city").format(
+            school=school.name,
+            city=school.city,
+            county=school.county,
+            year=profile.academic_year,
+        )
+    return text(locale, "meta_description").format(
+        school=school.name, district=school.district
+    )
+
+
+def hreflang_links(pages: dict[Locale, str], site_url: str | None) -> str:
+    """The ``<link rel="alternate" hreflang>`` lines for one page's language pair.
+
+    ``pages`` maps each locale to its published file name, this page's own locale
+    first. Search engines ignore hreflang that is not a fully qualified URL, so a
+    hosted build (``site_url`` given) writes absolute addresses and an
+    ``x-default`` naming the English page. A build given no origin claims no
+    address, so it keeps the sibling file names it always wrote and no
+    ``x-default`` (ADR 0006).
+    """
+    if site_url is None:
+        return "\n".join(
+            f'<link rel="alternate" hreflang="{loc}" href="{_esc(name)}">'
+            for loc, name in pages.items()
+        )
+    lines = [
+        f'<link rel="alternate" hreflang="{loc}" '
+        f'href="{_esc(canonical_url(site_url, name))}">'
+        for loc, name in pages.items()
+    ]
+    lines.append(
+        '<link rel="alternate" hreflang="x-default" '
+        f'href="{_esc(canonical_url(site_url, pages["en"]))}">'
+    )
+    return "\n".join(lines)
+
+
 def _head(
     profile: SchoolProfile,
     locale: Locale,
@@ -1079,13 +1138,13 @@ def _head(
     site_url: str | None = None,
 ) -> str:
     school = profile.school
-    description = text(locale, "meta_description").format(
-        school=school.name, district=school.district
-    )
-    alternates = "\n".join(
-        f'<link rel="alternate" hreflang="{other}" '
-        f'href="{page_name(school.cds_code, other)}">'
-        for other in (locale, OTHER_LOCALE[locale])
+    description = school_description(profile, locale)
+    alternates = hreflang_links(
+        {
+            other: page_name(school.cds_code, other)
+            for other in (locale, OTHER_LOCALE[locale])
+        },
+        site_url,
     )
     if site_url is None:
         addressed = ""
@@ -1205,13 +1264,7 @@ def render_school(
         if assignment_context is not None
         else AssignmentAggregate(cds_code="")
     )
-    title = (
-        text(locale, "page_title").format(
-            school=school.name, year=profile.academic_year
-        )
-        + " · "
-        + text(locale, "site_name")
-    )
+    title = school_title(profile, locale) + " · " + text(locale, "site_name")
     body_parts = [
         f'<a class="skip-link" href="#main">{_esc(text(locale, "skip_to_content"))}</a>',
         _header(profile, locale),
