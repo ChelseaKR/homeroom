@@ -368,8 +368,9 @@ bytes. `deploy/site/` holds the shape that would replace GitHub Pages — a
 private S3 bucket behind CloudFront with Origin Access Control, published by
 `.github/workflows/site-publish.yml` over GitHub OIDC with no stored key — with
 what it costs at this size (about two cents a month) and what the new ceilings
-are (no total-size limit at all) both measured. **Nothing there has been
-applied.** No stack exists, no byte has been uploaded, `homeroom.chelseakr.com`
+are (no total-size limit at all) both measured. **The cutover began on
+2026-11-17 and DNS has not moved.** Phase one of the stack exists, on its own
+`*.cloudfront.net` name; `homeroom.chelseakr.com`
 still resolves to `chelseakr.github.io`, and `.github/workflows/pages.yml` is
 untouched and still the deploy families receive. The cutover and the rollback
 are the owner's to make, and `deploy/site/README.md` carries both in order,

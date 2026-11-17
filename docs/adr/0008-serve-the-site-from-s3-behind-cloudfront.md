@@ -1,6 +1,6 @@
 # 0008. Serve the published site from S3 behind CloudFront, and keep GitHub Pages as the way back
 
-Status: Accepted (owner decision, 2026-09-18, issue #82 option 1; bridge added by owner decision 2026-11-17). Not applied: `deploy/site/served-by` says `github-pages`, and no stack, bucket, distribution, certificate or DNS change exists. Until it is applied, a temporary bridge holds the tree to 96% of the Pages ceiling instead of 90%.
+Status: Accepted (owner decision, 2026-09-18, issue #82 option 1; bridge added by owner decision 2026-11-17). Not applied: `deploy/site/served-by` says `github-pages` and DNS has not moved. The cutover began on 2026-11-17; `deploy/site/CUTOVER.md`, "Where this stands", records which of its steps have been run. Until it is applied, a temporary bridge holds the tree to 96% of the Pages ceiling instead of 90%.
 Date: 2026-11-17
 Deciders: Chelsea Kelly-Reif (move decided 2026-09-18; bridge decided and both recorded here 2026-11-17)
 Relates to: ADR 0001, which is not amended: the pages stay static and
@@ -76,6 +76,23 @@ moved and the live sentinel has passed against the new origin, and only then
 total-size budget under the Pages ceiling holds. Once it says `cloudfront`,
 `make publish` and the suite hold the tree to no total-size budget, because S3
 has none; the 100 MiB per-file limit still binds, because `site/` is committed.
+
+### Two things the cutover found (2026-11-17)
+
+Neither changes the decision; both change how it is carried out, and both are
+recorded here because each was chosen rather than forced.
+
+- **The certificate is a wildcard, `*.chelseakr.com`.** ACM refused a
+  certificate naming `homeroom.chelseakr.com` with `CAA_ERROR`: a CAA lookup
+  follows the record's CNAME to GitHub Pages, whose CAA records do not allow
+  Amazon. The owner chose the wildcard, which is checked at `chelseakr.com`,
+  over changing the type of the live record before the cutover.
+- **The publish role is pinned to GitHub's immutable subject**, the form that
+  carries the owner's and the repository's ids. The repository issues that
+  form, the role had been pinned to `owner/name`, and the first publish was
+  refused. The owner chose to keep immutable subjects on and change the
+  template, which now takes the subject as a parameter and refuses the
+  `owner/name` form.
 
 ### The bridge
 

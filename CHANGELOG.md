@@ -450,6 +450,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The publish role could not be assumed, and the cutover's certificate step
+  could not succeed** (#82, ADR 0008; found running `deploy/site/CUTOVER.md` on
+  2026-11-17). Steps 0 to 3 were run that day: phase one of the `homeroom-site`
+  stack exists and the four `SITE_*` variables are set. DNS has not moved and
+  GitHub Pages still serves the domain. Two of the commands were wrong.
+
+  The first `site-publish` run failed at "Not authorized to perform
+  sts:AssumeRoleWithWebIdentity" and uploaded nothing. This repository issues
+  GitHub's immutable OIDC subject claims, which carry the owner's and the
+  repository's ids, and `deploy/site/template.yaml` pinned the role to
+  `repo:<owner>/<name>:ref:refs/heads/main`. The template now takes the subject
+  as its own parameter, `GitHubOidcSubjectRepository`, with no default and a
+  pattern that accepts `<owner>@<id>/<name>@<id>` and refuses `owner/name`, a
+  wildcard or a `:`. The condition is still `StringEquals` on `sub` beside
+  `aud`. Six tests hold it: the subject it renders, that the `owner/name` form
+  no longer satisfies it, the pattern, the exact comparison, that no id is
+  written into the template, and that every parameter file the two documents
+  show passes the new parameter. The stack that exists needs one update to
+  repin its role (CUTOVER.md step 2b); it changes nothing else.
+
+  ACM refused a certificate naming `homeroom.chelseakr.com` with `CAA_ERROR`,
+  because a CAA lookup follows the record's CNAME to GitHub Pages, whose CAA
+  records do not allow Amazon. Step 1 now requests `*.chelseakr.com`, which the
+  owner chose, checks whether the validation record is already in the zone
+  before writing one, and says why. CUTOVER.md also gains a dated account of
+  what has been run, the two read-only checks that would have caught both
+  faults, a warning that setting the variables arms the workflow whether or
+  not a publish can succeed, a note that the bucket name and role ARN appear
+  unmasked in this public repository's run logs, and the certificate lookup
+  step 6 needs. `README.md`, `docs/ROADMAP.md`, ADR 0008's status line and the
+  template's header no longer say that no stack exists. `deploy/site/README.md`
+  carries a dated note that it predates the run; it is to be rewritten as an
+  applied record when the cutover completes.
+
 - **`deploy/ask/README.md` carried the AWS account id** in two ARNs and the
   code bucket's name, while `deploy/site/CUTOVER.md` keeps account ids out of
   git on purpose. The ARNs now read `<account-id>`, and the redeploy reads the
