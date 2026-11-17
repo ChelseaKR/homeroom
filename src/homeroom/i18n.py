@@ -372,7 +372,7 @@ UI: dict[Locale, dict[str, str]] = {
         "landing_counties_heading": "Find a school by county",
         "browse_county_heading": "{county} County",
         "browse_districts_label": "School districts",
-        "browse_schools_label": "Schools published so far",
+        "browse_schools_label": "Public schools",
         "browse_all_counties": "All counties",
         "browse_in_county": "In {county} County",
         # What a search result shows for a county or district page (ADR 0007).
@@ -817,7 +817,7 @@ UI: dict[Locale, dict[str, str]] = {
         "landing_counties_heading": "Busque una escuela por condado",
         "browse_county_heading": "Condado de {county}",
         "browse_districts_label": "Distritos escolares",
-        "browse_schools_label": "Escuelas publicadas hasta ahora",
+        "browse_schools_label": "Escuelas públicas",
         "browse_all_counties": "Todos los condados",
         "browse_in_county": "En el condado de {county}",
         # Lo que muestra un resultado de búsqueda para una página de condado o de

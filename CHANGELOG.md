@@ -17,7 +17,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Spanish". County pages are titled "{county} County schools by district",
   district pages "{district} ({county} County): public schools", and a district's
   description names its county, the year, and what each school page carries.
-  Spanish drafted to match. Five new keys (235 keys per locale).
+  The district page's list heading "Schools published so far" is now "Public
+  schools" ("Escuelas públicas"). Spanish drafted to match and approved by the
+  owner. Five new keys (235 keys per locale).
   `test_the_landing_page_publishes_no_figure` now allows exactly the count
   sentence. **Not yet served:** `site/` changes at the next `make publish`,
   which waits on #82.

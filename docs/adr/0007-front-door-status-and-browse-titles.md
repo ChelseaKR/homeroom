@@ -37,8 +37,12 @@ site:
    public school in {district}, {county} County, with its {year} enrollment and
    chronic absenteeism from California Department of Education files." The year
    is the year the district's schools' figures are for.
-4. The Spanish says the same things in the catalog's own terms. The owner asked
-   for it to be drafted rather than left in English, and reviewed it before merge.
+4. The district page's list heading, "Schools published so far" / "Escuelas
+   publicadas hasta ahora", becomes "Public schools" / "Escuelas públicas": every
+   active school is published, so the list is not "so far" (owner decision,
+   2026-11-17). It is a reworded key, not a new one.
+5. The Spanish says the same things in the catalog's own terms. It was drafted at
+   the owner's request and she approved all of it on 2026-11-17.
 
 ## Consequences
 

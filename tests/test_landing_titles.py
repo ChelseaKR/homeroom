@@ -108,3 +108,13 @@ def test_the_new_copy_ranks_nothing() -> None:
         spanish = text("es", key).lower()
         for word in ("mejor", "clasific", "calificaci", "puntaje", "segur"):
             assert word not in spanish, (key, word)
+
+
+def test_the_district_heading_no_longer_says_so_far(built: Path) -> None:
+    """Every active school is published, so the list is not "so far" (ADR 0007)."""
+    for locale, heading in (("en", "Public schools"), ("es", "Escuelas públicas")):
+        page = parse(built / district_page_name(DISTRICT, locale))
+        assert text(locale, "browse_schools_label") == heading
+        assert heading in page.body_text, locale
+        assert "so far" not in page.body_text
+        assert "hasta ahora" not in page.body_text
