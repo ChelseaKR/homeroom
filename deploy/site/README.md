@@ -374,8 +374,8 @@ python3 tools/verify_live_site.py --skip-rebuild --sample 0 \
   --url https://<DistributionDomainName>/
 ```
 
-It should print `serves exactly what this checkout publishes: 23310 of 23310
-file(s) compared`. That is 868 MB pulled once, inside the free tier. This is
+It should print `serves exactly what this checkout publishes: 23312 of 23312
+file(s) compared`. That is 954 MB pulled once, inside the free tier. This is
 the strongest check available and it costs nothing to run before the cutover
 rather than after.
 
@@ -507,7 +507,7 @@ bust a cache. The sentinel's three attempts with 20-second waits still cover the
 tail.
 
 `--url` is what makes step 4 above possible: the same code, pointed at the
-`*.cloudfront.net` name, verifies the full 23,311-file origin before any DNS
+`*.cloudfront.net` name, verifies the full 23,312-file origin before any DNS
 change.
 
 ## `site/CNAME` becomes inert, and stays
@@ -533,25 +533,28 @@ prices are not.
 
 | | Measured | At list price |
 |---|---|---|
-| Objects | 23,311 | — |
-| Bytes of content | 877,171,581 (0.817 GiB) | **$0.020/month** S3 Standard @ $0.023/GB-month |
-| Superseded versions, worst case | one full generation for 30 days | +$0.020/month |
-| A full republish | 23,311 PUTs | **$0.117** @ $0.005/1,000 |
+| Objects | 23,312 | — |
+| Bytes of content | 953,659,316 (0.888 GiB) | **$0.022/month** S3 Standard @ $0.023/GB-month |
+| Superseded versions, worst case | one full generation for 30 days | +$0.022/month |
+| A full republish | 23,312 PUTs | **$0.117** @ $0.005/1,000 |
 | An invalidation | 1 path (`/*`) | **$0.000** — 1,000 paths/month are free |
 | Origin fetches (S3 → CloudFront) | cache misses only | **$0.000** — AWS does not charge for this transfer |
 | Daily live sentinel | 9.37 MB, 210 requests | within the free tier |
-| A full `--sample 0` verification | 877 MB, 23,312 requests | within the free tier |
+| A full `--sample 0` verification | 954 MB, 23,313 requests | within the free tier |
 
 The steady state is **about two cents a month plus twelve cents per full
 republish**, and CloudFront's always-free tier (1 TB out and 10,000,000
 requests per month, not a 12-month trial) absorbs the serving.
 
-`du -sm site` says 879 and the table says 877,171,581 bytes, and both are
-right: `du` counts 4 KiB filesystem blocks, and 23,311 small files carry about
-42 MiB of block slack that does not exist in a bucket. S3 bills content.
+`du -sm site` says 955 and the table says 953,659,316 bytes, and both are
+right: `du` counts 4 KiB filesystem blocks, and 23,312 small files carry about
+45 MiB of block slack that does not exist in a bucket. S3 bills content.
 (Re-measured 2026-09-17, after Google Analytics added a script tag and a note to
 every page and `analytics.js` to the root, and again on 2026-09-18 after the front
-door gained its two-line link to the source, 436 bytes.)
+door gained its two-line link to the source, 436 bytes. The two tables' counts
+and this paragraph were re-measured on 2026-11-17, after the publish that put
+the teaching-assignment section and the search titles on every school page and
+moved the stylesheet into `homeroom.css`; the traffic paragraph below was not.)
 
 **What the traffic actually is: unknown, and unmeasurable from here.** GitHub
 Pages gives the owner no access log, and this stack turns CloudFront logging
@@ -578,7 +581,7 @@ limits, and the site is nowhere near any of them:
 
 | Limit | Value | This site |
 |---|---|---|
-| S3 total bucket size, object count | none | 877 MB, 23,311 objects |
+| S3 total bucket size, object count | none | 954 MB, 23,312 objects |
 | S3 maximum object size | 5 TiB | 1,821,378 bytes (`sitemap.xml`, the largest file) |
 | S3 single-PUT size (the CLI multiparts above 8 MiB) | 5 GiB | as above |
 | CloudFront maximum object size for a GET | 30 GB | as above |
@@ -593,9 +596,10 @@ does not fit today — would take the origin to 1.09 GiB and about $0.027 a
 month.
 
 **Cloudflare Pages was not an option** on its free plan, and not marginally:
-the free plan caps a site at **20,000 files**, and `site/` is **23,311**. The
-site exceeded that limit before this question was asked, by 3,311 files, and
-the county and district pages that made the site navigable are 2,234 of them.
+the free plan caps a site at **20,000 files**, and `site/` is **23,312**. The
+site is over that limit by 3,312 files, was over it before this question was
+asked, and the county and district pages that made the site navigable are
+2,234 of them.
 Its 25 MiB per-file limit would have been fine; the file count is what rules it
 out, and no amount of shrinking pages changes a file count.
 
