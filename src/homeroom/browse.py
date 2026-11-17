@@ -246,7 +246,10 @@ def render_county(
     plain = text(locale, "browse_county_heading").format(county=name)
     return _shell(
         locale=locale,
-        title=f"{plain} · {text(locale, 'site_name')}",
+        title=(
+            text(locale, "browse_county_title").format(county=name)
+            + f" · {text(locale, 'site_name')}"
+        ),
         heading=heading,
         description=f"{plain}. {text(locale, 'site_tagline')}",
         depth="../",
@@ -273,17 +276,31 @@ def render_district(
     site_url: str | None = None,
 ) -> str:
     """One district's page: its published schools, each linked in this locale."""
+    published = schools_in(profiles, code)
     items = "\n".join(
         f'<li><a href="../{_esc(page_name(p.school.cds_code, locale))}">'
         f"{_cde(p.school.name, locale)}</a></li>"
-        for p in schools_in(profiles, code)
+        for p in published
     )
     back = _named(locale, "browse_in_county", county=county_name)
+    # Every school in one build carries the same academic year; the district page
+    # names the year its schools' figures are for, and has no other source of one.
+    years = {p.academic_year for p in published}
+    if len(years) != 1:
+        raise ValueError(f"district {code}: schools carry years {sorted(years)}")
+    (year,) = years
     return _shell(
         locale=locale,
-        title=f"{name} · {text(locale, 'site_name')}",
+        title=(
+            text(locale, "browse_district_title").format(
+                district=name, county=county_name
+            )
+            + f" · {text(locale, 'site_name')}"
+        ),
         heading=_cde(name, locale),
-        description=f"{name}. {text(locale, 'site_tagline')}",
+        description=text(locale, "browse_district_description").format(
+            district=name, county=county_name, year=year
+        ),
         depth="../",
         crumb=(
             f'<a href="../{_esc(county_page_name(county_code(code), locale))}">'

@@ -536,7 +536,12 @@ def build_site(
         indexable.extend(browsed_names)
         index = out_dir / "index.html"
         index.write_text(
-            render_landing(schools, is_fixture=is_fixture, site_url=site_url),
+            render_landing(
+                schools,
+                is_fixture=is_fixture,
+                site_url=site_url,
+                complete=not cds_codes,
+            ),
             encoding="utf-8",
         )
         pages.append(index)

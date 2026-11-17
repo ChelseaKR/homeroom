@@ -1,16 +1,17 @@
-"""The landing page: one bilingual ``index.html`` naming what is published so far.
+"""The landing page: one bilingual ``index.html`` naming what is published.
 
 A domain needs a front door. This one is honest about the state of the site:
-Homeroom is in development, these are the schools published so far, nothing is
-ranked, and the site is unofficial. Both languages sit on the one page, each
-section marked with its language.
+every active school is published, it says how many, nothing is ranked, and the
+site is unofficial. Both languages sit on the one page, each section marked with
+its language. A build of fewer schools than the directory holds (``--cds``) says
+"published so far" instead, because "every" would then be false (ADR 0007).
 
 It listed every published school until 2026-09-05. That was right at one school
 and absurd at 10,534: 21,069 links, 2.45MB, and no way for a reader to find
 their own school but to scroll. It lists the 58 counties now, and `browse.py`
-carries the two steps below them. What the page says has not changed -- these
-are the schools published so far -- only how many names it puts in front of
-somebody to say it.
+carries the two steps below them. Until ADR 0007 its status line still said
+"in development ... published so far" months after every active school was
+published; it now says every school, with the count the build rendered.
 
 Same rules as every other page (ADR 0001): stdlib rendering, the one shared
 stylesheet, no script, nothing fetched off this origin, deterministic output. It
@@ -27,7 +28,7 @@ stylesheet fetched once rather than a copy of it in each of the four.
 from __future__ import annotations
 
 from homeroom.browse import counties, county_page_name
-from homeroom.i18n import LOCALES, Locale, text
+from homeroom.i18n import LOCALES, Locale, format_number, text
 from homeroom.profiles import SchoolProfile
 from homeroom.render import (
     REPOSITORY_URL,
@@ -70,7 +71,14 @@ def _source_link(locale: Locale) -> str:
     )
 
 
-def _section(profiles: list[SchoolProfile], locale: Locale) -> str:
+def _status(profiles: list[SchoolProfile], locale: Locale, *, complete: bool) -> str:
+    """What is published, counted from what this build rendered (ADR 0007)."""
+    if not complete:
+        return text(locale, "landing_status_partial")
+    return text(locale, "landing_status").format(count=format_number(len(profiles)))
+
+
+def _section(profiles: list[SchoolProfile], locale: Locale, *, complete: bool) -> str:
     """One language's half of the front door: what this is, then the counties.
 
     The county is the widest step a family already knows the answer to, so it is
@@ -85,7 +93,7 @@ def _section(profiles: list[SchoolProfile], locale: Locale) -> str:
     return (
         f'<section lang="{locale}" aria-labelledby="h-{locale}">\n'
         f'<h2 id="h-{locale}">{_esc(text(locale, "site_tagline"))}</h2>\n'
-        f"<p>{_esc(text(locale, 'landing_status'))}</p>\n"
+        f"<p>{_esc(_status(profiles, locale, complete=complete))}</p>\n"
         f"<h3>{_esc(text(locale, 'landing_counties_heading'))}</h3>\n"
         f'<ul class="county-list">\n{items}\n</ul>\n'
         f"<p>{_esc(text(locale, 'footer_no_ranking'))}</p>\n"
@@ -96,13 +104,20 @@ def _section(profiles: list[SchoolProfile], locale: Locale) -> str:
 
 
 def render_landing(
-    profiles: list[SchoolProfile], *, is_fixture: bool, site_url: str | None = None
+    profiles: list[SchoolProfile],
+    *,
+    is_fixture: bool,
+    site_url: str | None = None,
+    complete: bool = True,
 ) -> str:
     """The one index page, English first, Spanish beside it, schools linked in both.
 
     ``site_url`` is the origin the build will be served from. Given, the page
     gains a canonical address and the social tags derived from it; left out, the
     page is byte-identical to one rendered before there was an origin to name.
+
+    ``complete`` says the build rendered every active school in the directory; a
+    ``--cds`` build passes False and keeps the "published so far" wording.
     """
     fixture = (
         '<div class="note">\n'
@@ -112,8 +127,11 @@ def render_landing(
         if is_fixture
         else ""
     )
-    sections = "\n".join(_section(profiles, locale) for locale in LOCALES)
-    title = text("en", "site_name")
+    sections = "\n".join(
+        _section(profiles, locale, complete=complete) for locale in LOCALES
+    )
+    # The page is bilingual under lang="en", so its one title is the English one.
+    title = text("en", "landing_title")
     description = f"{text('en', 'site_tagline')} / {text('es', 'site_tagline')}"
     if site_url is None:
         addressed = ""
