@@ -15,6 +15,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The hosting decision has its own record** (#82, ADR 0008). The owner chose
+  on 2026-09-18 to move the domain to the S3 + CloudFront origin in
+  `deploy/site/`; until now that lived only in the deploy record, the cutover
+  commands and a docstring. ADR 0008 states the options, the decision, what it
+  costs and how it is reversed. It is still not applied, and
+  `tests/test_hosting_decision.py` holds its status line to
+  `deploy/site/served-by`, so flipping the switch fails the suite until the ADR
+  says the move happened. `deploy/site/CUTOVER.md` now carries a full render
+  of the next publish made 2026-11-17 with both search-title branches merged:
+  953,659,316 bytes in 23,312 files, 95.4% of the Pages ceiling, refused under
+  the 900 MB budget and passed as served by CloudFront. `deploy/site/README.md`
+  corrects one claim: Cloudflare's 20,000-file cap is the free plan's, and its
+  paid plans allow 100,000.
+
 - **The front door says what is published, and county and district pages get
   search titles** (ADR 0007, owner decision 2026-11-17). The status line no
   longer says "in development ... published so far": it says Homeroom publishes

@@ -1,7 +1,8 @@
 # Moving homeroom.chelseakr.com to S3 + CloudFront: the owner's commands
 
 The owner decided on 2026-09-18 to move hosting to the origin in this directory
-(issue #82, option 1). **Nothing below has been run.** No stack, bucket,
+(issue #82, option 1; the decision record is ADR 0008). **Nothing below has
+been run.** No stack, bucket,
 distribution, role or certificate exists, no repository variable is set, and
 the DNS record is unchanged. Every command here is the owner's, run in this
 order, from a checkout of `main` at the repository root.
@@ -23,6 +24,13 @@ total-size ceiling at all. Rendered in full on 2026-09-18 with #98 and the
 #131 fix, which prints FTE counts at the file's own precision, the tree is
 **944.0 MB (944,014,201 bytes, 23,312 files)**: `publish-limits` passes it as
 served by CloudFront, and at 94.4% of 1 GB the Pages rollback copy still fits.
+
+Re-rendered in full on 2026-11-17 from `main` at `392b653c`, with the two
+search-title branches (`seo/titles-hreflang`, `seo/landing-titles`) merged in
+so the tree is the one the next publish would write: **953.7 MB (953,659,316 bytes,
+23,312 files)**, 95.4% of 1 GB. `publish-limits` refuses it while `served-by`
+says `github-pages` (53.7 MB over the 900 MB budget) and passes it as served
+by CloudFront; the Pages rollback copy still fits, with 46.3 MB to spare.
 
 ## What was checked read-only on 2026-09-18
 
