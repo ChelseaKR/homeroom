@@ -87,12 +87,16 @@ jobs:
     #
     # A failed ci run must not publish; workflow_dispatch has no ci run
     # attached and is a deliberate act by a person, so it is allowed through.
+    # The ci run must also be a push to this repository: `branches: [main]`
+    # matches a branch by name only.
     # And every one of the four repository variables must be set, which is what
     # keeps this file inert until the owner arms it. A missing variable skips
     # the job rather than failing it: an unarmed deploy is not a broken build.
     if: >-
       (github.event_name == 'workflow_dispatch' ||
-       github.event.workflow_run.conclusion == 'success') &&
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository)) &&
       vars.SITE_S3_BUCKET != '' &&
       vars.SITE_CLOUDFRONT_DISTRIBUTION_ID != '' &&
       vars.SITE_PUBLISH_ROLE_ARN != '' &&

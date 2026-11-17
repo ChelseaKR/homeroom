@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- The `pages` and `site-publish` workflows now follow a ci run only when it was
+  a push to this repository. `branches: [main]` matches a branch by name, so
+  the condition names the event and the repository as well. A test holds both
+  workflows to it.
+
 ### Added
 
 - **The front door says what is published, and county and district pages get

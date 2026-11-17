@@ -64,9 +64,14 @@ jobs:
     name: can GitHub Pages take this tree
     # A failed ci run must not publish. workflow_dispatch has no ci run attached
     # and is a deliberate act by a person, so it is allowed through.
+    # The ci run must also be a push to this repository. `branches: [main]`
+    # matches a branch by name only, so a pull request from another
+    # repository's `main` would otherwise pass.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
