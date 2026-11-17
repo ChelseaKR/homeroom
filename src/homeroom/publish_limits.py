@@ -42,6 +42,12 @@ and GitHub Pages becomes the rollback copy: `.github/workflows/pages.yml` still
 deploys to it whenever the tree fits under the Pages ceiling, and skips it,
 loudly, when it does not. Flipping the file is the owner's step and comes after
 the DNS change, never before; `deploy/site/CUTOVER.md` has the order.
+
+On 2026-11-17 the owner chose to publish before that move rather than after it
+(ADR 0008): the next tree is 953.7 MB, which GitHub Pages accepts and the 90%
+budget refused. `SITE_BUDGET_SHARE` is that bridge -- 96% of the ceiling for the
+tree, while ``served-by`` says ``github-pages`` and no longer -- and the flip
+takes it back out.
 """
 
 from __future__ import annotations
@@ -68,7 +74,25 @@ PAGES_SITE_LIMIT_BYTES = 1_000_000_000
 #: being served. A gate at the ceiling itself would only ever fire on a tree
 #: that was already undeployable.
 PUBLISHED_BUDGET_SHARE = 0.90
-PUBLISHED_BUDGET_BYTES = int(PAGES_SITE_LIMIT_BYTES * PUBLISHED_BUDGET_SHARE)
+
+#: The share of the Pages ceiling the *tree* is held to while GitHub Pages is
+#: the origin, and it is a temporary bridge, not the standing number above.
+#:
+#: The next publish -- D5 (ADR 0005) plus the search titles of ADR 0006 and of
+#: the front-door branch behind it -- was rendered in full on 2026-11-17 at
+#: 953,659,316 bytes in 23,312 files: 95.4% of the ceiling, inside what GitHub
+#: accepts and 53.7 MB over the 90% budget. The owner's decision that day (ADR 0008) was to publish it on
+#: Pages now and run the CloudFront cutover in `deploy/site/CUTOVER.md` after,
+#: rather than hold approved pages back until the move. 96% admits that tree
+#: with 6.3 MB to spare and still refuses 40 MB short of the ceiling.
+#:
+#: It spends the margin the 90% was there to keep, which is why it ends at the
+#: `served-by` flip: once that file says ``cloudfront`` no total-size budget is
+#: applied at all, and the pull request that flips it sets this back to
+#: `PUBLISHED_BUDGET_SHARE`. `tests/test_hosting_decision.py` fails the flip
+#: until it does. The sitemap budgets below never moved; they stay at 90%.
+SITE_BUDGET_SHARE = 0.96
+PUBLISHED_BUDGET_BYTES = int(PAGES_SITE_LIMIT_BYTES * SITE_BUDGET_SHARE)
 
 #: <https://www.sitemaps.org/protocol.html>: one sitemap file carries "no more
 #: than 50,000 URLs" and is "no larger than 50MB (52,428,800 bytes)
@@ -198,7 +222,7 @@ def pages_can_take(files: tuple[tuple[Path, int], ...]) -> bool:
 
     The ceiling, not the budget. This is the question `pages.yml` asks once
     Pages is the rollback copy rather than the origin families are served from:
-    a tree between the 90% budget and the ceiling is a tree Pages can still hold,
+    a tree between the budget and the ceiling is a tree Pages can still hold,
     and a rollback copy that is current is worth more than the margin.
     """
     return total_bytes(files) <= PAGES_SITE_LIMIT_BYTES and all(
@@ -314,10 +338,13 @@ def refusals(root: Path, served_by: str = SERVED_BY_PAGES) -> list[str]:
 #: a build step that picked one would be making a hosting or a scope decision by
 #: exiting non-zero at the wrong moment.
 WHAT_TO_DO = """
-This is not a budget to raise. The tree is committed HTML with no compression
-step to add and nothing to prune that is not a page somebody can reach, so the
-question is which pages exist. The answers on the table, and the record of the
-one live instance, are in issue #82 and in `deploy/site/README.md`; they are
+This is not a budget to raise again. It was raised once, from 90% to 96% of
+the ceiling, as a temporary bridge until the CloudFront cutover (ADR 0008), and
+what is left above it is the margin that keeps GitHub from refusing a deploy.
+The tree is committed HTML with no compression step to add and nothing to prune
+that is not a page somebody can reach, so the question is which pages exist, or
+which origin serves them. The record is in issue #82 and `deploy/site/README.md`,
+and the commands that end the bridge are in `deploy/site/CUTOVER.md`; they are
 decisions rather than steps, and nothing in this repository takes one.
 
 `site/` has not been touched. The rendered tree is left where it is so it can be
@@ -396,7 +423,7 @@ def main(argv: list[str] | None = None) -> int:
             f"files, {total / PAGES_SITE_LIMIT_BYTES:.1%} of the "
             f"{mb(PAGES_SITE_LIMIT_BYTES)} Pages ceiling, with "
             f"{mb(max(PUBLISHED_BUDGET_BYTES - total, 0))} left under the "
-            f"{PUBLISHED_BUDGET_SHARE:.0%} budget.",
+            f"{SITE_BUDGET_SHARE:.0%} budget.",
             flush=True,
         )
     if not found:

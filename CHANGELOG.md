@@ -402,6 +402,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The tree's publish budget is 96% of the Pages ceiling, as a temporary
+  bridge** (#82, ADR 0008, owner decision 2026-11-17). The next publish is
+  953,659,316 bytes: GitHub Pages accepts it and the 900 MB budget refused it.
+  Rather than hold D5 and the search titles until the CloudFront cutover,
+  `SITE_BUDGET_SHARE` in `src/homeroom/publish_limits.py` is 0.96 (960.0 MB)
+  while `deploy/site/served-by` says `github-pages`. It admits that tree with
+  6.3 MB to spare, still refuses 40 MB short of GitHub's ceiling, and leaves
+  the sitemap budgets at 90%. It ends at the flip: the pull request that sets
+  `served-by` to `cloudfront` sets the share back to 90%, and
+  `tests/test_hosting_decision.py` fails until it does. The refusal text no
+  longer says the budget is never raised; it says it was raised once, why,
+  and that the cutover is what comes next.
+
 - **The ask layer has a spend envelope: $50 a month** (owner decision,
   2026-10-17). `DailyCap` in `deploy/ask/template.yaml`, and
   `homeroom.ask.limits.DEFAULT_DAILY_CAP`, default to 214 model calls a day:

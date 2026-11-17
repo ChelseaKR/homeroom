@@ -1,8 +1,8 @@
 # 0008. Serve the published site from S3 behind CloudFront, and keep GitHub Pages as the way back
 
-Status: Accepted (owner decision, 2026-09-18, issue #82 option 1). Not applied: `deploy/site/served-by` says `github-pages`, and no stack, bucket, distribution, certificate or DNS change exists.
+Status: Accepted (owner decision, 2026-09-18, issue #82 option 1; bridge added by owner decision 2026-11-17). Not applied: `deploy/site/served-by` says `github-pages`, and no stack, bucket, distribution, certificate or DNS change exists. Until it is applied, a temporary bridge holds the tree to 96% of the Pages ceiling instead of 90%.
 Date: 2026-11-17
-Deciders: Chelsea Kelly-Reif (decided 2026-09-18; recorded here 2026-11-17)
+Deciders: Chelsea Kelly-Reif (move decided 2026-09-18; bridge decided and both recorded here 2026-11-17)
 Relates to: ADR 0001, which is not amended: the pages stay static and
 rendered by the same renderer, and the bytes committed under `site/` are the
 bytes served. ADR 0005, whose teacher-assignment section is the growth that
@@ -21,10 +21,10 @@ The committed tree is 877,171,581 bytes in 23,311 files. ADR 0005 puts the
 teacher-assignment section on all 21,068 school pages, a measured 8,723 bytes
 each (#82). Rendered in full on 2026-11-17 from `origin/main` with both
 search-title branches merged in, the next `make publish` is
-**953,659,316 bytes in 23,312 files**: 95.4% of the
-Pages ceiling and over the 900 MB budget, so `make publish` refuses it while
-`served-by` says `github-pages`. Nothing in the repository is wrong; the gate
-is doing what #75 wrote it to do.
+**953,659,316 bytes in 23,312 files**: 95.4% of the Pages ceiling and 53.7 MB
+over the 900 MB budget, so `make publish` refused it while `served-by` said
+`github-pages`. Nothing in the repository was wrong; the gate was doing what
+#75 wrote it to do.
 
 Nine open issues add bytes to every page (#82's triage lists them), and the
 ask layer for every school is another 303 MB. Whatever is decided has to
@@ -38,10 +38,12 @@ leave room for those, not only for D5.
    inside CloudFront's always-free 1 TB and 10 million requests a month. The
    owner runs `deploy/site/CUTOVER.md` once, about an hour of commands.
 2. **Stay on GitHub Pages and raise the budget from 90% to 96%.** Free and
-   immediate, and the tree fits under the hard ceiling with about
-   46 MB to spare, and about 6 MB under the raised budget. Every one of the nine gated features is then
-   blocked again by the first of them to land, and the next refusal would come
-   from GitHub at deploy time instead of from this repository beforehand.
+   immediate. The tree fits under the hard ceiling with 46.3 MB to spare and
+   under the raised budget with 6.3 MB. As a place to stay it fails: every one
+   of the nine gated features is blocked again by the first of them to land,
+   and most of the margin that let this repository refuse a tree before GitHub
+   did is spent. As a way to publish before option 1 is run, it is what was
+   chosen; see "The bridge" below.
 3. **Republish without `--assignments`.** Contradicts ADR 0005 and needs its
    own record.
 4. **Take an existing section off every school page.** 184 MB is more than
@@ -63,16 +65,46 @@ leave room for those, not only for D5.
 
 ## Decision
 
-Option 1. The domain moves to the origin in `deploy/site/template.yaml`,
+Option 1, with option 2 as a temporary bridge until it is applied. The domain
+moves to the origin in `deploy/site/template.yaml`,
 published by `.github/workflows/site-publish.yml` after ci succeeds on `main`,
 through a GitHub OIDC role with no stored key.
 
 `deploy/site/served-by` is the switch. It says `github-pages` until DNS has
 moved and the live sentinel has passed against the new origin, and only then
-`cloudfront`, in its own pull request. While it says `github-pages`, the 900 MB
-budget holds exactly as before. Once it says `cloudfront`, `make publish` and
-the suite hold the tree to no total-size budget, because S3 has none; the
-100 MiB per-file limit still binds, because `site/` is committed.
+`cloudfront`, in its own pull request. While it says `github-pages`, a
+total-size budget under the Pages ceiling holds. Once it says `cloudfront`,
+`make publish` and the suite hold the tree to no total-size budget, because S3
+has none; the 100 MiB per-file limit still binds, because `site/` is committed.
+
+### The bridge
+
+On 2026-11-17 the owner chose to publish the next tree on GitHub Pages now and
+run the cutover after, in two sittings, rather than hold approved search titles
+and the D5 section back until the move. The budget is what stood in the way,
+not the host: GitHub accepts a 953.7 MB site.
+
+So `SITE_BUDGET_SHARE` in `src/homeroom/publish_limits.py`, the share of the
+Pages ceiling the tree is held to, is **96% (960.0 MB) instead of 90%
+(900.0 MB)**. It is a temporary bridge and it is bounded three ways:
+
+- **By size.** It admits 953,659,316 bytes with 6.3 MB to spare and still
+  refuses 40 MB short of the ceiling. It was raised for one measured tree, not
+  to make room for the next feature. A tree that does not fit under it waits
+  for the cutover.
+- **By scope.** Only the tree's budget moved. `PUBLISHED_BUDGET_SHARE` is
+  still 0.90 and the two sitemap budgets still use it.
+- **By time.** It ends at the `served-by` flip. Once the switch says
+  `cloudfront` no total-size budget is applied at all, and the pull request
+  that flips it sets `SITE_BUDGET_SHARE` back to `PUBLISHED_BUDGET_SHARE`.
+  `tests/test_hosting_decision.py` fails that pull request until it does, so
+  the 96% cannot outlive its reason. If the switch is ever pointed back at
+  `github-pages` with a tree over 900 MB, that is a new decision with its own
+  record, not this one resumed.
+
+What the bridge costs while it lasts: the next refusal for size is 40 MB from
+GitHub's own, where it used to be 100 MB. That is the margin being spent, on
+purpose, for the weeks between the two.
 
 `pages.yml` stays. It keeps deploying every tree that fits under the Pages
 ceiling, so the rollback is one DNS record back to `chelseakr.github.io`.
@@ -94,8 +126,10 @@ on the rollback serves the last tree Pages accepted.
 - A second AWS stack exists to look after. `DeletionPolicy: Retain` on the
   bucket means deleting the stack cannot take the bytes families read.
 - When `served-by` flips, this ADR's status line is rewritten in the same pull
-  request with the date DNS moved. `tests/test_hosting_decision.py` fails until
-  it is.
+  request with the date DNS moved, and the bridge's 96% goes back to 90%.
+  `tests/test_hosting_decision.py` fails until both are done.
+- While the bridge lasts, none of the nine per-page features in #82's triage
+  can be published. They wait for the cutover, which is the point of it.
 
 ## What would reopen this
 

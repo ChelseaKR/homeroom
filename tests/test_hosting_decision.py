@@ -20,10 +20,16 @@ import re
 from pathlib import Path
 
 from homeroom.publish_limits import (
+    PAGES_SITE_LIMIT_BYTES,
+    PUBLISHED_BUDGET_BYTES,
+    PUBLISHED_BUDGET_SHARE,
     SERVED_BY_CHOICES,
     SERVED_BY_CLOUDFRONT,
     SERVED_BY_FILE,
     SERVED_BY_PAGES,
+    SITE_BUDGET_SHARE,
+    SITEMAP_BYTE_BUDGET,
+    SITEMAP_URL_BUDGET,
     read_served_by,
 )
 
@@ -35,6 +41,12 @@ DEPLOY_RECORDS = (
 )
 
 NOT_APPLIED = "Not applied"
+
+#: The bridge of 2026-11-17: the share of the Pages ceiling the tree is held to
+#: until the cutover, and the tree it was raised to admit, rendered in full
+#: that day from `main` with both search-title branches merged.
+BRIDGE_SHARE = 0.96
+BRIDGE_TREE_BYTES = 953_659_316
 
 
 def adr_source() -> str:
@@ -98,3 +110,66 @@ def test_the_hosting_adr_keeps_the_rollback_origin() -> None:
     assert "rollback" in text.lower()
     pages = (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
     assert "actions/deploy-pages@" in pages
+
+
+# ----------------------------------------------------------------------------------
+# The bridge: 96% of the Pages ceiling, until the `served-by` flip and no longer
+# ----------------------------------------------------------------------------------
+
+
+def test_the_bridge_budget_lasts_exactly_as_long_as_pages_is_the_origin() -> None:
+    """The raised budget is tied to the switch, in both directions.
+
+    While `served-by` says `github-pages` the tree is held to 96% of the
+    ceiling, which is the owner's 2026-11-17 decision and nothing looser. Once
+    it says `cloudfront` no total-size budget is applied, so a 96% left in the
+    module would be a raised number with no reason attached, waiting for the
+    day somebody points the switch back. The flip therefore fails here until
+    the share is set back to the standing 90% in the same pull request.
+    """
+    served_by = read_served_by(ROOT / SERVED_BY_FILE)
+    if served_by == SERVED_BY_PAGES:
+        assert SITE_BUDGET_SHARE == BRIDGE_SHARE
+        assert PUBLISHED_BUDGET_BYTES == 960_000_000
+    else:
+        assert SITE_BUDGET_SHARE == PUBLISHED_BUDGET_SHARE, (
+            f"served-by says {served_by!r}: the bridge is over. Set "
+            "SITE_BUDGET_SHARE back to PUBLISHED_BUDGET_SHARE in "
+            "src/homeroom/publish_limits.py."
+        )
+
+
+def test_the_bridge_admits_the_measured_tree_and_stops_short_of_the_ceiling() -> None:
+    """It was raised for one tree, and it still has to be able to refuse.
+
+    A budget at the ceiling fires only on a tree GitHub has already refused.
+    This one keeps 40 MB under it, and clears the tree it was raised for by
+    single megabytes, so the next per-page section is refused here rather than
+    at deploy time.
+    """
+    assert PUBLISHED_BUDGET_SHARE == 0.90
+    assert PUBLISHED_BUDGET_SHARE <= SITE_BUDGET_SHARE <= BRIDGE_SHARE
+    assert PAGES_SITE_LIMIT_BYTES - PUBLISHED_BUDGET_BYTES >= 40_000_000
+    if SITE_BUDGET_SHARE == BRIDGE_SHARE:
+        assert BRIDGE_TREE_BYTES <= PUBLISHED_BUDGET_BYTES
+        assert PUBLISHED_BUDGET_BYTES - BRIDGE_TREE_BYTES < 10_000_000
+
+
+def test_the_bridge_leaves_the_sitemap_budgets_where_they_were() -> None:
+    """Only the tree's budget moved. The sitemap's two are still 90% of each."""
+    assert SITEMAP_URL_BUDGET == 45_000
+    assert SITEMAP_BYTE_BUDGET == 47_185_920
+
+
+def test_the_records_say_the_bridge_is_temporary_and_when_it_ends() -> None:
+    """A raised budget with no end date written down is just a raised budget."""
+    cutover = (ROOT / "deploy" / "site" / "CUTOVER.md").read_text(encoding="utf-8")
+    for name, text in ((ADR.name, adr_source()), ("CUTOVER.md", cutover)):
+        assert "temporary bridge" in text, f"{name} does not call it temporary"
+        assert "96%" in text, f"{name} does not state the bridge share"
+        assert f"{BRIDGE_TREE_BYTES:,}" in text, (
+            f"{name} does not state the tree the bridge was raised for"
+        )
+        assert "SITE_BUDGET_SHARE" in text, (
+            f"{name} does not name what the flip sets back"
+        )

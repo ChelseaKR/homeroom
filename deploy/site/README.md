@@ -238,7 +238,7 @@ tree to different ceilings.
 
 | `served-by` | `make publish` and the suite | `pages.yml` |
 |---|---|---|
-| `github-pages` (committed today) | the 900 MB budget under the 1 GB Pages ceiling, exactly as before | deploys every tree; a tree Pages cannot take is an **error**, because families are on Pages |
+| `github-pages` (committed today) | a budget under the 1 GB Pages ceiling: 960 MB (96%) since 2026-11-17, as a temporary bridge so the D5 tree can be published before the cutover; 900 MB (90%) before that and again from the flip (ADR 0008) | deploys every tree; a tree Pages cannot take is an **error**, because families are on Pages |
 | `cloudfront` (after the DNS switch) | no total-size budget, because S3 has none; the 100 MiB per-file limit still binds, because `site/` is committed | deploys the rollback copy when it fits under 1 GB, and **skips it with a warning** when it does not |
 
 The flip comes after DNS, never before. `pages.yml` enforces the order: if

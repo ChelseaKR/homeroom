@@ -374,7 +374,10 @@ single file against the 100 MB Pages will serve. Each fails at 90% of its limit
 rather than at it, so a tree that trips one is still a tree Pages will serve
 while it is sorted out — at 87.7% of the ceiling, the site has 22.8 MB of
 that budget left (`make publish-limits`, 2026-10-17), which is less than one new section on every page, as the D5
-figure above shows. `tests/test_published_limits.py` holds the committed tree to
+figure above shows. Since 2026-11-17 the tree's own budget is 96% of the
+ceiling, a temporary bridge so the 953.7 MB D5 tree can be published on Pages
+before the cutover; it returns to 90% when `deploy/site/served-by` flips
+(ADR 0008). The sitemap and per-file budgets did not move. `tests/test_published_limits.py` holds the committed tree to
 those numbers, and to one more the sentinel sets: no published file may be
 larger than half of what `tools/verify_live_site.py` can fetch, because past
 that bound the daily check of the deployment stops comparing anything at all.
