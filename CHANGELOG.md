@@ -42,8 +42,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   schools" ("Escuelas públicas"). Spanish drafted to match and approved by the
   owner. Five new keys (235 keys per locale).
   `test_the_landing_page_publishes_no_figure` now allows exactly the count
-  sentence. **Not yet served:** `site/` changes at the next `make publish`,
-  which waits on #82.
+  sentence. Served since the 2026-11-17 publish (under Changed, below).
 
 - **Search results say where a school is, and the two languages are paired**
   (ADR 0006, owner decision 2026-11-17). A school page's title was "Shafter
@@ -57,8 +56,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ignores relative hreflang, so it could not pair the English and Spanish pages
   before. A build given no origin is unchanged. `tests/test_search_head.py`
   covers both, plus the fallback and the no-ranking rule for the new copy.
-  **Not yet served:** `site/` changes at the next `make publish`, which waits on
-  #82.
+  Served since the 2026-11-17 publish (under Changed, below).
 
 - **A school page can be printed for a meeting** (#91). School-site council,
   ELAC and IEP meetings happen on paper, so the shared `homeroom.css` now ends
@@ -77,8 +75,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and cannot be in jsdom; it is step 7 of the school page in
   `docs/accessibility-walkthrough.md`, with its own record, unprinted. The
   ask pages keep their inline stylesheet and do not carry the print rules.
-  The served tree still inlines its stylesheet until the next `make publish`,
-  so the rules reach readers then and not before.
+  The served tree inlined its stylesheet until the next `make publish`, so the
+  rules reached readers then and not before. That publish was made on
+  2026-11-17 (under Changed, below).
 
 - **The move to S3 + CloudFront, ready for the owner to run** (owner decision
   2026-09-18, #82: "Move to S3 hosting"). The next `make publish` carries D5 and
@@ -401,6 +400,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   refuse can never be registered as checkable.
 
 ### Changed
+
+- **The published site carries the teaching-assignment section, the search
+  titles and the shared stylesheet** (#82, ADR 0008; owner decision
+  2026-11-17). `make publish` was run on 2026-11-17 from `main` at `619719cb`,
+  and `site/` is now 953,659,316 bytes in 23,312 files: 95.4% of the Pages
+  ceiling, with 6.3 MB left under the temporary 96% budget. Every school page
+  now shows "Teaching assignments and credentials" (D5, ADR 0005) and carries
+  the title and description of ADR 0006; county, district and front-door pages
+  carry those of ADR 0007; and school, county and district pages pair their two
+  languages with absolute hreflang links and an `x-default`. Those four page
+  kinds link one `homeroom.css` (the new file) instead of inlining it, so the
+  print rules of #91 reach readers. The ask pages keep their inline stylesheet.
+  URLs did not change. `deploy/site/README.md`, `deploy/site/CUTOVER.md` and
+  `README.md` state the new measurements. The site is still on GitHub Pages;
+  the move to S3 and CloudFront is not applied.
 
 - **The tree's publish budget is 96% of the Pages ceiling, as a temporary
   bridge** (#82, ADR 0008, owner decision 2026-11-17). The next publish is

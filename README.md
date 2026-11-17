@@ -313,17 +313,25 @@ and `tests/test_published_site.py` gates them in `make verify` on a machine with
 no acquired file present.
 
 Publishing every school put a number on that trade, and then the number started
-making decisions. `site/` is 877.2 MB across 23,311 files, against the 1 GB
-GitHub Pages allows a published site — 87.7% of the cap, as
+making decisions. `site/` is 953.7 MB across 23,312 files, against the 1 GB
+GitHub Pages allows a published site — 95.4% of the cap, as
 `make publish-limits` (`homeroom.publish_limits`, the same measurement
 `make publish` and `tests/test_published_limits.py` use) reported it on
-2026-10-17. It was 867.6 MB across 23,310 files, 86.8%, when every school first
+2026-11-17, after the publish that put D5 and the search titles on every
+school page and moved the stylesheet into one shared file. It was 867.6 MB
+across 23,310 files, 86.8%, when every school first
 went on, from 212 KB the same morning, and it packed to about 46 MB in git
 because the pages differ from each other in so few bytes. This paragraph said
 836 MB across 21,076 files until 2026-09-05, which was the tree before the same
 day's 2,234 county and district pages went on top of it, and 86.8% until
-2026-10-17, after the tree had grown to 877.2 MB. Re-run `make publish-limits`
+2026-10-17, after the tree had grown to 877.2 MB, and 877.2 MB across 23,311
+files, 87.7%, until the 2026-11-17 publish. Re-run `make publish-limits`
 rather than trusting this figure.
+
+The two paragraphs below are the argument as it stood before that publish,
+and their figures are the ones measured then. D5 is served now: the tree that
+carries it, with the stylesheet shared, is the 953.7 MB above, published on
+GitHub Pages under the temporary 96% budget (ADR 0008) ahead of the move.
 
 What the cap is now deciding, measured rather than estimated. Publishing D5 on
 the school pages, decided in ADR 0005 and not yet republished, is 8,723 bytes a
@@ -372,12 +380,13 @@ That limit is written down for a build to read, in
 `sitemap.xml` against the sitemap protocol's 50,000 URLs and 50 MB, and any
 single file against the 100 MB Pages will serve. Each fails at 90% of its limit
 rather than at it, so a tree that trips one is still a tree Pages will serve
-while it is sorted out — at 87.7% of the ceiling, the site has 22.8 MB of
+while it is sorted out — at 87.7% of the ceiling, the site had 22.8 MB of
 that budget left (`make publish-limits`, 2026-10-17), which is less than one new section on every page, as the D5
 figure above shows. Since 2026-11-17 the tree's own budget is 96% of the
 ceiling, a temporary bridge so the 953.7 MB D5 tree can be published on Pages
 before the cutover; it returns to 90% when `deploy/site/served-by` flips
-(ADR 0008). The sitemap and per-file budgets did not move. `tests/test_published_limits.py` holds the committed tree to
+(ADR 0008). That tree was published on 2026-11-17 and has 6.3 MB of the 96%
+budget left. The sitemap and per-file budgets did not move. `tests/test_published_limits.py` holds the committed tree to
 those numbers, and to one more the sentinel sets: no published file may be
 larger than half of what `tools/verify_live_site.py` can fetch, because past
 that bound the daily check of the deployment stops comparing anything at all.

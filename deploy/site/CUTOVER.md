@@ -32,6 +32,10 @@ so the tree is the one the next publish would write: **953.7 MB (953,659,316 byt
 says `github-pages` (53.7 MB over the 900 MB budget) and passes it as served
 by CloudFront; the Pages rollback copy still fits, with 46.3 MB to spare.
 
+That tree was published to GitHub Pages on 2026-11-17 under the temporary 96%
+budget (ADR 0008), so `site/` is now those 953,659,316 bytes in 23,312 files,
+with 6.3 MB of that budget left. The move below is still to be made.
+
 ## What was checked read-only on 2026-09-18
 
 | | |
@@ -199,8 +203,8 @@ gh run watch --repo "$REPO" \
 ```
 
 *Check:* the run is green, its inventory step prints `N files, and the bucket
-holds exactly those`, and its content-type step lists every kind. About 877 MB
-and 23,311 PUTs, roughly $0.12.
+holds exactly those`, and its content-type step lists every kind. About 954 MB
+and 23,312 PUTs, roughly $0.12.
 
 ## 5. Verify on the CloudFront URL, before any DNS change
 
@@ -211,7 +215,7 @@ curl -sI "https://$DIST_DOMAIN/" | grep -iE \
   '^(content-type|cache-control|strict-transport-security|x-content-type-options|x-frame-options|referrer-policy|content-security-policy):'
 ```
 
-*Check:* `serves exactly what this checkout publishes: 23311 of 23311 file(s)
+*Check:* `serves exactly what this checkout publishes: 23312 of 23312 file(s)
 compared` (the count is whatever `find site -type f | wc -l` says on the day),
 then `text/html; charset=utf-8`, `public, max-age=300, s-maxage=86400`, HSTS,
 `nosniff`, `DENY`, `same-origin`, and **no** `content-security-policy` line,
