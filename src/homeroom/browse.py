@@ -36,6 +36,7 @@ from homeroom.render import (
     _esc,
     _social_meta,
     canonical_url,
+    hreflang_links,
     page_name,
     social_card_name,
     stylesheet_link,
@@ -163,6 +164,15 @@ def _shell(
     on a site where Spanish is a launch requirement rather than a later phase.
     """
     other = OTHER_LOCALE[locale]
+    # Both languages' files, from the site root; hosted, they become absolute
+    # hreflang addresses, and unhosted, the sibling names this page always wrote.
+    pair = {loc: f"{path.rsplit('.', 2)[0]}.{loc}.html" for loc in (locale, other)}
+    alternates = hreflang_links(
+        pair
+        if site_url is not None
+        else {loc: _sibling(name, loc) for loc, name in pair.items()},
+        site_url,
+    )
     if site_url is None:
         addressed = ""
     else:
@@ -186,8 +196,7 @@ def _shell(
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{_esc(title)}</title>\n"
         f'<meta name="description" content="{_esc(description)}">\n'
-        f'<link rel="alternate" hreflang="{locale}" href="{_esc(_sibling(path, locale))}">\n'
-        f'<link rel="alternate" hreflang="{other}" href="{_esc(alternate)}">\n'
+        f"{alternates}\n"
         f"{addressed}"
         f"{stylesheet_link('../')}\n"
         "</head>\n"
