@@ -368,8 +368,9 @@ The site outgrew its host on the same day it grew, and ADR 0005 has since
 decided to publish a section the tree has no room for. Every byte count below was
 measured over the committed `site/` tree; the AWS rates are list prices and are
 not measured here, which is the same distinction PROVENANCE.md draws between
-*surveyed* and *acquired*. `deploy/site/` carries the full record. **Nothing in
-it has been applied**: no stack, no bucket, no DNS change, and
+*surveyed* and *acquired*. `deploy/site/` carries the full record. **The
+cutover began on 2026-11-17 and DNS has not moved**: phase one of the stack
+exists on its own `*.cloudfront.net` name, and
 `.github/workflows/pages.yml` is still the deploy families receive.
 
 | Value | Measured | Source |

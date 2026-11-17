@@ -1,15 +1,44 @@
 # Moving homeroom.chelseakr.com to S3 + CloudFront: the owner's commands
 
 The owner decided on 2026-09-18 to move hosting to the origin in this directory
-(issue #82, option 1; the decision record is ADR 0008). **Nothing below has
-been run.** No stack, bucket,
-distribution, role or certificate exists, no repository variable is set, and
-the DNS record is unchanged. Every command here is the owner's, run in this
-order, from a checkout of `main` at the repository root.
+(issue #82, option 1; the decision record is ADR 0008). **Steps 0 to 3 were
+run on 2026-11-17, step 4 failed, and the DNS record is unchanged**; "Where
+this stands" below says what exists and what the run found wrong in these
+commands. Every command here is the owner's, run in this order, from a
+checkout of `main` at the repository root.
 
 `README.md` beside this file is the reasoning: the shape, the costs, the
 limits, the rollback. This file is only the commands, with what each one should
 print. Everything before step 8 is invisible to families.
+
+## Where this stands (2026-11-17)
+
+Run that day, on the owner's authorization, in this order:
+
+| Step | Result |
+|---|---|
+| 0 | Done. The account is the `homeroom-ask` one; the zone is there. |
+| 1 | **Failed as first written**, then done another way. A certificate naming `homeroom.chelseakr.com` was refused with `CAA_ERROR` (why is in step 1). That request and its validation record were deleted. A certificate for `*.chelseakr.com` was requested instead and is `ISSUED`, attached to nothing. |
+| 2 | Done. The `phase-1` change set showed the seven `Add` rows and nothing else. Stack `homeroom-site` is `CREATE_COMPLETE`, and its `*.cloudfront.net` name answers 404 from the empty bucket. |
+| 3 | Done. All four variables are set, so `site-publish.yml` is armed. |
+| 4 | **Failed.** The run could not assume the publish role: "Not authorized to perform sts:AssumeRoleWithWebIdentity". Nothing was uploaded. |
+| 5 to 9 | Not run. The record's TTL is still 300 and `served-by` still says `github-pages`. |
+
+Why step 4 failed: this repository issues GitHub's immutable OIDC subject
+claims, so the token's subject was
+`repo:ChelseaKR@3114598/homeroom@1327291879:ref:refs/heads/main` (read back
+from CloudTrail's record of the refused call), and the role's condition had
+been written from `owner/name` as `repo:ChelseaKR/homeroom:ref:refs/heads/main`.
+The template now takes the subject as its own parameter,
+`GitHubOidcSubjectRepository`, and refuses the `owner/name` form.
+
+**The stack that exists was created before that fix, so it needs step 2b
+once**, between here and a second attempt at step 4. A stack created from
+this file as it now reads never needs it.
+
+Until step 2b is applied, every commit ci passes on `main` starts a
+`site-publish` run that fails at the same place. That is a red run and
+nothing else: `pages.yml` is a separate workflow and still publishes.
 
 ## Why now
 
@@ -47,6 +76,13 @@ with 6.3 MB of that budget left. The move below is still to be made.
 | DNS | Route 53 zone `chelseakr.com`; `homeroom.chelseakr.com` is a `CNAME` to `chelseakr.github.io`, TTL 300 |
 | Repository variables | none set, so `site-publish.yml` skips every run and `required configuration` is red |
 | Template | `aws cloudformation validate-template` accepts it (needs `CAPABILITY_NAMED_IAM`); `cfn-lint` 1.46.0 reports nothing |
+
+Two things that table did not check, and each stopped the run on 2026-11-17:
+
+| | |
+|---|---|
+| CAA, through the CNAME | `dig +short CAA homeroom.chelseakr.com` follows the CNAME to `chelseakr.github.io` and returns GitHub's records, which allow Let's Encrypt, DigiCert and Sectigo and not Amazon. `dig +short CAA chelseakr.com` prints nothing, and the zone holds no CAA record. |
+| The OIDC subject GitHub issues | `gh api repos/ChelseaKR/homeroom/actions/oidc/customization/sub` says `use_immutable_subject: true` with `sub_claim_prefix` `repo:ChelseaKR@3114598/homeroom@1327291879`, not `repo:ChelseaKR/homeroom` |
 
 ## The switch that keeps GitHub Pages serving
 
@@ -88,30 +124,82 @@ REPO=ChelseaKR/homeroom
 DOMAIN=homeroom.chelseakr.com
 ZONE_ID=$(aws route53 list-hosted-zones-by-name --dns-name chelseakr.com \
   --query 'HostedZones[0].Id' --output text)
+SUBJECT_REPO=$(gh api "repos/$REPO/actions/oidc/customization/sub" \
+  --jq '.sub_claim_prefix | ltrimstr("repo:")')
 aws sts get-caller-identity
 echo "$ZONE_ID"            # /hostedzone/Z...
+echo "$SUBJECT_REPO"       # ChelseaKR@3114598/homeroom@1327291879
 ```
+
+`SUBJECT_REPO` is the repository half of the OIDC subject as GitHub issues it,
+with the owner's and the repository's ids. It is read, never composed: the
+publish role is pinned to it with `StringEquals`, and a role pinned to
+`ChelseaKR/homeroom` deploys green and can never be assumed. If this prints a
+plain `owner/name`, stop: the template refuses that form on purpose.
+
+The variables do not outlive the terminal. In a new one, run this block again,
+and for step 6 find the certificate with the lookup given there.
 
 ## 1. Certificate, in us-east-1 (CloudFront reads no other region)
 
+**The certificate is for `*.chelseakr.com`, not for `homeroom.chelseakr.com`.**
+A certificate authority checks CAA records before it issues, and a CAA lookup
+follows a CNAME. `homeroom.chelseakr.com` is a CNAME to `chelseakr.github.io`,
+and GitHub's CAA records allow Let's Encrypt, DigiCert and Sectigo only. So
+while the record points at GitHub Pages, which is until step 8, ACM may not
+issue a certificate that names `homeroom.chelseakr.com`: the request made on
+2026-11-17 went to `FAILED` with `CAA_ERROR`. A CNAME cannot
+share its name with a CAA record, so there is nothing to add that would allow
+it. The wildcard's check is made at `chelseakr.com`, which has no CAA record.
+It covers `homeroom.chelseakr.com`, and its renewal does not depend on where
+that record points, so a long rollback to Pages cannot block it.
+
 ```sh
+dig +short CAA chelseakr.com   # must print nothing
+WILD='*.chelseakr.com'
 CERT_ARN=$(aws acm request-certificate --region us-east-1 \
-  --domain-name "$DOMAIN" --validation-method DNS \
+  --domain-name "$WILD" --validation-method DNS \
   --query CertificateArn --output text)
 sleep 10   # ACM needs a moment before it names the validation record
 read -r VNAME VVALUE < <(aws acm describe-certificate --region us-east-1 \
   --certificate-arn "$CERT_ARN" \
   --query 'Certificate.DomainValidationOptions[0].ResourceRecord.[Name,Value]' \
   --output text)
+echo "$VNAME -> $VVALUE"
+aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" \
+  --query "ResourceRecordSets[?Name=='$VNAME'].ResourceRecords[0].Value" --output text
+```
+
+If `dig` prints CAA records and none of them names an Amazon authority
+(`amazon.com`, `amazontrust.com`, `awstrust.com`, `amazonaws.com`), stop: the
+wildcard would fail the same way.
+
+The last command shows whether the validation record is already in the zone.
+ACM uses one record for `chelseakr.com` and `*.chelseakr.com`, and the
+account already has a certificate for `chelseakr.com`. On 2026-11-17 the zone
+already held the record with the same value as `$VVALUE`, and nothing had to
+be written. Three cases:
+
+- It prints `$VVALUE`: the record exists. Write nothing.
+- It prints nothing: add the record, with the command below.
+- It prints anything else: stop. Something else owns that name.
+
+```sh
+# Only if the record is absent:
 aws route53 change-resource-record-sets --hosted-zone-id "$ZONE_ID" \
   --change-batch "{\"Changes\":[{\"Action\":\"UPSERT\",\"ResourceRecordSet\":{\"Name\":\"$VNAME\",\"Type\":\"CNAME\",\"TTL\":300,\"ResourceRecords\":[{\"Value\":\"$VVALUE\"}]}}]}"
+```
+
+```sh
 aws acm wait certificate-validated --region us-east-1 --certificate-arn "$CERT_ARN"
 ```
 
 *Check:* `aws acm describe-certificate --region us-east-1 --certificate-arn
 "$CERT_ARN" --query Certificate.Status` prints `"ISSUED"`, and
 `dig +short "$DOMAIN"` still prints `chelseakr.github.io.` The validation
-record is a new `_…` name; it does not touch the record families resolve.
+record is a `_…` name under `chelseakr.com`; it does not touch the record
+families resolve. If the status is `FAILED`, read
+`--query Certificate.FailureReason` before anything else.
 
 ## 2. Phase one: plan, then apply (origin on its own `*.cloudfront.net` name)
 
@@ -119,16 +207,23 @@ record is a new `_…` name; it does not touch the record families resolve.
 phase two it carries an ARN, and every ARN carries the account id.
 
 ```sh
-cat > deploy/site/params.json <<'JSON'
+cat > deploy/site/params.json <<JSON
 [
-  {"ParameterKey": "SiteDomain",         "ParameterValue": "homeroom.chelseakr.com"},
-  {"ParameterKey": "GitHubRepository",   "ParameterValue": "ChelseaKR/homeroom"},
-  {"ParameterKey": "AttachDomain",       "ParameterValue": "false"},
-  {"ParameterKey": "CreateOidcProvider", "ParameterValue": "false"}
+  {"ParameterKey": "SiteDomain",                  "ParameterValue": "homeroom.chelseakr.com"},
+  {"ParameterKey": "GitHubRepository",            "ParameterValue": "ChelseaKR/homeroom"},
+  {"ParameterKey": "GitHubOidcSubjectRepository", "ParameterValue": "$SUBJECT_REPO"},
+  {"ParameterKey": "AttachDomain",                "ParameterValue": "false"},
+  {"ParameterKey": "CreateOidcProvider",          "ParameterValue": "false"}
 ]
 JSON
 git status --short deploy/site/params.json   # must print nothing (ignored)
+grep -c "$SUBJECT_REPO" deploy/site/params.json   # 1: the subject was filled in
 ```
+
+`GitHubOidcSubjectRepository` has no default. A change set made without it
+fails with "Parameters: [GitHubOidcSubjectRepository] must have values", and
+one given `ChelseaKR/homeroom` fails on the parameter's pattern. Both are the
+template refusing to create a role nobody can assume.
 
 **Plan** (a change set creates nothing until it is executed):
 
@@ -175,6 +270,42 @@ curl -sI "https://$DIST_DOMAIN/" | head -1
 *Check:* `CREATE_COMPLETE`, four outputs, and `HTTP/2 404` from the empty
 origin (it already tells a missing key from a forbidden one). `dig` unchanged.
 
+## 2b. Once, for the stack created on 2026-11-17: repin the publish role
+
+Only for a stack created before the template took
+`GitHubOidcSubjectRepository`. Its role is pinned to the `owner/name` subject
+and cannot be assumed. Write `params.json` exactly as in step 2 (the phase-one
+values, now with the subject), then:
+
+```sh
+aws cloudformation create-change-set --stack-name "$STACK" \
+  --change-set-name role-subject --change-set-type UPDATE \
+  --template-body file://deploy/site/template.yaml \
+  --parameters file://deploy/site/params.json \
+  --capabilities CAPABILITY_NAMED_IAM
+aws cloudformation wait change-set-create-complete \
+  --stack-name "$STACK" --change-set-name role-subject
+aws cloudformation describe-change-set --stack-name "$STACK" \
+  --change-set-name role-subject \
+  --query 'Changes[].ResourceChange.[Action,LogicalResourceId,Replacement]' \
+  --output table
+```
+
+Expected plan: **one `Modify` row, `PublishRole`, `Replacement` `False`,
+nothing else.** Anything more, or a `True`, means stop.
+
+```sh
+aws cloudformation execute-change-set --stack-name "$STACK" --change-set-name role-subject
+aws cloudformation wait stack-update-complete --stack-name "$STACK"
+aws iam get-role --role-name "$STACK-publish" \
+  --query 'Role.AssumeRolePolicyDocument.Statement[0].Condition.StringEquals' --output json
+```
+
+*Check:* `UPDATE_COMPLETE`, and the role's `sub` is
+`repo:<SUBJECT_REPO>:ref:refs/heads/main`, beside `aud` `sts.amazonaws.com`.
+The role's ARN, the bucket and the distribution are unchanged, so the four
+variables stay as they are.
+
 ## 3. Set the four repository variables (arms `site-publish.yml`)
 
 These are the site variables that were reported unset. Until they are set,
@@ -193,6 +324,23 @@ gh variable list --repo "$REPO"
 `ASK_ALARM_RELAY_ROLE_ARN` is set too; that one is the ask stack's and is
 unrelated to this move.)
 
+Two things to know before setting them.
+
+**They arm the workflow at once, whether or not a publish can succeed yet.**
+From this command on, every merge to `main` starts a `site-publish` run. If
+step 4 then fails, as it did on 2026-11-17, each later merge fails the same
+way until the cause is fixed. `pages.yml` is unaffected, so families are too,
+but the runs are red. To go quiet while a fix is made, delete the four
+(`gh variable delete NAME --repo "$REPO"`) and set them again afterwards.
+
+**Two of the values carry the AWS account id, and this repository is public.**
+The bucket is named `homeroom-site-<account id>` and the role ARN contains the
+id. GitHub prints repository variables unmasked, so both appear in the public
+log of every `site-publish` run, in the `env:` and `with:` lines of its steps.
+An account id is not a credential. It is stated here because the template
+keeps the id out of the committed bytes on purpose and the logs do not.
+Renaming the bucket would take it out of one of the two.
+
 ## 4. First sync
 
 ```sh
@@ -205,6 +353,27 @@ gh run watch --repo "$REPO" \
 *Check:* the run is green, its inventory step prints `N files, and the bucket
 holds exactly those`, and its content-type step lists every kind. About 954 MB
 and 23,312 PUTs, roughly $0.12.
+
+If it fails at `aws-actions/configure-aws-credentials` with "Not authorized to
+perform sts:AssumeRoleWithWebIdentity", the role's subject does not match the
+token's. Nothing was uploaded and nothing was charged. Compare the two, and do
+not loosen the condition to make them agree:
+
+```sh
+gh api "repos/$REPO/actions/oidc/customization/sub"          # what GitHub issues
+aws iam get-role --role-name "$STACK-publish" \
+  --query 'Role.AssumeRolePolicyDocument.Statement[0].Condition' --output json
+aws cloudtrail lookup-events \
+  --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity \
+  --max-results 1 --query 'Events[0].CloudTrailEvent' --output text
+```
+
+The last one prints the newest such call in the account, which can take a few
+minutes to appear and may be another repository's: check its time. Its
+`userIdentity.userName` is the subject exactly as GitHub issued it.
+
+The log of this run is public and shows the role ARN and the bucket name
+(step 3).
 
 ## 5. Verify on the CloudFront URL, before any DNS change
 
@@ -227,15 +396,29 @@ runs only on `homeroom.chelseakr.com`. The sentinel has already proved
 
 ## 6. Phase two: attach the domain (plan, then apply)
 
+The certificate is the wildcard from step 1. The template pins
+`CertificateArn` to an ARN in us-east-1 and to nothing about the name, and
+CloudFront accepts `*.chelseakr.com` for the alias `homeroom.chelseakr.com`.
+In a terminal that no longer has `$CERT_ARN`, find it by the name it was
+issued for; looking it up by `homeroom.chelseakr.com` finds nothing:
+
+```sh
+CERT_ARN=$(aws acm list-certificates --region us-east-1 --certificate-statuses ISSUED \
+  --query "CertificateSummaryList[?DomainName=='*.chelseakr.com'].CertificateArn | [0]" \
+  --output text)
+test "$CERT_ARN" != None && echo found
+```
+
 ```sh
 cat > deploy/site/params.json <<JSON
 [
-  {"ParameterKey": "SiteDomain",         "ParameterValue": "homeroom.chelseakr.com"},
-  {"ParameterKey": "GitHubRepository",   "ParameterValue": "ChelseaKR/homeroom"},
-  {"ParameterKey": "AttachDomain",       "ParameterValue": "true"},
-  {"ParameterKey": "CreateOidcProvider", "ParameterValue": "false"},
-  {"ParameterKey": "CertificateArn",     "ParameterValue": "$CERT_ARN"},
-  {"ParameterKey": "HstsMaxAgeSeconds",  "ParameterValue": "300"}
+  {"ParameterKey": "SiteDomain",                  "ParameterValue": "homeroom.chelseakr.com"},
+  {"ParameterKey": "GitHubRepository",            "ParameterValue": "ChelseaKR/homeroom"},
+  {"ParameterKey": "GitHubOidcSubjectRepository", "ParameterValue": "$SUBJECT_REPO"},
+  {"ParameterKey": "AttachDomain",                "ParameterValue": "true"},
+  {"ParameterKey": "CreateOidcProvider",          "ParameterValue": "false"},
+  {"ParameterKey": "CertificateArn",              "ParameterValue": "$CERT_ARN"},
+  {"ParameterKey": "HstsMaxAgeSeconds",           "ParameterValue": "300"}
 ]
 JSON
 aws cloudformation create-change-set --stack-name "$STACK" \
@@ -253,7 +436,9 @@ aws cloudformation describe-change-set --stack-name "$STACK" \
 
 Expected plan: **two `Modify` rows, `Replacement` `False` on both** --
 `Distribution` (alias and certificate) and `ResponseHeadersPolicy` (HSTS
-max-age 300). A `True` anywhere means stop.
+max-age 300). A `True` anywhere means stop. So does a third row: a
+`PublishRole` row here means step 2b was skipped, or `$SUBJECT_REPO` is not
+the value the role already carries.
 
 ```sh
 aws cloudformation execute-change-set --stack-name "$STACK" --change-set-name phase-2
@@ -322,6 +507,15 @@ gh pr create --repo "$REPO" --fill
 `tests/test_published_limits.py` and the refusal text in `publish_limits.py`
 describe the bridge in the present tense; put them in the past tense in the
 same pull request.
+
+The same pull request rewrites the records that still say nothing is applied:
+`deploy/site/README.md` (as an applied record, with the stack, the region and
+the parameters as applied, and
+`test_the_site_record_claims_nothing_is_applied_and_carries_no_proof_of_one`
+rewritten with it), "Where this stands" above, and the headers of
+`.github/workflows/site-publish.yml`,
+`.github/workflows/required-configuration.yml` and `tools/config_audit.py`,
+which still describe the four variables as unset.
 
 Merge it when ci is green. Then the D5 republish, which `make publish` now
 holds to no total-size ceiling. It waited on #131, which is fixed: D5 printed

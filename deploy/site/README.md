@@ -1,5 +1,16 @@
 # Deployment shape for the published site: prepared, not applied
 
+> **Status, 2026-11-17: the cutover has begun and DNS has not moved.** Phase
+> one of this stack was applied that day, as steps 0 to 3 of
+> [`CUTOVER.md`](CUTOVER.md), which records what was run and what the run
+> found wrong in the commands. Everything below this note was written before
+> that and still describes the state before it, including "Nothing here has
+> been applied" and the list under "What is NOT applied". It becomes an
+> applied record, with the stack and its parameters as applied, in the pull
+> request that completes the cutover (CUTOVER.md step 9). What has not changed is what a family
+> reaches: `homeroom.chelseakr.com` is still a CNAME to `chelseakr.github.io`
+> and `pages.yml` still publishes there.
+
 **Nothing here has been applied.** There is no `homeroom-site` stack, no
 bucket, no distribution, no IAM role and no certificate. `homeroom.chelseakr.com`
 is still a CNAME to `chelseakr.github.io`, measured again on 2026-09-18:
@@ -173,9 +184,18 @@ paths, and the ask service refuses by origin — the same silent failure again.
 
 **The publish role** is assumed through GitHub OIDC; no AWS access key exists
 for it anywhere. Its trust policy pins
-`token.actions.githubusercontent.com:sub` to
-`repo:<owner/name>:ref:refs/heads/main`, so a pull request branch, a fork, and
-every other repository on GitHub get nothing. Its permissions are the bucket
+`token.actions.githubusercontent.com:sub`, with `StringEquals`, to
+`repo:<owner>@<owner id>/<name>@<repository id>:ref:refs/heads/main`, so a
+pull request branch, a fork, and every other repository on GitHub get nothing.
+That is the subject as GitHub issues it for a repository on immutable subject
+claims, which this one is; the ids mean a repository re-created under the same
+name cannot inherit the trust. It is the `GitHubOidcSubjectRepository`
+parameter, read from
+`gh api repos/<owner>/<name>/actions/oidc/customization/sub` and never
+composed from `owner/name`: the first publish, on 2026-11-17, was refused
+because the role had been pinned to `repo:<owner>/<name>:ref:refs/heads/main`,
+which GitHub does not issue here. The parameter's pattern now refuses that
+form. Its permissions are the bucket
 (list, get, put, delete) and `CreateInvalidation`/`GetInvalidation` on this one
 distribution ARN — not `*`, which is how that grant is usually written and
 would let a compromised run invalidate every distribution in the account.
@@ -304,11 +324,20 @@ error, and deleting this stack would delete a provider other stacks trust.
 
 ```sh
 aws acm request-certificate --region us-east-1 \
-  --domain-name homeroom.chelseakr.com --validation-method DNS
+  --domain-name '*.chelseakr.com' --validation-method DNS
 ```
 
-Add the `_<hash>.homeroom.chelseakr.com` validation CNAME at the DNS provider.
-That is a new name; it does not touch the record the site resolves through.
+The wildcard, not `homeroom.chelseakr.com`, and not by preference. A CAA
+lookup follows a CNAME, the site's record is a CNAME to `chelseakr.github.io`
+until the cutover, and GitHub's CAA records do not allow Amazon to issue. A
+certificate naming `homeroom.chelseakr.com` was requested on 2026-11-17 and
+refused with `CAA_ERROR`. The wildcard is checked at `chelseakr.com`, which
+has no CAA record, and it renews wherever the site's record points.
+
+Its `_<hash>.chelseakr.com` validation CNAME is the same record a certificate
+for `chelseakr.com` uses, and the zone already held it on 2026-11-17; add it
+only if it is absent. Either way it does not touch the record the site
+resolves through.
 
 *Check:* `aws acm describe-certificate --region us-east-1 --certificate-arn <arn>
 --query 'Certificate.Status'` returns `ISSUED`, and
@@ -328,11 +357,17 @@ undo that in one `git add`.
 
 ```json
 [
-  {"ParameterKey": "SiteDomain",       "ParameterValue": "homeroom.chelseakr.com"},
-  {"ParameterKey": "GitHubRepository", "ParameterValue": "ChelseaKR/homeroom"},
-  {"ParameterKey": "AttachDomain",     "ParameterValue": "false"}
+  {"ParameterKey": "SiteDomain",                  "ParameterValue": "homeroom.chelseakr.com"},
+  {"ParameterKey": "GitHubRepository",            "ParameterValue": "ChelseaKR/homeroom"},
+  {"ParameterKey": "GitHubOidcSubjectRepository", "ParameterValue": "ChelseaKR@3114598/homeroom@1327291879"},
+  {"ParameterKey": "AttachDomain",                "ParameterValue": "false"}
 ]
 ```
+
+`GitHubOidcSubjectRepository` is what the publish role trusts, and it is read
+from GitHub rather than written by hand:
+`gh api repos/ChelseaKR/homeroom/actions/oidc/customization/sub --jq .sub_claim_prefix`,
+without the leading `repo:`. It has no default and refuses `owner/name`.
 
 ```sh
 aws cloudformation deploy --template-file deploy/site/template.yaml \
@@ -383,11 +418,12 @@ rather than after.
 
 ```json
 [
-  {"ParameterKey": "SiteDomain",       "ParameterValue": "homeroom.chelseakr.com"},
-  {"ParameterKey": "GitHubRepository", "ParameterValue": "ChelseaKR/homeroom"},
-  {"ParameterKey": "AttachDomain",     "ParameterValue": "true"},
-  {"ParameterKey": "CertificateArn",   "ParameterValue": "arn:aws:acm:us-east-1:...:certificate/..."},
-  {"ParameterKey": "HstsMaxAgeSeconds","ParameterValue": "300"}
+  {"ParameterKey": "SiteDomain",                  "ParameterValue": "homeroom.chelseakr.com"},
+  {"ParameterKey": "GitHubRepository",            "ParameterValue": "ChelseaKR/homeroom"},
+  {"ParameterKey": "GitHubOidcSubjectRepository", "ParameterValue": "ChelseaKR@3114598/homeroom@1327291879"},
+  {"ParameterKey": "AttachDomain",                "ParameterValue": "true"},
+  {"ParameterKey": "CertificateArn",              "ParameterValue": "arn:aws:acm:us-east-1:...:certificate/..."},
+  {"ParameterKey": "HstsMaxAgeSeconds",           "ParameterValue": "300"}
 ]
 ```
 

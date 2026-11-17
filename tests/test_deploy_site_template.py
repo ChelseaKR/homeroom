@@ -240,12 +240,183 @@ def test_the_publish_role_is_pinned_to_one_repository_and_one_branch() -> None:
     """
     role = uncommented(block("PublishRole"))
     assert "token.actions.githubusercontent.com:sub" in role
-    assert "repo:${GitHubRepository}:ref:refs/heads/${GitHubBranch}" in role
+    assert SUBJECT_TEMPLATE in role
     assert "token.actions.githubusercontent.com:aud: sts.amazonaws.com" in role
     assert (
         "*"
         not in role.split("token.actions.githubusercontent.com:sub")[1].split("\n")[0]
     ), "the sub condition carries a wildcard"
+
+
+# The subject the role is pinned to, as the template writes it, and the two
+# repositories the checks below render it for. The ids are made up: the real
+# ones are a parameter, and `test_the_subject_ids_are_a_parameter...` holds the
+# template to that.
+SUBJECT_TEMPLATE = "repo:${GitHubOidcSubjectRepository}:ref:refs/heads/${GitHubBranch}"
+IMMUTABLE_REPOSITORY = "octo-org@1234567/a.site_repo@7654321"
+MUTABLE_REPOSITORY = "octo-org/a.site_repo"
+
+
+def subject_pattern() -> str:
+    declaration = uncommented(block("GitHubOidcSubjectRepository"))
+    pattern = re.search(r"AllowedPattern:\s*\"(.+)\"", declaration)
+    assert pattern, declaration
+    return pattern.group(1)
+
+
+def trust_condition() -> str:
+    """The role's trust policy alone: from its `Condition:` to its `Policies:`."""
+    role = uncommented(block("PublishRole"))
+    assert "Condition:" in role and "Policies:" in role, role
+    return role.split("Condition:")[1].split("Policies:")[0]
+
+
+def rendered_subject(repository: str, branch: str = "main") -> str:
+    """What `!Sub` makes of the `sub` condition for one pair of parameters."""
+    line = next(
+        line
+        for line in trust_condition().splitlines()
+        if "token.actions.githubusercontent.com:sub" in line
+    )
+    written = re.search(r"!Sub \"(.+)\"", line)
+    assert written, line
+    subject = written.group(1)
+    names = set(re.findall(r"\$\{([A-Za-z:]+)\}", subject))
+    assert names == {"GitHubOidcSubjectRepository", "GitHubBranch"}, (
+        f"the sub condition is built from {sorted(names)}; a third input is a "
+        f"third thing that has to be right for the role to be assumable"
+    )
+    return subject.replace("${GitHubOidcSubjectRepository}", repository).replace(
+        "${GitHubBranch}", branch
+    )
+
+
+def test_the_publish_role_trusts_the_subject_github_actually_issues() -> None:
+    """The first publish failed on this, 2026-11-17, and uploaded nothing.
+
+    The repository issues GitHub's immutable subject claims, which carry the
+    owner's and the repository's numeric ids. The role's condition was written
+    from `owner/name`, `StringEquals` compared the two, and STS answered "Not
+    authorized to perform sts:AssumeRoleWithWebIdentity" twelve times. The
+    stack had deployed green and every other check on the role passed, because
+    a role nobody can assume looks exactly like a role that is correctly
+    pinned.
+    """
+    assert rendered_subject(IMMUTABLE_REPOSITORY) == (
+        "repo:octo-org@1234567/a.site_repo@7654321:ref:refs/heads/main"
+    )
+
+
+def test_the_mutable_owner_name_form_no_longer_satisfies_the_condition() -> None:
+    """Both ways it could come back: through the template and through a parameter.
+
+    `repo:owner/name:ref:refs/heads/main` is the subject the role used to be
+    pinned to and the one GitHub does not issue here. The template must not
+    build the condition from `GitHubRepository` any more, the condition it does
+    build must not equal the mutable subject for an id-form repository, and
+    the parameter must refuse `owner/name` outright -- so that leaving the ids
+    out fails at the change set instead of creating a role that cannot be
+    assumed.
+    """
+    mutable_subject = f"repo:{MUTABLE_REPOSITORY}:ref:refs/heads/main"
+    condition = trust_condition()
+    assert "${GitHubRepository}" not in condition, (
+        "the trust policy is built from GitHubRepository again, which is the "
+        "owner/name form GitHub does not issue for this repository"
+    )
+    assert rendered_subject(IMMUTABLE_REPOSITORY) != mutable_subject
+    assert not re.fullmatch(subject_pattern(), MUTABLE_REPOSITORY), (
+        "GitHubOidcSubjectRepository accepts owner/name, so the condition that "
+        "failed on 2026-11-17 can be deployed again"
+    )
+
+
+def test_the_subject_parameter_accepts_the_id_form_and_nothing_wider() -> None:
+    """A strict pattern, because this value is the whole of the role's trust.
+
+    Each refused value is a way the subject could be widened or bent: a
+    missing id on either half, a wildcard, and a `:` that would let one value
+    carry a second claim segment (`...:ref:refs/heads/x`) into the condition.
+    """
+    expression = subject_pattern()
+    assert re.fullmatch(expression, IMMUTABLE_REPOSITORY)
+    assert re.fullmatch(expression, "ChelseaKR@1/homeroom@2")
+    for wrong in (
+        MUTABLE_REPOSITORY,
+        "octo-org@1234567/a.site_repo",
+        "octo-org/a.site_repo@7654321",
+        "octo-org@/a.site_repo@7654321",
+        "octo-org@1234567/a.site_repo@",
+        "octo-org@abc/a.site_repo@7654321",
+        "octo-org@1234567/*@7654321",
+        "*@1234567/a.site_repo@7654321",
+        "*",
+        "octo-org@1234567/a.site_repo@7654321:ref:refs/heads/main",
+        "octo-org@1234567/a.site_repo@7654321/extra@1",
+        "repo:octo-org@1234567/a.site_repo@7654321",
+        " octo-org@1234567/a.site_repo@7654321",
+        "",
+    ):
+        assert not re.fullmatch(expression, wrong), wrong
+
+
+def test_the_trust_policy_compares_the_subject_exactly() -> None:
+    """`StringLike` on `sub` is where a wildcard gets in later, unnoticed.
+
+    Both conditions sit under one `StringEquals`: the audience, so a token
+    minted for some other service is refused, and the subject, so every
+    repository and branch but one is.
+    """
+    condition = trust_condition()
+    assert "StringEquals:" in condition
+    assert "StringLike" not in condition
+    assert "ForAnyValue" not in condition
+    under_equals = condition.split("StringEquals:")[1]
+    assert "token.actions.githubusercontent.com:aud: sts.amazonaws.com" in under_equals
+    assert f'token.actions.githubusercontent.com:sub: !Sub "{SUBJECT_TEMPLATE}"' in (
+        under_equals
+    )
+
+
+def test_the_subject_ids_are_a_parameter_with_no_default() -> None:
+    """One repository's ids do not belong in a template anyone may deploy.
+
+    And no default is also what makes forgetting the parameter an error at the
+    change set, which is the cheap place to find out. The comments explain the
+    form with placeholders; no line of the template, comment or not, carries
+    an `owner@digits/name@digits` value.
+    """
+    declaration = uncommented(block("GitHubOidcSubjectRepository"))
+    assert "Type: String" in declaration
+    assert "Default:" not in declaration, declaration
+    hardcoded = re.search(
+        r"[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+", template_source()
+    )
+    assert hardcoded is None, (
+        f"{hardcoded.group(0)!r} is written into the template; it is the "
+        f"GitHubOidcSubjectRepository parameter"
+    )
+
+
+def test_the_record_and_the_commands_pass_the_subject_parameter() -> None:
+    """A required parameter the documented commands omit is a failed deploy.
+
+    Every parameter file the two documents show names `GitHubRepository`, and
+    each of those must name the subject parameter beside it; and both must say
+    where the value is read from, because composing it by hand from
+    `owner/name` is the mistake.
+    """
+    for path in (RECORD, RECORD.parent / "CUTOVER.md"):
+        text = path.read_text(encoding="utf-8")
+        files = re.findall(r"^\[\n(?:  \{.*\},?\n)+\]$", text, re.M)
+        assert files, f"{path.name} shows no parameter file"
+        for shown in files:
+            assert '"GitHubOidcSubjectRepository"' in shown, (
+                f"{path.name} shows a parameter file without the subject:\n{shown}"
+            )
+        assert "actions/oidc/customization/sub" in text, (
+            f"{path.name} does not say where the subject is read from"
+        )
 
 
 def test_the_publish_role_grants_nothing_on_a_wildcard_resource() -> None:

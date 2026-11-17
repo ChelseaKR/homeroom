@@ -1,15 +1,19 @@
 # Deployment shape for the published site: an S3 origin behind CloudFront.
 #
-# NOT APPLIED. No stack of this template exists, no bucket, distribution, role
-# or certificate has been created, and https://homeroom.chelseakr.com is still
-# a CNAME to chelseakr.github.io (measured 2026-09-05). GitHub Pages is what
-# serves families today and .github/workflows/pages.yml is untouched. README.md
-# in this directory records what is not applied, the cutover in order, how to
-# verify after each step, and how to go back.
+# PHASE ONE IS APPLIED, AND NOTHING A FAMILY USES HAS MOVED. Until 2026-11-17 no
+# stack of this template existed. On that day phase one was created as the
+# stack `homeroom-site` in us-west-2 (CUTOVER.md in this directory, steps 0 to
+# 3): the bucket, the distribution on its own *.cloudfront.net name, and the
+# publish role. https://homeroom.chelseakr.com is still a CNAME to
+# chelseakr.github.io (measured 2026-11-17). GitHub Pages is what serves
+# families today and .github/workflows/pages.yml is untouched. CUTOVER.md
+# records what has been run; README.md in this directory is the reasoning, the
+# cutover in order, how to verify after each step, and how to go back.
 #
-# Why this exists: `site/` is 855 MB against the 1 GB GitHub Pages allows a
-# published site -- 83% of the cap, from 212 KB the same morning -- and the ask
-# layer for every school is another ~303 MB that does not fit. The cap became
+# Why this exists: on 2026-09-05 `site/` was 855 MB against the 1 GB GitHub
+# Pages allows a published site -- 83% of the cap, from 212 KB the same morning
+# -- and the ask layer for every school is another ~303 MB that does not fit.
+# (On 2026-11-17 the tree is 953.7 MB, 95.4% of the cap.) The cap became
 # the thing deciding what this project may publish, which is the wrong thing to
 # be deciding it. S3 has no total-size limit; what replaces the cap is money,
 # and deploy/site/README.md measures how little.
@@ -76,8 +80,61 @@ Parameters:
 
   GitHubRepository:
     Type: String
-    Description: owner/name of the repository allowed to publish, e.g. ChelseaKR/homeroom.
+    Description: >-
+      owner/name of the repository that publishes, e.g. ChelseaKR/homeroom.
+      It is only the name the role's description reads. It grants nothing: the
+      trust is GitHubOidcSubjectRepository.
     AllowedPattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+
+  # The repository half of the OIDC `sub` claim, in the form GitHub issues it
+  # for this repository, which is NOT `owner/name`.
+  #
+  # A repository that uses GitHub's immutable subject claims has the owner's
+  # and the repository's numeric ids in its subject:
+  #
+  #   repo:<owner>@<owner id>/<name>@<repository id>:ref:refs/heads/<branch>
+  #
+  # The ids are what make it immutable. A repository deleted and re-created
+  # under the same name, or an account that takes over a freed-up name, has
+  # different ids and so cannot inherit this role's trust; and a rename of this
+  # repository changes neither id, so the role keeps working.
+  #
+  # This parameter exists because the first publish failed without it. On
+  # 2026-11-17 the role's condition was written from GitHubRepository as
+  # `repo:<owner>/<name>:ref:refs/heads/main`, the token GitHub minted carried
+  # the id form, `StringEquals` compared the two, and every one of the run's
+  # twelve attempts ended "Not authorized to perform
+  # sts:AssumeRoleWithWebIdentity". Nothing was uploaded. CloudTrail's record
+  # of the refused call carries the subject as issued, which is how the form
+  # above was confirmed rather than inferred.
+  #
+  # Read the value, never compose it:
+  #
+  #   gh api repos/<owner>/<name>/actions/oidc/customization/sub \
+  #     --jq .sub_claim_prefix          # repo:<owner>@<id>/<name>@<id>
+  #
+  # and pass everything after `repo:`. No Default, on purpose twice over: the
+  # ids of one repository do not belong in a template a public repository
+  # carries for anyone to deploy, and a deploy that forgets the parameter has
+  # to fail at the change set rather than create a role nobody can assume.
+  #
+  # The pattern accepts the id form and nothing else. `owner/name` is refused,
+  # so the condition that failed cannot be deployed again by leaving the ids
+  # out; so is a `*`, and so is a `:`, which is what would let a value carry a
+  # second claim segment into the subject.
+  GitHubOidcSubjectRepository:
+    Type: String
+    Description: >-
+      Repository portion of the GitHub OIDC subject claim as GitHub issues it
+      for a repository with immutable subject claims:
+      <owner>@<owner id>/<name>@<repository id>. Read it from
+      `gh api repos/<owner>/<name>/actions/oidc/customization/sub`
+      (sub_claim_prefix, without the leading `repo:`).
+    AllowedPattern: "^[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+$"
+    ConstraintDescription: >-
+      must be <owner>@<owner id>/<name>@<repository id>, the immutable form;
+      plain owner/name is refused because GitHub does not issue it for this
+      repository and a role pinned to it can never be assumed.
 
   GitHubBranch:
     Type: String
@@ -417,6 +474,11 @@ Resources:
   # wildcard in it -- any repository on GitHub could mint a token for this
   # account's role. It is pinned to one repository and one branch, which is
   # also the branch ci gates, so a pull request from a fork cannot publish.
+  #
+  # It is `StringEquals`, not `StringLike`, against the subject exactly as
+  # GitHub issues it: the immutable form, with the owner's and the
+  # repository's ids. See GitHubOidcSubjectRepository for why the
+  # `owner/name` form is not what is compared here any more.
   PublishRole:
     Type: AWS::IAM::Role
     Properties:
@@ -433,7 +495,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepository}:ref:refs/heads/${GitHubBranch}"
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOidcSubjectRepository}:ref:refs/heads/${GitHubBranch}"
       Policies:
         - PolicyName: publish-the-committed-site
           PolicyDocument:
