@@ -31,9 +31,9 @@ Pages ceiling after ci succeeds on main, beside
 `.github/workflows/site-publish.yml`, which syncs the same commit to the
 bucket. Going back is one DNS record ("Rolling back", below).
 
-One change to the template is written and not yet running: a real page for a
-missing address ("Prepared, not applied", below). Everything else in
-`template.yaml` is what the stack is.
+`template.yaml` is what the stack is, including the page for a missing
+address that was added later the same day ("Prepared, not applied", below, which
+keeps its name and now records the date it was applied).
 
 ## As applied
 
@@ -133,16 +133,22 @@ has and a reader would otherwise assume:
 
 ## Prepared, not applied: a page for a missing address
 
-**The missing-page response is prepared and not applied.** The template and
-the page are in the repository; the running distribution has not been changed.
-When it is, replace that sentence with the date, in the form
-`**The missing-page response was applied on YYYY-MM-DD.**`, and
-`tests/test_deploy_site_template.py` holds this file to saying one or the
-other.
+**The missing-page response was applied on 2026-11-17.** The template and
+the page are in the repository, and the running distribution matches them: one
+change set, `missing-page`, with one row (`Modify`, `Distribution`, no
+replacement), read before it was executed. `tests/test_deploy_site_template.py`
+holds this file to saying either that the response is prepared and not
+applied, or the date it was applied.
 
-**What a reader gets today.** Any address with no page answers `404` with
-`content-type: application/xml` and S3's error document. Seen on 2026-11-17,
-minutes after the domain moved: no title, no language, no heading, no link.
+**Checked afterwards, from outside.** Three made-up addresses (at the root,
+under `county/`, and three levels deep) each answered `404` with
+`text/html; charset=utf-8` and the page in both languages. The front door, a
+school page in each language, `robots.txt` and `sitemap.xml` still answered
+`200` with their own types, and `tools/verify_live_site.py` still passed.
+
+**What a reader got before.** For about four hours after the domain moved,
+any address with no page answered `404` with `content-type: application/xml`
+and S3's error document: no title, no language, no heading, no link.
 
 **What the change is.** Two lines on the 404 entry of the distribution's
 `CustomErrorResponses`, `ResponseCode: 404` and `ResponsePagePath: /404.html`.
@@ -467,9 +473,8 @@ extensionless. And a missing page on GitHub Pages was GitHub's own stock 404
 page, where here it has been S3's short XML error body with the same 404
 status, which is what `tools/verify_live_site.py` requires. Since 2026-11-17
 the tree carries its own `404.html`: GitHub Pages serves it for a missing
-address as soon as it is deployed there, and this distribution does once the
-prepared change is applied ("Prepared, not applied", above), so the two
-origins then answer a missing address with the same page and the same status.
+address, and so does this distribution ("Prepared, not applied", above), so the two origins answer a missing address with the
+same page and the same status.
 
 ## The cutover, in the order it was made, with what was checked after each step
 
