@@ -1,14 +1,15 @@
 # Deployment shape for the published site: an S3 origin behind CloudFront.
 #
-# PHASE ONE IS APPLIED, AND NOTHING A FAMILY USES HAS MOVED. Until 2026-11-17 no
-# stack of this template existed. On that day phase one was created as the
-# stack `homeroom-site` in us-west-2 (CUTOVER.md in this directory, steps 0 to
-# 3): the bucket, the distribution on its own *.cloudfront.net name, and the
-# publish role. https://homeroom.chelseakr.com is still a CNAME to
-# chelseakr.github.io (measured 2026-11-17). GitHub Pages is what serves
-# families today and .github/workflows/pages.yml is untouched. CUTOVER.md
-# records what has been run; README.md in this directory is the reasoning, the
-# cutover in order, how to verify after each step, and how to go back.
+# APPLIED, BOTH PHASES, AND IT SERVES THE DOMAIN. Until 2026-11-17 no stack of
+# this template existed. On that day it was created as the stack
+# `homeroom-site` in us-west-2 (CUTOVER.md in this directory): phase one, the
+# publish role's subject, then phase two with the alias and the certificate.
+# https://homeroom.chelseakr.com has been a CNAME to the distribution since
+# 16:38 PST that day, and deploy/site/served-by says `cloudfront`. GitHub Pages
+# is the rollback copy, kept current by .github/workflows/pages.yml. README.md
+# in this directory is the applied record -- the parameters as applied, the
+# reasoning, how each step was verified, and how to go back -- and CUTOVER.md
+# is the commands as they were run.
 #
 # Why this exists: on 2026-09-05 `site/` was 855 MB against the 1 GB GitHub
 # Pages allows a published site -- 83% of the cap, from 212 KB the same morning

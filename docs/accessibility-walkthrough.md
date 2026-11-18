@@ -73,7 +73,7 @@ The county and district pages were added on 2026-09-05 with the browse
 hierarchy and have never been in front of a person either.
 
 Walk the deployed pages at <https://homeroom.chelseakr.com>, not a local build:
-the paths above are the committed bytes that GitHub Pages serves, so
+the paths above are the committed bytes that the site serves, so
 `site/57726786056246.en.html` is `https://homeroom.chelseakr.com/57726786056246.en.html`.
 Birch Lane Elementary (CDS 57726786056246) is named here for a reason rather
 than at random: it is the one school that carries all four cell states on one

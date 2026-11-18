@@ -1,16 +1,17 @@
 # Publish `site/` to the S3 origin behind CloudFront (deploy/site/).
 #
-# INERT AS COMMITTED. Every job below is gated on four repository variables,
-# and none of them is set: with any one empty the job is skipped, so merging
-# this file creates nothing, publishes nothing, and cannot fail. Setting the
-# four is step 4 of the cutover in deploy/site/README.md, and it is the moment
-# this file starts doing anything at all. Nothing here touches DNS in any case.
+# ARMED SINCE 2026-11-17, AND THIS IS THE DEPLOY FAMILIES RECEIVE. Every job
+# below is gated on four repository variables. Until that day none was set, the
+# job was skipped on every run, and this file did nothing; with any one empty
+# it still skips rather than fails. The four were set from the stack's outputs
+# (deploy/site/CUTOVER.md step 3), DNS moved to the distribution the same day,
+# and deploy/site/served-by says `cloudfront`. Nothing here touches DNS.
 #
-# This sits ALONGSIDE .github/workflows/pages.yml, which is unchanged and still
-# the deploy families receive. While both are armed, every commit ci passes on
-# main is published to both origins, so the two serve identical bytes and going
-# back is a DNS record and nothing else. That overlap is the point of running
-# them together rather than swapping one for the other.
+# This sits ALONGSIDE .github/workflows/pages.yml, which keeps GitHub Pages as
+# the rollback copy. While both are armed, every commit ci passes on main is
+# published to both origins, so the two hold identical bytes and going back is
+# a DNS record and nothing else. That overlap is the point of running them
+# together rather than swapping one for the other.
 #
 # Like pages.yml, this builds nothing. It cannot: the pages are rendered from
 # CDE files acquired by hand into `data/raw/`, which is never in git, and CI

@@ -1,59 +1,80 @@
-# Deployment shape for the published site: prepared, not applied
+# Deployment of the published site: S3 behind CloudFront, applied 2026-11-17
 
-> **Status, 2026-11-17: the cutover has begun and DNS has not moved.** Phase
-> one of this stack was applied that day, as steps 0 to 3 of
-> [`CUTOVER.md`](CUTOVER.md), which records what was run and what the run
-> found wrong in the commands. Everything below this note was written before
-> that and still describes the state before it, including "Nothing here has
-> been applied" and the list under "What is NOT applied". It becomes an
-> applied record, with the stack and its parameters as applied, in the pull
-> request that completes the cutover (CUTOVER.md step 9). What has not changed is what a family
-> reaches: `homeroom.chelseakr.com` is still a CNAME to `chelseakr.github.io`
-> and `pages.yml` still publishes there.
-
-**Nothing here has been applied.** There is no `homeroom-site` stack, no
-bucket, no distribution, no IAM role and no certificate. `homeroom.chelseakr.com`
-is still a CNAME to `chelseakr.github.io`, measured again on 2026-09-18:
+**This is applied.** `homeroom.chelseakr.com` is served by CloudFront from a
+private S3 bucket, and has been since the DNS switch at 16:38:53 PST on
+2026-11-17 (2026-11-18T00:38:53Z). The stack is `homeroom-site` in
+`us-west-2`. Read back from the domain after the switch:
 
 ```
-$ dig homeroom.chelseakr.com +noall +answer
-homeroom.chelseakr.com.	288	IN	CNAME	chelseakr.github.io.
-chelseakr.github.io.	299	IN	A	185.199.111.153
-chelseakr.github.io.	299	IN	A	185.199.108.153
-chelseakr.github.io.	299	IN	A	185.199.110.153
-chelseakr.github.io.	299	IN	A	185.199.109.153
+$ dig +noall +answer homeroom.chelseakr.com @1.1.1.1
+homeroom.chelseakr.com.	60	IN	CNAME	d28my37ix3s050.cloudfront.net.
+$ curl -sI https://homeroom.chelseakr.com/ | grep -i -E '^(HTTP|server|via|strict-transport|cache-control)'
+HTTP/2 200
+server: AmazonS3
+cache-control: public, max-age=300, s-maxage=86400
+via: 1.1 <an edge>.cloudfront.net (CloudFront)
+strict-transport-security: max-age=300
 ```
 
-**The decision is taken.** On 2026-09-18 the owner chose this origin (#82,
-option 1; recorded as ADR 0008), because the next `make publish` carries D5 and does not fit on
-GitHub Pages. **[`CUTOVER.md`](CUTOVER.md) is the owner's commands, in order**
--- certificate, plan and apply of each phase, the four variables, the first
-sync, verification on the `*.cloudfront.net` name, the DNS switch, the flip
-of `served-by`, and the rollback -- with what each should print. This file
-stays the reasoning.
+**The decision** was the owner's, on 2026-09-18 (#82, option 1; recorded as
+ADR 0008), because the D5 publish did not fit under this repository's budget
+for GitHub Pages. **[`CUTOVER.md`](CUTOVER.md) is the commands as they were
+run**, in order -- certificate, plan and apply of each phase, the four
+variables, the first sync, verification on the `*.cloudfront.net` name, the
+DNS switch, the flip of `served-by`, and the rollback -- with what each
+should print and what the run found wrong in them. This file is the record
+and the reasoning.
 
-GitHub Pages serves every family reading these pages today.
-`.github/workflows/pages.yml` is unchanged and still publishes after ci
-succeeds on main. `.github/workflows/site-publish.yml` sits beside it and is
-inert as committed: it is gated on four repository variables, none of which is
-set, so it skips rather than runs. Setting them is step 4 below, and moving DNS
-is step 7. Both are the owner's to do, deliberately, at a moment of their
-choosing.
+GitHub Pages no longer serves families. It is the rollback copy:
+`.github/workflows/pages.yml` still deploys every tree that fits under the
+Pages ceiling after ci succeeds on main, beside
+`.github/workflows/site-publish.yml`, which syncs the same commit to the
+bucket. Going back is one DNS record ("Rolling back", below).
 
-This directory is the shape that would be applied, sized against what the site
-actually is, so that the decision can be made from measurements rather than
-from a plan.
+## As applied
 
 | | |
 |---|---|
-| Stack | `homeroom-site` (**does not exist**) |
-| Region | `us-west-2` intended, to sit with `homeroom-ask` |
-| Certificate | ACM, **`us-east-1`**, whatever region the stack is in |
-| Origin | private S3 bucket, no public access, no ACLs, no website endpoint |
+| Stack | `homeroom-site`, `us-west-2`, beside `homeroom-ask`. Created 2026-11-17 by three change sets, each read before it was executed: phase one (seven `Add` rows), the publish role's subject (one `Modify`), and phase two (two `Modify` rows) |
+| Distribution | `d28my37ix3s050.cloudfront.net`, with the alias `homeroom.chelseakr.com`, SNI, TLS 1.2 (2021 policy) at least |
+| Certificate | ACM, **`us-east-1`**, for `*.chelseakr.com`, validated by DNS. The wildcard, because ACM may not issue for the site's own name while it is a CNAME to GitHub Pages (CUTOVER.md step 1) |
+| Origin | one private S3 bucket: no public access, no ACLs, no website endpoint, versioned. Its name is the stack's `BucketName` output and is not written here, because it ends in the AWS account id |
 | Edge | CloudFront with Origin Access Control (not the legacy OAI) |
-| Publish | `.github/workflows/site-publish.yml`, GitHub OIDC, no stored key |
-| Today's host | GitHub Pages, untouched, and it stays that way until step 7 |
-| The switch | `deploy/site/served-by`, which says `github-pages` until DNS moves |
+| Publish | `.github/workflows/site-publish.yml`, GitHub OIDC, no stored key, as the role `homeroom-site-publish` |
+| DNS | Route 53 zone `chelseakr.com`: `homeroom.chelseakr.com` is a CNAME to the distribution's name, TTL 60 |
+| The switch | `deploy/site/served-by`, which says `cloudfront` |
+| Rollback copy | GitHub Pages, kept current by `pages.yml` while the tree is under 1 GB |
+
+The parameters as applied:
+
+| Parameter | Value |
+|---|---|
+| `SiteDomain` | `homeroom.chelseakr.com` |
+| `GitHubRepository` | `ChelseaKR/homeroom` |
+| `GitHubOidcSubjectRepository` | `ChelseaKR@3114598/homeroom@1327291879` |
+| `GitHubBranch` | `main` (the default) |
+| `AttachDomain` | `true` |
+| `CertificateArn` | the `*.chelseakr.com` certificate above. The ARN is not written here: every ARN carries the account id |
+| `CreateOidcProvider` | `false`: the account already had GitHub's provider |
+| `HstsMaxAgeSeconds` | `300`, the cautious first value; see below |
+| `PriceClass`, `NoncurrentVersionDays` | the defaults, `PriceClass_100` and `30` |
+
+The four repository variables (`SITE_S3_BUCKET`,
+`SITE_CLOUDFRONT_DISTRIBUTION_ID`, `SITE_PUBLISH_ROLE_ARN`, `SITE_AWS_REGION`)
+are set from the stack's outputs. Their values are not recorded here either:
+two of them carry the account id.
+
+**Proved before DNS moved:** `tools/verify_live_site.py --skip-rebuild
+--sample 0 --url https://d28my37ix3s050.cloudfront.net/` printed `serves
+exactly what this checkout publishes: 23312 of 23312 file(s) compared,
+953659316 bytes, 21068 of them school pages`.
+
+**Still at its cautious setting:** `Strict-Transport-Security` is 300 seconds
+and the record's TTL is 60, so that a rollback takes effect in about a minute
+and no browser is held to HTTPS for long if GitHub's certificate has lapsed.
+Both go up once the daily sentinel has been green for a few days:
+`HstsMaxAgeSeconds=31536000` in a change set that changes nothing else, and
+the TTL back to 300.
 
 ## Why
 
@@ -86,24 +107,25 @@ replaces the cap is money, and the numbers are below: at this size the origin
 costs about two cents a month, and there is no total-size ceiling to grow into
 at all.
 
-## What is NOT applied
+## What is deliberately not applied
 
-Everything. Stated item by item, because "prepared" is a word that can hide a
-half-finished deploy:
+Stated item by item, because each is something a deployment like this usually
+has and a reader would otherwise assume:
 
-- No CloudFormation stack has been created, updated, validated against the
-  live API, or deployed in any account.
-- No S3 bucket exists and no byte of `site/` has been uploaded anywhere.
-- No CloudFront distribution, cache policy, response-headers policy or origin
-  access control exists.
-- No IAM role, no OIDC provider, no trust policy.
-- No ACM certificate has been requested.
-- No DNS record has been created, changed, or deleted. `homeroom.chelseakr.com`
-  resolves to GitHub Pages, as it has since 2026-08-22.
-- No repository variable is set, so `site-publish.yml` skips on every run.
-- `.github/workflows/pages.yml` is byte-for-byte unchanged and is still the
-  deploy families receive.
-- `site/` is unchanged and was not re-rendered or re-published.
+- No access log of any kind: no CloudFront standard or real-time log and no S3
+  server access log. A viewer's address beside a school page's path is a
+  record about a family, and this project keeps none ("The shape", below, and
+  the hosting record in `docs/RESPONSIBLE-TECH-AUDITS.md`).
+- No AWS WAF.
+- No `Content-Security-Policy`. That is parity with GitHub Pages and open
+  work, not a decision that one is unnecessary.
+- No second OIDC provider: the account's existing one is trusted, and this
+  stack does not own it.
+- No access key anywhere. The publish role is assumed per run through OIDC.
+- GitHub Pages was not unpublished, `pages.yml` was not removed, and
+  `site/CNAME` was not deleted. Each is part of the rollback.
+- `site/` was not re-rendered for the move. The bytes served are the bytes
+  that were committed before it.
 
 ## The shape
 
@@ -249,7 +271,7 @@ only its last iteration's status and would swallow a failed upload in any
 earlier one — the same reason `make secret-scan` runs its two scans as two
 commands.
 
-## The switch that keeps GitHub Pages serving until DNS moves
+## The switch: which origin serves the domain
 
 `deploy/site/served-by` is one committed word naming the origin the domain
 points at. `make publish`, `tests/test_published_limits.py` and `pages.yml` all
@@ -258,10 +280,11 @@ tree to different ceilings.
 
 | `served-by` | `make publish` and the suite | `pages.yml` |
 |---|---|---|
-| `github-pages` (committed today) | a budget under the 1 GB Pages ceiling: 960 MB (96%) since 2026-11-17, as a temporary bridge so the D5 tree can be published before the cutover; 900 MB (90%) before that and again from the flip (ADR 0008) | deploys every tree; a tree Pages cannot take is an **error**, because families are on Pages |
-| `cloudfront` (after the DNS switch) | no total-size budget, because S3 has none; the 100 MiB per-file limit still binds, because `site/` is committed | deploys the rollback copy when it fits under 1 GB, and **skips it with a warning** when it does not |
+| `github-pages` (until 2026-11-17) | a budget under the 1 GB Pages ceiling: 900 MB (90%). For one day, 2026-11-17, it was 960 MB (96%), a temporary bridge so the D5 tree could be published before the cutover (ADR 0008) | deploys every tree; a tree Pages cannot take is an **error**, because families are on Pages |
+| `cloudfront` (committed now, after the DNS switch) | no total-size budget, because S3 has none; the 100 MiB per-file limit still binds, because `site/` is committed | deploys the rollback copy when it fits under 1 GB, and **skips it with a warning** when it does not |
 
-The flip comes after DNS, never before. `pages.yml` enforces the order: if
+The flip came after DNS, never before, and a return would have to be made in
+the same order. `pages.yml` enforces it: if
 `served-by` says `cloudfront`, the tree does not fit, and the domain still
 resolves to `*.github.io`, the run fails rather than leave families on an
 older tree with every check green. The verdict and the upload are separate
@@ -270,19 +293,21 @@ jobs, so a skipped commit creates no `github-pages` deployment record for
 
 Once a tree over 1 GB is published, the rollback in "Rolling back" below
 still works but serves the last tree GitHub Pages accepted, which is older. The
-D5 tree is 1,060.9 MB without #98's shared stylesheet and about 943.8 MB with
-it, so with #98 the Pages copy keeps receiving it.
+D5 tree is 1,060.9 MB without #98's shared stylesheet. With it, the tree
+published on 2026-11-17 is 953.7 MB, so the Pages copy keeps receiving it,
+with 46.3 MB to spare.
 
-## Headers: GitHub Pages today, and this distribution
+## Headers: GitHub Pages before the move, and this distribution
 
-Measured on 2026-09-18 with `curl -sI https://homeroom.chelseakr.com/` against
-the template's `ResponseHeadersPolicy` and the publish workflow's
-`--cache-control`:
+The GitHub Pages column was measured on 2026-09-18 with
+`curl -sI https://homeroom.chelseakr.com/`. The other column is the template's
+`ResponseHeadersPolicy` and the publish workflow's `--cache-control`, read
+back from the domain after the switch on 2026-11-17:
 
-| Header | GitHub Pages today | This distribution |
+| Header | GitHub Pages (2026-09-18) | This distribution |
 |---|---|---|
 | `Content-Security-Policy` | none | none -- parity, see "Two things are deliberately absent" |
-| `Strict-Transport-Security` | none | `max-age=300` at first, then a year |
+| `Strict-Transport-Security` | none | `max-age=300` now; a year once the move has settled |
 | `X-Content-Type-Options` | none | `nosniff` |
 | `X-Frame-Options` | none | `DENY` |
 | `Referrer-Policy` | none (the browser default) | `same-origin` |
@@ -303,11 +328,14 @@ extensionless. And a missing page on GitHub Pages is its own 404 page, where
 here it is S3's short XML error body with the same 404 status, which is what
 `tools/verify_live_site.py` requires.
 
-## Cutover, in order, with what to check after each step
+## The cutover, in the order it was made, with what was checked after each step
 
-Every step before 7 is invisible to families. Step 7 is the cutover. The
-exact commands, with the expected plan output of each phase, are in
-[`CUTOVER.md`](CUTOVER.md); this section is why each step is where it is.
+All of this was done on 2026-11-17. It is kept, written as the instructions
+it was, because it is why each step is where it is, and because a rollback
+followed by a second cutover would walk it again. Every step before 7 was
+invisible to families. Step 7 was the cutover. The exact commands, with the
+plan output of each phase and what went wrong on the day, are in
+[`CUTOVER.md`](CUTOVER.md), whose step numbers differ from these.
 
 **0. Preflight, read-only.**
 
@@ -467,8 +495,10 @@ no edit to any code. Watch the daily run
 the DNS TTL and `HstsMaxAgeSeconds` back up.
 
 **8. Flip `deploy/site/served-by` to `cloudfront`**, in its own pull request,
-after step 7 has checked out. That is what lets `make publish` render the D5
-tree, which does not fit under the Pages budget.
+after step 7 has checked out. That is what takes the total-size budget off
+`make publish` and the suite, and what turns `pages.yml` from the deploy
+families receive into the rollback copy. (The D5 tree itself had already been
+published, on Pages, under the one-day 96% bridge.)
 
 **Do not, as part of the cutover:** remove `.github/workflows/pages.yml`,
 unpublish the GitHub Pages site, or delete `site/CNAME`. Each of those is what
@@ -522,9 +552,11 @@ lifecycle rule expires them.
 
 ## What changes for `tools/verify_live_site.py`
 
-**Nothing, and that was checked rather than assumed.** It keeps working against
-the new origin unchanged, in both directions across the cutover, because it
-grades a domain and the domain does not move.
+**Nothing, and that was checked rather than assumed.** It works against the
+new origin unchanged, as it would in the other direction across a rollback,
+because it grades a domain and the domain did not move. On 2026-11-17 the same
+code passed against the `*.cloudfront.net` name before the switch and against
+the domain after it.
 
 Four things it needs, and where each comes from:
 
@@ -542,22 +574,24 @@ invalidation the publish issues and waits for, not from the reader's ability to
 bust a cache. The sentinel's three attempts with 20-second waits still cover the
 tail.
 
-`--url` is what makes step 4 above possible: the same code, pointed at the
-`*.cloudfront.net` name, verifies the full 23,312-file origin before any DNS
-change.
+`--url` is what made step 4 above possible: the same code, pointed at the
+`*.cloudfront.net` name, verified the full 23,312-file origin before any DNS
+change. A full pass is slow from a laptop, about 75 minutes: the tool opens
+one connection per file, and one fetch that times out starts the whole
+comparison again (three attempts). Keep the machine awake and on power.
 
 ## `site/CNAME` becomes inert, and stays
 
 CloudFront reads its alternate domain name from the stack, not from a file in
 the bucket, so `site/CNAME` configures nothing on the new origin. It is still
 uploaded, still served at `/CNAME` as `text/plain` exactly as GitHub Pages
-serves it today, and still compared by the sentinel.
+served it, and still compared by the sentinel.
 
 Keep it, for two reasons. It is what holds the custom domain configured in the
 repository's Pages settings, which is half of why the rollback is one DNS
 record. And `pages.yml` refuses to publish a tree without it — "publishing
-would unset the custom domain" — so removing it would break the deploy that is
-still the live one.
+would unset the custom domain" — so removing it would break the deploy that
+keeps the rollback copy.
 
 ## Cost, measured
 
@@ -582,6 +616,15 @@ The steady state is **about two cents a month plus twelve cents per full
 republish**, and CloudFront's always-free tier (1 TB out and 10,000,000
 requests per month, not a 12-month trial) absorbs the serving.
 
+One thing to measure now that it is running, because it decides how often
+that twelve cents is paid. `site-publish.yml` runs on every commit ci passes
+on main, whether or not the commit touched `site/`. `aws s3 sync` uploads a
+file whose local modification time is newer than the object's, and a fresh
+checkout's files are all newer, so each run is expected to be a full
+republish: twelve cents, and one more superseded generation kept for 30 days.
+The workflow's header says as much. It has not been measured on a second run;
+the first publish after this record is where to read it.
+
 `du -sm site` says 955 and the table says 953,659,316 bytes, and both are
 right: `du` counts 4 KiB filesystem blocks, and 23,312 small files carry about
 45 MiB of block slack that does not exist in a bucket. S3 bills content.
@@ -593,7 +636,7 @@ the teaching-assignment section and the search titles on every school page and
 moved the stylesheet into `homeroom.css`; the traffic paragraph below was not.)
 
 **What the traffic actually is: unknown, and unmeasurable from here.** GitHub
-Pages gives the owner no access log, and this stack turns CloudFront logging
+Pages gave the owner no access log, and this stack turns CloudFront logging
 off on purpose (above). So the honest statement is the headroom rather than the
 usage. A school page averages 40,163 bytes uncompressed and the pages carry no
 external asset, so one page view is one request; the free tier's 10,000,000

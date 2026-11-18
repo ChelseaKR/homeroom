@@ -307,8 +307,11 @@ state is covered either.
 
 The site is rendered here and committed to `site/`, because it cannot be built
 in CI: the acquired CDE files never enter git and nothing in CI fetches them.
-The workflow in `.github/workflows/pages.yml` publishes that directory and
-builds nothing, so the bytes reviewed in a pull request are the bytes served,
+The workflow in `.github/workflows/site-publish.yml` publishes that directory
+to the S3 origin behind CloudFront and builds nothing
+(`.github/workflows/pages.yml` did the same to GitHub Pages until 2026-11-17,
+and still keeps the rollback copy there), so the bytes reviewed in a pull
+request are the bytes served,
 and `tests/test_published_site.py` gates them in `make verify` on a machine with
 no acquired file present.
 
@@ -331,7 +334,8 @@ rather than trusting this figure.
 The two paragraphs below are the argument as it stood before that publish,
 and their figures are the ones measured then. D5 is served now: the tree that
 carries it, with the stylesheet shared, is the 953.7 MB above, published on
-GitHub Pages under the temporary 96% budget (ADR 0008) ahead of the move.
+GitHub Pages under the temporary 96% budget (ADR 0008) ahead of the move,
+which was made later the same day.
 
 What the cap is now deciding, measured rather than estimated. Publishing D5 on
 the school pages, decided in ADR 0005 and not yet republished, is 8,723 bytes a
@@ -363,18 +367,18 @@ can be made rather than an artifact that cannot be uploaded. The saving is
 counted here and not yet in `site/`: republishing is the owner's step, and
 until she takes it the served tree is the 867.6 MB tree above.
 
-The owner's answer to the second bound is to move hosts rather than keep shaving
-bytes. `deploy/site/` holds the shape that would replace GitHub Pages — a
+The owner's answer to the second bound was to move hosts rather than keep
+shaving bytes. `deploy/site/` holds the shape that replaced GitHub Pages — a
 private S3 bucket behind CloudFront with Origin Access Control, published by
 `.github/workflows/site-publish.yml` over GitHub OIDC with no stored key — with
 what it costs at this size (about two cents a month) and what the new ceilings
-are (no total-size limit at all) both measured. **The cutover began on
-2026-11-17 and DNS has not moved.** Phase one of the stack exists, on its own
-`*.cloudfront.net` name; `homeroom.chelseakr.com`
-still resolves to `chelseakr.github.io`, and `.github/workflows/pages.yml` is
-untouched and still the deploy families receive. The cutover and the rollback
-are the owner's to make, and `deploy/site/README.md` carries both in order,
-with what to check after each step.
+are (no total-size limit at all) both measured. **The move was made on
+2026-11-17** (ADR 0008): `homeroom.chelseakr.com` resolves to the CloudFront
+distribution, `deploy/site/served-by` says `cloudfront`, and the tree's budget
+is back at 90% for any return to Pages. `.github/workflows/pages.yml` still
+deploys every tree that fits under the Pages ceiling, which is what makes the
+rollback one DNS record. `deploy/site/README.md` is the applied record and
+carries the rollback, with what to check after each step.
 
 That limit is written down for a build to read, in
 `src/homeroom/publish_limits.py`: the published tree against the Pages ceiling,
@@ -383,11 +387,13 @@ single file against the 100 MB Pages will serve. Each fails at 90% of its limit
 rather than at it, so a tree that trips one is still a tree Pages will serve
 while it is sorted out — at 87.7% of the ceiling, the site had 22.8 MB of
 that budget left (`make publish-limits`, 2026-10-17), which is less than one new section on every page, as the D5
-figure above shows. Since 2026-11-17 the tree's own budget is 96% of the
-ceiling, a temporary bridge so the 953.7 MB D5 tree can be published on Pages
-before the cutover; it returns to 90% when `deploy/site/served-by` flips
-(ADR 0008). That tree was published on 2026-11-17 and has 6.3 MB of the 96%
-budget left. The sitemap and per-file budgets did not move. `tests/test_published_limits.py` holds the committed tree to
+figure above shows. On 2026-11-17 the tree's own budget was 96% of the
+ceiling, a temporary bridge so the 953.7 MB D5 tree could be published on Pages
+before the cutover; it returned to 90% when `deploy/site/served-by` flipped
+the same day (ADR 0008). With CloudFront serving the domain the tree is held
+to no total-size budget at all, and the 90% is what a return to Pages would be
+held to. The sitemap and per-file budgets did not move and apply on either
+origin. `tests/test_published_limits.py` holds the committed tree to
 those numbers, and to one more the sentinel sets: no published file may be
 larger than half of what `tools/verify_live_site.py` can fetch, because past
 that bound the daily check of the deployment stops comparing anything at all.

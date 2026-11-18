@@ -46,7 +46,8 @@ Track and an on-page opt-out honored.
 
 Tier C (library/CLI) per `STANDARDS/OBSERVABILITY-STANDARD.md` §0 for the
 pipeline, which is where the work is. As of 2026-08-22 there is also a hosted
-surface: a static site on GitHub Pages, which emits nothing because it is files,
+surface: a static site (on GitHub Pages until 2026-11-17, on S3 behind
+CloudFront since; ADR 0008), which emits nothing because it is files,
 and one Lambda, whose observability is deliberately thin -- the runtime's
 START/END/REPORT lines and a 14-day retention, with no request body and no
 question ever logged (that is a privacy requirement, not an oversight; see
@@ -58,14 +59,13 @@ in the template and backstopped by an account budget the owner sets;
 stays out of scope; opt-in `--log-format json` is the entry point if the
 pipeline ever needs it.
 
-The static half emits nothing about its readers either, and that survives the
-host move prepared in `deploy/site/`: CloudFront standard access logging is
-turned off there deliberately, because a viewer IP beside a school page's path
-is a record of which family looked at which named school, and GitHub Pages
-gives the owner no such log today. The only thing that reads the served bytes
-is `tools/verify_live_site.py`, daily, from CI, and it grades the domain rather
-than the origin -- so it needs no change across the cutover. Nothing in
-`deploy/site/` has been applied.
+The static half emits nothing about its readers either, and that survived the
+host move in `deploy/site/`, made on 2026-11-17: CloudFront standard access
+logging is turned off there deliberately, because a viewer IP beside a school
+page's path is a record of which family looked at which named school, and
+GitHub Pages gave the owner no such log before. The only thing that reads the
+served bytes is `tools/verify_live_site.py`, daily, from CI, and it grades the
+domain rather than the origin -- so it needed no change across the cutover.
 
 ## Quality targets
 
@@ -108,7 +108,7 @@ owning standard.
 | Keys present in one locale and not the other | 0 | `tests/test_i18n.py` over every catalog | AUTO | Chelsea Kelly-Reif |
 | Withheld or unpublished figures rendering a digit | 0 | `tests/test_pages.py` | AUTO | Chelsea Kelly-Reif |
 | Numbers on a page that nothing counted | 0 | `tests/test_pages.py` checks every data cell against the pipeline's own values | AUTO | Chelsea Kelly-Reif |
-| Published `site/` bytes against the 1 GB GitHub Pages allows a site | <= 96% of it (960.0 MB) since 2026-11-17, a temporary bridge until the CloudFront cutover, then 90% (900.0 MB) again (ADR 0008); measured 867.6 MB, 86.8%, 2026-09-06 | `tests/test_published_limits.py` over the committed tree | AUTO | Chelsea Kelly-Reif |
+| Published `site/` bytes against the 1 GB GitHub Pages allows a site | no total-size budget since the 2026-11-17 move to S3 behind CloudFront (`deploy/site/served-by` says `cloudfront`; ADR 0008). The Pages rollback copy is deployed while the tree is <= 1 GB: 953.7 MB, 95.4%, on 2026-11-17. If Pages is the origin again the budget is 90% (900.0 MB); it was 96% for one day as a temporary bridge | `tests/test_published_limits.py` over the committed tree | AUTO | Chelsea Kelly-Reif |
 | Published files larger than the deployment sentinel can read | 0 (budget 8 MiB, half `verify_live_site.MAXIMUM_FILE_BYTES`; the largest published file is `sitemap.xml` at 1.8 MB) | `tests/test_published_limits.py` | AUTO | Chelsea Kelly-Reif |
 | `sitemap.xml` against the protocol's 50,000 URLs and 50 MB | <= 90% of each (45,000 URLs, 47.2 MB); measured 23,303 URLs and 1.8 MB, 2026-09-06 | `tests/test_published_limits.py` | AUTO | Chelsea Kelly-Reif |
 | Published school pages a family cannot reach from the front door | 0 of 21,068, both languages | `tests/test_published_site.py` walks index, county, district, school over the published tree | AUTO | Chelsea Kelly-Reif |
@@ -368,10 +368,9 @@ The site outgrew its host on the same day it grew, and ADR 0005 has since
 decided to publish a section the tree has no room for. Every byte count below was
 measured over the committed `site/` tree; the AWS rates are list prices and are
 not measured here, which is the same distinction PROVENANCE.md draws between
-*surveyed* and *acquired*. `deploy/site/` carries the full record. **The
-cutover began on 2026-11-17 and DNS has not moved**: phase one of the stack
-exists on its own `*.cloudfront.net` name, and
-`.github/workflows/pages.yml` is still the deploy families receive.
+*surveyed* and *acquired*. `deploy/site/` carries the full record. **The move
+was made on 2026-11-17**: the domain resolves to the CloudFront distribution,
+and `.github/workflows/pages.yml` keeps the GitHub Pages rollback copy.
 
 | Value | Measured | Source |
 |-------|----------|--------|

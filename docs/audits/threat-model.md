@@ -24,7 +24,8 @@
   `site/ask/` carry the endpoint.
 - **ASVS target level:** L1. There is no authentication surface, no session and
   no stored PII anywhere in this project. The static pages are files served by
-  GitHub Pages with no dynamic behavior of their own.
+  CloudFront from a private S3 bucket (GitHub Pages until 2026-11-17, and
+  still the rollback copy; ADR 0008) with no dynamic behavior of their own.
   The ask service (ADR 0003) is a dynamic surface and is deployed: a single
   unauthenticated POST endpoint, no session, no stored data. It is assessed at
   L1 with the additions listed under trust boundary 5 below. This paragraph read

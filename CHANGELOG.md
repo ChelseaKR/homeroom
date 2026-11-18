@@ -401,6 +401,48 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **CloudFront serves the domain, and the 96% bridge is over** (#82, ADR 0008,
+  owner decisions 2026-09-18 and 2026-11-17). `homeroom.chelseakr.com` has been
+  a CNAME to the `homeroom-site` stack's CloudFront distribution since 16:38
+  PST on 2026-11-17 (2026-11-18T00:38:53Z), served from a private S3 bucket.
+  Before the switch `tools/verify_live_site.py --sample 0` compared all 23,312
+  files on the distribution's own name with the committed tree and they
+  matched; after it the domain answers from the new origin with the headers
+  the stack sets. Nothing about the pages changed: same address, same bytes,
+  no re-render.
+
+  This is the pull request that follows the switch. `deploy/site/served-by`
+  says `cloudfront`, so `make publish` and the suite hold the tree to no
+  total-size budget, and `SITE_BUDGET_SHARE` is back at the standing 90%,
+  which is what a return to GitHub Pages would be held to.
+  `.github/workflows/site-publish.yml` is now the deploy families receive, and
+  `.github/workflows/pages.yml` keeps GitHub Pages as the rollback copy: it
+  still deploys every tree that fits under 1 GB, so going back is one DNS
+  record. `Strict-Transport-Security` is 300 seconds and the record's TTL is
+  60 until the move has settled.
+
+  The records say so. ADR 0008's status is "Applied 2026-11-17".
+  `deploy/site/README.md` is an applied record: the stack, the region, the
+  distribution, every parameter as applied, and nothing that holds the AWS
+  account id; two tests hold it to that and to `served-by`, where one used to
+  hold it to saying nothing was applied. `deploy/site/CUTOVER.md` records every
+  step as run, and gains what the run taught: check for a publish already in
+  progress before dispatching one, and a full verification takes about 75
+  minutes and starts again on any timed-out fetch.
+  `docs/RESPONSIBLE-TECH-AUDITS.md` has a hosting record for the static pages
+  (AWS receives the requests GitHub used to; this project still keeps no log
+  of them), written with this change rather than before the switch.
+  `SECURITY.md`, the threat model, `README.md`, `docs/ROADMAP.md` and the
+  headers of the publish workflows, the template, `tools/config_audit.py` and
+  `tools/deploy_staleness.py` no longer describe GitHub Pages as the origin or
+  the four `SITE_*` variables as unset.
+
+  One thing this leaves open, stated rather than fixed:
+  `tools/deploy_staleness.py` reads the GitHub Pages deployment record, which
+  is now the rollback copy's. `site-publish.yml` creates no such record, so
+  how far the served origin is behind `main` is measured only by proxy.
+  `live-integrity.yml` still reads the served bytes daily.
+
 - **The published site carries the teaching-assignment section, the search
   titles and the shared stylesheet** (#82, ADR 0008; owner decision
   2026-11-17). `make publish` was run on 2026-11-17 from `main` at `619719cb`,

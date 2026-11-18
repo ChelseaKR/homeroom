@@ -1,4 +1,5 @@
-# Publish `site/` to GitHub Pages at https://homeroom.chelseakr.com.
+# Publish `site/` to GitHub Pages, which is the rollback copy of
+# https://homeroom.chelseakr.com since 2026-11-17 and was its origin before.
 #
 # This workflow builds nothing. It cannot: the pages are rendered from CDE
 # files that are acquired by hand into `data/raw/`, which is never in git, and
@@ -19,14 +20,16 @@
 # verified against the tag with `gh api repos/OWNER/REPO/commits/TAG` on
 # 2026-08-22, per SECURITY-AND-SUPPLY-CHAIN-STANDARD §6.
 #
-# The owner moved hosting to the S3 + CloudFront origin in deploy/site/ on
-# 2026-09-18 (#82), and this file is what keeps GitHub Pages serving until DNS
-# moves. `deploy/site/served-by` records which origin the domain points at.
-# While it says `github-pages` this deploys every tree, as before; a tree Pages
-# cannot take is an error, because families are on Pages. Once the owner has
-# moved DNS and flipped it to `cloudfront`, Pages is the rollback copy: this
-# still deploys every tree that fits under the Pages ceiling, and skips, with a
-# warning, one that does not. deploy/site/CUTOVER.md has the order.
+# The owner decided on 2026-09-18 (#82) to move hosting to the S3 + CloudFront
+# origin in deploy/site/, and this file is what kept GitHub Pages serving until
+# DNS moved, on 2026-11-17. `deploy/site/served-by` records which origin the
+# domain points at. While it said `github-pages` this deployed every tree; a
+# tree Pages could not take was an error, because families were on Pages. It
+# says `cloudfront` now, so Pages is the rollback copy: this still deploys
+# every tree that fits under the Pages ceiling, and skips, with a warning, one
+# that does not. The commit that reaches families is the one
+# .github/workflows/site-publish.yml syncs. deploy/site/CUTOVER.md has the
+# order, and the rollback.
 name: pages
 
 # zizmor: ignore[dangerous-triggers]

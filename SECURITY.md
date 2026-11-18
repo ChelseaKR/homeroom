@@ -28,8 +28,9 @@ here (2026-08-29) rather than quietly rewritten.
 In scope, through the private channel above: that endpoint, prompt injection,
 a fabricated or judgmental answer reaching a reader, and a credential in a
 build. The service stores no question and holds no user data. The static pages
-at homeroom.chelseakr.com are files on GitHub Pages with no server-side
-behavior of their own.
+at homeroom.chelseakr.com are files in a private S3 bucket served by
+CloudFront (GitHub Pages until 2026-11-17, and still the rollback copy), with
+no server-side behavior of their own.
 
 
 Scan configuration (SAST/SCA/secret-scan/container-CVE) lives in

@@ -7,11 +7,12 @@
 # every night since in an eight-second run. It failed correctly and said exactly
 # what was missing. Nothing connected that to the merge that caused it.
 #
-# `site-publish.yml` is the same fact with the sound turned off: four variables,
-# none of them set, behind an `if:` that skips rather than fails -- deliberately,
-# and the comment there argues it well, since an unarmed deploy is not a broken
-# build. Every run of it has skipped. Unarmed and idle look identical from
-# outside.
+# `site-publish.yml` is the same fact with the sound turned off: four variables
+# behind an `if:` that skips rather than fails -- deliberately, and the comment
+# there argues it well, since an unarmed deploy is not a broken build. Until
+# 2026-11-17 none of the four was set and every run of it skipped; they are set
+# now, and that workflow is the deploy families receive. Unarmed and idle look
+# identical from outside, which is why a deleted variable has to be reported.
 #
 # `make config-audit` holds the workflows to the declarations in
 # tools/config_audit.py and is part of the merge gate. It cannot check the half
