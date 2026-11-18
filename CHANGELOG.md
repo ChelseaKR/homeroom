@@ -40,7 +40,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   serves it for a missing address as soon as it is deployed there.
   The words are a heading and two sentences in each language (238 keys per
   locale), approved on 2026-11-17.
-- **Prepared, not applied: the distribution answers a missing address with
+- **Applied 2026-11-17: the distribution answers a missing address with
   that page, and the status stays 404.** `deploy/site/template.yaml` gives the
   404 entry of `CustomErrorResponses` a page (`ResponseCode: 404`,
   `ResponsePagePath: /404.html`). The 403 entry is unchanged, so a refused read
