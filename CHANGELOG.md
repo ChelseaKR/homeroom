@@ -15,8 +15,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Proposed, wording not yet approved: the front door's header links its
-  Spanish half** (2026-11-17 accessibility sweep). The front door is one page in
+- **The front door's header links its Spanish half** (2026-11-17 accessibility sweep). The front door is one page in
   two languages, English first, and its Spanish half starts after 58 county
   links and the analytics paragraphs with nothing above that leads to it. Every
   other page offers the other language from its header. The header now carries
@@ -24,6 +23,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   heading. It reuses the one reviewed string every other page uses for it and
   adds no sentence; what is new is that the word is visible and announced on
   this page.
+- **A missing address gets a page** (found by the 2026-11-17 accessibility
+  sweep). Since the domain moved to CloudFront a mistyped or
+  stale address returned S3's `<Error><Code>NoSuchKey</Code>` document: the
+  right status, 404, and a tree of XML tags for a body, with no language and
+  no way back. On GitHub Pages it had been GitHub's stock page. The build now
+  writes one bilingual `404.html` beside the front door
+  (`src/homeroom/missing.py`): English first and Spanish under it, each half
+  marked with its language, saying what happened and linking the front door
+  in that language. Every address on it starts at the site root, because it
+  is served at whatever address was missing; it is `noindex`, has no canonical
+  address and is in no sitemap. `site/404.html` is committed, and
+  `tests/test_published_site.py` holds it byte for byte to what the renderer
+  and the analytics step write, which needs no acquired file
+  (`uv run python -m homeroom.missing site`). GitHub Pages, the rollback copy,
+  serves it for a missing address as soon as it is deployed there.
+  The words are a heading and two sentences in each language (238 keys per
+  locale), approved on 2026-11-17.
+- **Prepared, not applied: the distribution answers a missing address with
+  that page, and the status stays 404.** `deploy/site/template.yaml` gives the
+  404 entry of `CustomErrorResponses` a page (`ResponseCode: 404`,
+  `ResponsePagePath: /404.html`). The 403 entry is unchanged, so a refused read
+  of a page that exists still looks like one. The check that used to forbid
+  `ResponseCode` outright now holds what that was for: a missing address
+  answers 404 and never 200. Nothing was applied; `deploy/site/README.md` has
+  the one-row change set to expect, the checks and the way back, and is held
+  to saying whether it is running.
+- The accessibility walkthrough's procedure and empty record cover the missing
+  page: 6 page types, 12 rows, every cell still UNMET. The live sentinel
+  compares `404.html` on every run rather than rotating it with the school
+  pages.
 
 - **The hosting decision has its own record** (#82, ADR 0008). The owner chose
   on 2026-09-18 to move the domain to the S3 + CloudFront origin in
