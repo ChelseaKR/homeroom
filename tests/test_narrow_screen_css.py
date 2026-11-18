@@ -15,6 +15,17 @@ a control showing the check notices when the rule is gone.
    "retenido para proteger la privacidad" is wider than a 320 pixel screen, and
    every Spanish school page scrolled sideways by 57 pixels. In the stacked
    layout the terms may wrap.
+
+2. The table captions. A caption is as wide as its table, and a table is at
+   least 32rem wide inside its scrolling region, so on a 320 pixel screen (or a
+   1280 pixel one zoomed to 400%) the sentence that says what a table is ran
+   off the right edge: "Total enrollment at Birch Lane Elementar". The numbers
+   below it need two dimensions and may scroll (SC 1.4.10 excepts them); a
+   sentence does not, and a reader had to scroll sideways to finish it. The
+   caption now holds to the left edge of the region and is no wider than the
+   screen less the page's own side padding, so it wraps and stays readable
+   while the table scrolls under it. On a screen wider than the table the limit
+   is never reached and nothing changes.
 """
 
 from __future__ import annotations
@@ -85,3 +96,40 @@ def test_control_the_rule_has_to_be_inside_the_narrow_query(css: str) -> None:
     )
     assert moved != css
     assert not legend_terms_may_wrap_when_stacked(moved)
+
+
+WRAP_PADDING = ".wrap { max-width: 58rem; margin: 0 auto; padding: 0 1.25rem; }"
+CAPTION_RULES = (
+    "position: sticky;",
+    "left: 0;",
+    "max-width: calc(100vw - 2.5rem);",
+)
+
+
+def caption_stays_readable(css: str) -> bool:
+    caption = declarations(css.split(NARROW)[0], "caption")
+    return all(rule in caption for rule in CAPTION_RULES)
+
+
+def test_a_table_caption_wraps_inside_the_screen_and_does_not_scroll_away(
+    css: str,
+) -> None:
+    # The premise: tables are wider than a phone, inside a region that scrolls.
+    assert "min-width: 32rem;" in declarations(css, "table")
+    assert "overflow-x: auto;" in declarations(css, ".scroll")
+    # 2.5rem is the page's own side padding, twice; if that changes, so must this.
+    assert WRAP_PADDING in css
+    assert caption_stays_readable(css)
+
+
+def test_control_the_check_notices_a_caption_as_wide_as_its_table(css: str) -> None:
+    for rule in CAPTION_RULES:
+        sabotaged = css.replace(rule, "", 1)
+        assert sabotaged != css, rule
+        assert not caption_stays_readable(sabotaged), rule
+
+
+def test_print_is_not_narrowed_by_the_screen_rule(css: str) -> None:
+    """On paper the table is as wide as the sheet, and so is its caption."""
+    printed = css[css.index("@media print") :]
+    assert "max-width: none;" in declarations(printed, "caption")

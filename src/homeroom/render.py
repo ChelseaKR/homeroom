@@ -225,7 +225,10 @@ p { margin: 0 0 1rem; max-width: 44rem; }
 .states dd { margin: 0; color: var(--ink-2); }
 .scroll { overflow-x: auto; margin: 0 0 .6rem; }
 table { border-collapse: collapse; width: 100%; min-width: 32rem; }
-caption { text-align: left; color: var(--ink-2); font-size: .95rem; padding: 0 0 .6rem; }
+caption {
+  text-align: left; color: var(--ink-2); font-size: .95rem; padding: 0 0 .6rem;
+  position: sticky; left: 0; max-width: calc(100vw - 2.5rem);
+}
 th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--rule); vertical-align: baseline; }
 thead th { border-bottom: 2px solid var(--rule-strong); font-size: .85rem; color: var(--ink-2); font-weight: 600; }
 tbody th { font-weight: 400; }
@@ -284,6 +287,7 @@ PRINT_STYLE = (
   .eyebrow { margin-top: 0; }
   .scroll { overflow: visible; }
   table { min-width: 0; }
+  caption { max-width: none; }
   tr, .note, .identity, .states, .sources dd { break-inside: avoid; }
   a { text-decoration: none; }
   .sources a[href]::after { content: " (" attr(href) ")"; word-break: break-all; }
