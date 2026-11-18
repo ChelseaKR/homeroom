@@ -15,9 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from homeroom.askpage import ask_page_name, render_ask_page
+from homeroom.askpage import ASK_STYLE, ask_page_name, render_ask_page
 from homeroom.i18n import LOCALES, UI, Locale, text
-from homeroom.render import page_name
+from homeroom.render import DARK, LIGHT, page_name
 from homeroom.site import build_site
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -288,3 +288,65 @@ def test_the_ask_page_says_nothing_untrue_before_a_question_is_asked() -> None:
         for key, value in UI[locale].items():
             if key.startswith("ask_refusal_"):
                 assert value not in body, (locale, key)
+
+
+def _token(selector: str, declaration: str) -> str:
+    """The palette token one declaration of one ask-page rule paints with."""
+    rule = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", ASK_STYLE)
+    assert rule, selector
+    found = re.search(
+        re.escape(declaration) + r":[^;]*var\(--([a-z0-9-]+)\)", rule.group(1)
+    )
+    assert found, (selector, declaration, rule.group(1))
+    return found.group(1)
+
+
+@pytest.mark.parametrize("palette", [LIGHT, DARK], ids=["light", "dark"])
+def test_the_question_box_has_an_edge_a_reader_can_see(
+    palette: dict[str, str],
+) -> None:
+    """SC 1.4.11: the box a question is typed in must be findable by its edge.
+
+    The textarea is filled with `raised` and sits on `surface`, and those two
+    are 1.03:1 apart in the light palette and 1.09:1 in the dark one -- by
+    design, they are two whites and two near-blacks. So the border is the only
+    thing that says where the box is, and until 2026-11-17 it was drawn in
+    `rule-strong`, a hairline color: 1.69:1 on the light page and 2.10:1 on the
+    dark one, under the 3:1 a control's boundary needs. A reader with low
+    vision met a label and a button with nothing visible between them.
+
+    axe-core has no rule for this; `color-contrast` reads text. It is
+    arithmetic over the palette, the same arithmetic `tests/test_pages.py`
+    does for text and for the focus ring, so it is done here the same way.
+    """
+    from tests.test_pages import contrast
+
+    edge = palette[_token(".ask-form textarea", "border")]
+    fill = palette[_token(".ask-form textarea", "background")]
+    assert contrast(edge, palette["surface"]) >= 3.0, round(
+        contrast(edge, palette["surface"]), 2
+    )
+    assert contrast(edge, fill) >= 3.0, round(contrast(edge, fill), 2)
+
+
+def test_the_script_is_told_which_language_the_states_own_words_are_in(
+    with_ask: Path,
+) -> None:
+    """SC 3.1.2: a quoted CDE passage on a Spanish page is still English.
+
+    The answer can carry two things that are CDE's words and not Homeroom's: a
+    definition quoted verbatim from a CDE page, and that page's title in the
+    citation under it. Both exist in English only. The static pages mark such
+    text with `lang="en"` on a Spanish page (`render._cde`); the script that
+    builds the answer did not, so a Spanish screen reader read a paragraph of
+    English with Spanish phonemes. The script cannot know the page's language
+    from the service, so the page tells it, in the same block as its strings:
+    `cde_lang` on a Spanish page, and no key at all on an English one, where
+    the attribute would be redundant. `tools/ask-optin.mjs` renders an answer
+    and checks the attribute lands on the quote and the title.
+    """
+    for cds in SCHOOLS:
+        english = (with_ask / ask_page_name(cds, "en")).read_text(encoding="utf-8")
+        spanish = (with_ask / ask_page_name(cds, "es")).read_text(encoding="utf-8")
+        assert '"cde_lang": "en"' in spanish, cds
+        assert '"cde_lang"' not in english, cds
