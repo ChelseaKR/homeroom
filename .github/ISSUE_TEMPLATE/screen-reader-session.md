@@ -9,8 +9,8 @@ labels: ["accessibility", "help wanted"]
 This is the contribution this project is most stuck on, and it is the one no
 amount of code closes.
 
-docs/accessibility-walkthrough.md holds the procedure and an empty record: ten
-rows, five page types in two languages, every cell reading UNMET. Nobody has
+docs/accessibility-walkthrough.md holds the procedure and an empty record: twelve
+rows, six page types in two languages, every cell reading UNMET. Nobody has
 walked any page of this site with a keyboard or a screen reader, in either
 language. tests/test_accessibility_review.py holds the README, the roadmap and
 the residual-risk register to saying so, so the gap cannot quietly close.
@@ -21,7 +21,7 @@ already use, or a keyboard and the patience to press Tab a lot.
 ONE ROW IS A WHOLE CONTRIBUTION. One page type, one language, one screen
 reader, one sitting. The procedure says it in terms: "Leave every row you did
 not walk at UNMET. A partial walkthrough recorded as a partial walkthrough is
-the point." You are not signing up for ten rows.
+the point." You are not signing up for twelve rows.
 
 Roughly what a row costs, honestly: the landing, county and district pages are
 20 to 40 minutes each. The school page is the hard one and is more like an

@@ -32,12 +32,20 @@ from pathlib import Path
 
 from homeroom import analytics
 from homeroom.i18n import LOCALES, text
-from homeroom.render import REPOSITORY_URL
+from homeroom.missing import FRONT_DOOR, MISSING_PAGE_NAME, published_missing
+from homeroom.render import REPOSITORY_URL, STYLESHEET_NAME
 from tests.test_pages import FETCHING_ATTRIBUTES, SUBRESOURCE_TAGS, parse_markup
 
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 DOMAIN = "homeroom.chelseakr.com"
+
+#: The page a missing address answers with (`homeroom.missing`). It is the one
+#: published page that is none of the kinds below: not a school, not indexable,
+#: and addressed from the site root rather than relative to itself, because it
+#: is served at whatever address was missing. So it is left out of each kind's
+#: list by name and held to its own checks at the end of this file.
+MISSING = SITE / MISSING_PAGE_NAME
 
 
 def test_the_published_directory_is_here_at_all() -> None:
@@ -66,7 +74,11 @@ def published() -> tuple[Path, ...]:
 
 
 def school_pages() -> list[Path]:
-    return [p for p in published() if p.parent == SITE and p.name != "index.html"]
+    return [
+        p
+        for p in published()
+        if p.parent == SITE and p.name not in ("index.html", MISSING_PAGE_NAME)
+    ]
 
 
 def ask_pages() -> list[Path]:
@@ -236,7 +248,11 @@ def pages() -> tuple[PageFacts, ...]:
 
 
 def school_facts() -> list[PageFacts]:
-    return [f for f in pages() if f.path.parent == SITE and f.name != "index.html"]
+    return [
+        f
+        for f in pages()
+        if f.path.parent == SITE and f.name not in ("index.html", MISSING_PAGE_NAME)
+    ]
 
 
 def ask_facts() -> list[PageFacts]:
@@ -244,8 +260,19 @@ def ask_facts() -> list[PageFacts]:
 
 
 def indexable_facts() -> list[PageFacts]:
-    """Every published page that is not one of the noindex ask pages."""
-    return [f for f in pages() if f.path.parent.name != "ask"]
+    """Every published page that is not noindex: not an ask page, not the missing page."""
+    return [f for f in pages() if f.path.parent.name != "ask" and f.path != MISSING]
+
+
+def missing_facts() -> PageFacts:
+    """The one page a missing address answers with."""
+    found = [f for f in pages() if f.path == MISSING]
+    assert len(found) == 1, (
+        f"site/{MISSING_PAGE_NAME} is not published. Without it a missing address "
+        "answers with S3's XML error (or GitHub Pages' stock page on the rollback "
+        "copy). Write it with `uv run python -m homeroom.missing site`."
+    )
+    return found[0]
 
 
 # ----------------------------------------------------------------------------------
@@ -300,6 +327,11 @@ def test_no_published_link_points_at_a_page_that_was_not_published() -> None:
     for facts in pages():
         for href in facts.hrefs:
             if href.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            if href.startswith("/"):
+                # Only the missing page may address the site from its root, and
+                # its links are resolved there, in its own checks below.
+                assert facts.path == MISSING, (facts.name, href)
                 continue
             target = (facts.path.parent / href.split("#", 1)[0]).resolve()
             assert target.is_file(), (facts.name, href)
@@ -604,8 +636,10 @@ ORIGIN = f"https://{DOMAIN}"
 
 
 def indexable() -> list[Path]:
-    """Every published page that is not one of the noindex ask pages."""
-    return [path for path in published() if path.parent.name != "ask"]
+    """Every published page that is not noindex: not an ask page, not the missing page."""
+    return [
+        path for path in published() if path.parent.name != "ask" and path != MISSING
+    ]
 
 
 def published_url(path: Path) -> str:
@@ -897,3 +931,124 @@ def test_the_published_front_door_links_the_repository_it_was_built_from() -> No
     for locale in LOCALES:
         assert text(locale, "landing_source_link") in markup, locale
         assert text(locale, "landing_source_body") in markup, locale
+
+
+# ----------------------------------------------------------------------------------
+# The page a missing address answers with
+#
+# Until 2026-11-17 the published tree held none. GitHub Pages answered a missing
+# address with its own stock page; from the day CloudFront took the domain, S3
+# answered with an XML error document, the right status and nothing a person can
+# read. `site/404.html` is that page now, on both origins: the distribution's
+# custom error response names it (`tests/test_deploy_site_template.py` holds the
+# status to 404), and GitHub Pages serves a root `404.html` without being asked.
+#
+# It is the one page served at an address that is not its own, which is what
+# every check here is about.
+# ----------------------------------------------------------------------------------
+
+
+def root_target(href: str) -> Path:
+    """The published file a root-relative address names. `/` is the front door."""
+    assert href.startswith("/") and not href.startswith("//"), href
+    path = href.split("#", 1)[0].lstrip("/")
+    return SITE / (path or "index.html")
+
+
+def test_the_missing_page_is_published_and_is_the_one_the_renderer_writes() -> None:
+    """Byte for byte, so the committed page cannot drift from the code or the words.
+
+    Every other published page needs the acquired CDE files to re-render, so
+    its bytes are checked by what they claim. This one names no school and
+    publishes no figure: `homeroom.missing.published_missing` is the render and
+    the analytics step `make publish` runs, and needs nothing else. So the
+    committed file is held to exactly that. A change to its wording, to a
+    notice it carries or to the analytics note fails here until the page is
+    written again: `uv run python -m homeroom.missing site`.
+    """
+    assert MISSING.is_file(), f"site/{MISSING_PAGE_NAME} is not published"
+    assert MISSING.read_text(encoding="utf-8") == published_missing(), (
+        f"site/{MISSING_PAGE_NAME} is not what the renderer writes today; "
+        "re-write it with `uv run python -m homeroom.missing site`"
+    )
+
+
+def test_the_missing_page_addresses_everything_from_the_site_root() -> None:
+    """It is shown at `/county/no-such.en.html` as readily as at `/no-such`.
+
+    A relative `homeroom.css` there is asked for at `/county/homeroom.css`,
+    which is itself missing: the page arrives unstyled, its loader does not
+    arrive at all, and its way back leads to a second missing page. Every
+    address it carries therefore starts at the root, and every one of them is a
+    file this tree publishes -- with the fragment, where it names one, present
+    in that file.
+    """
+    facts = missing_facts()
+    assert facts.styles == 0
+    assert facts.stylesheet_hrefs == (f"/{STYLESHEET_NAME}",)
+    assert facts.script_srcs == {f"/{analytics.SCRIPT_NAME}"}
+    addresses = [*facts.stylesheet_hrefs, *facts.script_srcs]
+    for href in facts.hrefs:
+        if href.startswith("#"):
+            continue
+        assert href.startswith("/"), (
+            f"the missing page carries a relative or off-site address: {href}"
+        )
+        addresses.append(href)
+    assert set(FRONT_DOOR.values()) <= set(addresses), sorted(addresses)
+    for href in addresses:
+        target = root_target(href)
+        assert target.is_file(), (href, target)
+        if "#" in href:
+            fragment = href.split("#", 1)[1]
+            assert f'id="{fragment}"' in target.read_text(encoding="utf-8"), href
+
+
+def test_the_missing_page_claims_no_address_and_is_in_no_index() -> None:
+    """It has no address of its own, so it may not hand a crawler one."""
+    facts = missing_facts()
+    assert facts.metas.get("robots") == "noindex"
+    assert facts.canonical is None
+    assert not [name for name in facts.properties if name.startswith("og:")]
+    assert not [name for name in facts.metas if name.startswith("twitter:")]
+    sitemap = (SITE / "sitemap.xml").read_text(encoding="utf-8")
+    assert MISSING_PAGE_NAME not in sitemap
+
+
+def test_the_missing_page_speaks_both_languages_and_names_no_school() -> None:
+    """A missing address has no language, so the page that answers it has both.
+
+    And it has no school: it is the same bytes whatever was asked for, so a
+    digit on it could only be a figure about nobody.
+    """
+    source = MISSING.read_text(encoding="utf-8")
+    assert '<html lang="en">' in source
+    for locale in LOCALES:
+        opening = f'<section lang="{locale}"'
+        assert source.count(opening) == 1, locale
+        half = source[source.index(opening) :].split("</section>", 1)[0]
+        for key in (
+            "missing_heading",
+            "missing_body",
+            "missing_where",
+            "landing_counties_heading",
+            "footer_no_ranking",
+            "footer_unaffiliated",
+            "analytics_note",
+        ):
+            assert text(locale, key) in half, (locale, key)
+        assert f'href="{FRONT_DOOR[locale]}"' in half, locale
+    document = parse_markup(source)
+    assert text("en", "missing_heading") in document.title
+    assert text("es", "missing_heading") in document.title
+    visible = re.sub(r"<[^>]+>", " ", source.split("<body>", 1)[1])
+    assert not re.search(r"\d", visible), "the missing page carries a digit"
+
+
+def test_the_missing_page_carries_the_pinned_loader_and_nothing_else() -> None:
+    """The same one script as every other page, at the one address that works here."""
+    facts = missing_facts()
+    assert facts.subresource_tags <= {"script"}, sorted(facts.subresource_tags)
+    assert facts.scripts == 1, facts.scripts
+    assert facts.fetching_attrs == {("script", "src")}, sorted(facts.fetching_attrs)
+    assert not facts.event_attrs, sorted(facts.event_attrs)

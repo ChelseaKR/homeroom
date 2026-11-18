@@ -96,6 +96,11 @@ REBUILD_COMMAND: tuple[str, ...] | None = None
 # the corpus in about fifteen weeks.
 SAMPLE_SCHOOL_PAGES = 200
 
+# The page a missing address answers with (src/homeroom/missing.py). Named here
+# rather than imported: this file runs from a bare checkout with nothing
+# installed. tests/test_live_sentinel.py holds the two names to each other.
+MISSING_PAGE = "404.html"
+
 MAXIMUM_FILE_BYTES = 16 * 1024 * 1024
 EXIT_DIFFERS = 1
 EXIT_CANNOT_RUN = 4
@@ -229,9 +234,17 @@ BROWSE_DIRECTORIES = ("county/", "district/")
 
 
 def is_school_page(relative: str) -> bool:
-    """A per-school page: `<cds>.<locale>.html` at the root, so not index or ask."""
+    """A per-school page: `<cds>.<locale>.html` at the root, so not index or ask.
+
+    And not the missing page. `404.html` sits at the root beside the school
+    pages and is no school: it is one file, what every missing address answers
+    with, so it belongs in the spine and is compared on every run rather than
+    on the one day in fifteen weeks its turn would come round.
+    """
     return (
-        "/" not in relative and relative.endswith(".html") and relative != "index.html"
+        "/" not in relative
+        and relative.endswith(".html")
+        and relative not in ("index.html", MISSING_PAGE)
     )
 
 

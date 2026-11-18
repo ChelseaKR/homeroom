@@ -50,6 +50,7 @@ from functools import cache
 from pathlib import Path
 
 from homeroom.i18n import LOCALES
+from homeroom.missing import MISSING_PAGE_NAME
 
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
@@ -97,6 +98,12 @@ ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 QUOTED = re.compile(r'"[^"\n]*"')
 
+#: The two page types that are one document carrying both languages, and so
+#: have no locale in their name: the front door and, since 2026-11-17, the page
+#: a missing address answers with. Each still gets a record row per language,
+#: because each half is walked in its own language.
+BILINGUAL_DOCUMENTS = ("landing", "missing")
+
 CDS_PAGE = re.compile(rf"^\d{{14}}\.(?:{'|'.join(LOCALES)})\.html$")
 
 SITE_PATH = re.compile(r"site/[A-Za-z0-9_./-]+\.html")
@@ -123,12 +130,15 @@ def page_type(path: Path) -> str:
 
     The site's own addressing decides this. A page in a subdirectory is that
     subdirectory's kind (`ask`, `county`, `district`); at the root there are
-    two, the landing page and the school pages, told apart by the one name that
-    is not a CDS code.
+    three: the landing page and the missing page (`404.html`, since
+    2026-11-17), each one bilingual document known by its own name, and the
+    school pages, which are every name that is a CDS code.
     """
     relative = path.relative_to(SITE)
     if relative.parent != Path("."):
         return relative.parent.as_posix()
+    if relative.name == MISSING_PAGE_NAME:
+        return "missing"
     return "landing" if relative.name == "index.html" else "school"
 
 
@@ -170,17 +180,19 @@ def test_the_site_still_has_the_shape_this_derivation_reads() -> None:
     a page type ever lands at the root with a name of some other shape, that
     reading silently absorbs it into the school pages and the procedure would
     not have to cover it. So the root is held to exactly what it holds today:
-    one index and CDS-coded school pages in the site's own locales.
+    one index, one missing page, and CDS-coded school pages in the site's own
+    locales.
     """
     assert SITE.is_dir(), "site/ is missing; see tests/test_published_site.py"
     unexpected = sorted(
         path.name
         for path in SITE.glob("*.html")
-        if path.name != "index.html" and not CDS_PAGE.match(path.name)
+        if path.name not in ("index.html", MISSING_PAGE_NAME)
+        and not CDS_PAGE.match(path.name)
     )
     assert not unexpected, (
-        "a root-level page that is neither the index nor a CDS school page is a "
-        f"page type this file reads as a school page: {unexpected[:5]}"
+        "a root-level page that is not the index, the missing page or a CDS "
+        f"school page is a page type this file reads as a school page: {unexpected[:5]}"
     )
     nested = sorted(
         str(path.relative_to(SITE))
@@ -195,7 +207,10 @@ def test_every_page_type_the_site_publishes_is_here_in_both_languages() -> None:
     by_type: dict[str, set[str | None]] = {}
     for path in SITE.rglob("*.html"):
         by_type.setdefault(page_type(path), set()).add(page_locale(path))
-    assert by_type.pop("landing") == {None}, "the landing page gained a locale suffix"
+    for bilingual in BILINGUAL_DOCUMENTS:
+        assert by_type.pop(bilingual) == {None}, (
+            f"the {bilingual} page gained a locale suffix"
+        )
     for kind, locales in sorted(by_type.items()):
         assert locales == set(LOCALES), (kind, sorted(str(x) for x in locales))
 
@@ -249,7 +264,11 @@ def test_the_procedure_names_a_published_page_for_every_type_and_language() -> N
 
     covered = {(page_type(path), page_locale(path)) for path in named}
     for kind in published_page_types():
-        wanted = [(kind, None)] if kind == "landing" else [(kind, x) for x in LOCALES]
+        wanted = (
+            [(kind, None)]
+            if kind in BILINGUAL_DOCUMENTS
+            else [(kind, x) for x in LOCALES]
+        )
         for pair in wanted:
             assert pair in covered, (
                 f"the procedure names no {pair[1] or 'published'} page to walk for "
@@ -357,7 +376,7 @@ def check_columns() -> tuple[int, ...]:
 
 
 def test_the_record_has_a_row_for_every_page_type_in_every_language() -> None:
-    """Ten rows, derived. Five page types, two languages, none of them optional.
+    """Twelve rows, derived. Six page types, two languages, none of them optional.
 
     Spanish is a launch requirement in this project rather than a later phase,
     so a record that walked the English pages and left the Spanish ones out

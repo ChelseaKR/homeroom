@@ -603,10 +603,10 @@ prices are not.
 
 | | Measured | At list price |
 |---|---|---|
-| Objects | 23,312 | — |
-| Bytes of content | 953,659,316 (0.888 GiB) | **$0.022/month** S3 Standard @ $0.023/GB-month |
+| Objects | 23,313 | — |
+| Bytes of content | 953,662,280 (0.888 GiB) | **$0.022/month** S3 Standard @ $0.023/GB-month |
 | Superseded versions, worst case | one full generation for 30 days | +$0.022/month |
-| A full republish | 23,312 PUTs | **$0.117** @ $0.005/1,000 |
+| A full republish | 23,313 PUTs | **$0.117** @ $0.005/1,000 |
 | An invalidation | 1 path (`/*`) | **$0.000** — 1,000 paths/month are free |
 | Origin fetches (S3 → CloudFront) | cache misses only | **$0.000** — AWS does not charge for this transfer |
 | Daily live sentinel | 9.37 MB, 210 requests | within the free tier |
@@ -625,15 +625,17 @@ republish: twelve cents, and one more superseded generation kept for 30 days.
 The workflow's header says as much. It has not been measured on a second run;
 the first publish after this record is where to read it.
 
-`du -sm site` says 955 and the table says 953,659,316 bytes, and both are
-right: `du` counts 4 KiB filesystem blocks, and 23,312 small files carry about
+`du -sm site` says 955 and the table says 953,662,280 bytes, and both are
+right: `du` counts 4 KiB filesystem blocks, and 23,313 small files carry about
 45 MiB of block slack that does not exist in a bucket. S3 bills content.
 (Re-measured 2026-09-17, after Google Analytics added a script tag and a note to
 every page and `analytics.js` to the root, and again on 2026-09-18 after the front
 door gained its two-line link to the source, 436 bytes. The two tables' counts
 and this paragraph were re-measured on 2026-11-17, after the publish that put
 the teaching-assignment section and the search titles on every school page and
-moved the stylesheet into `homeroom.css`; the traffic paragraph below was not.)
+moved the stylesheet into `homeroom.css`, and once more the same day when the
+missing page, `404.html`, added one file of 2,964 bytes; the traffic paragraph
+below was not.)
 
 **What the traffic actually is: unknown, and unmeasurable from here.** GitHub
 Pages gave the owner no access log, and this stack turns CloudFront logging
@@ -660,7 +662,7 @@ limits, and the site is nowhere near any of them:
 
 | Limit | Value | This site |
 |---|---|---|
-| S3 total bucket size, object count | none | 954 MB, 23,312 objects |
+| S3 total bucket size, object count | none | 954 MB, 23,313 objects |
 | S3 maximum object size | 5 TiB | 1,821,378 bytes (`sitemap.xml`, the largest file) |
 | S3 single-PUT size (the CLI multiparts above 8 MiB) | 5 GiB | as above |
 | CloudFront maximum object size for a GET | 30 GB | as above |
@@ -675,8 +677,8 @@ does not fit today — would take the origin to 1.09 GiB and about $0.027 a
 month.
 
 **Cloudflare Pages was not an option** on its free plan, and not marginally:
-the free plan caps a site at **20,000 files**, and `site/` is **23,312**. The
-site is over that limit by 3,312 files, was over it before this question was
+the free plan caps a site at **20,000 files**, and `site/` is **23,313**. The
+site is over that limit by 3,313 files, was over it before this question was
 asked, and the county and district pages that made the site navigable are
 2,234 of them.
 Its 25 MiB per-file limit would have been fine; the file count is what rules it
