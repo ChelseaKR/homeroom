@@ -28,7 +28,7 @@ stylesheet fetched once rather than a copy of it in each of the four.
 from __future__ import annotations
 
 from homeroom.browse import counties, county_page_name
-from homeroom.i18n import LOCALES, Locale, format_number, text
+from homeroom.i18n import LOCALE_NAMES, LOCALES, Locale, format_number, text
 from homeroom.profiles import SchoolProfile
 from homeroom.render import (
     REPOSITORY_URL,
@@ -42,6 +42,7 @@ from homeroom.render import (
 
 LANDING_STYLE = """
 .langs { display: grid; gap: 2.5rem; margin: 2rem 0; }
+.jump { margin: 0; }
 .county-list { columns: 12rem; column-gap: 2rem; padding-left: 1.3rem; }
 .county-list li { margin: 0 0 .5rem; break-inside: avoid; }
 """
@@ -68,6 +69,33 @@ def _source_link(locale: Locale) -> str:
         f"<p>{_esc(text(locale, 'landing_source_body'))} "
         f'<a href="{_esc(REPOSITORY_URL)}">'
         f"{_esc(text(locale, 'landing_source_link'))}</a></p>"
+    )
+
+
+def _spanish_jump() -> str:
+    """PROPOSED (2026-11-17 accessibility sweep; wording not yet approved).
+
+    The front door is one page in two languages, English first. The Spanish
+    half starts after 58 county links and three paragraphs about analytics:
+    more than two screens down on a laptop, nearly five on a phone, and 61
+    Tab stops in for a keyboard user, with nothing above it that says it is
+    there except the tagline. Every other page carries a link to its Spanish
+    twin in the header; this one had no way across at all, because its twin
+    is further down itself.
+
+    So the header gets a link in the same place, pointing at the Spanish
+    section's heading. It reuses the one string every other page already uses
+    for it, the language's own name, and adds no sentence. What is new is
+    that the word "Español" is now visible, and announced, on this page.
+
+    It is a paragraph and not the ``nav`` the other pages use. One in-page
+    link is not a navigation region, and a ``nav`` here would give the front
+    door a landmark sequence the published tree does not carry until it is
+    re-rendered, which `tests/test_the_a11y_sample_covers_the_published_site.py`
+    refuses.
+    """
+    return (
+        f'<p class="jump"><a lang="es" href="#h-es">{_esc(LOCALE_NAMES["es"])}</a></p>'
     )
 
 
@@ -166,7 +194,9 @@ def render_landing(
         f'<span class="brand-name">{_esc(text("en", "site_name"))}</span>'
         f'<span class="brand-tag">{_esc(text("en", "site_tagline"))} '
         f'<span lang="es">{_esc(text("es", "site_tagline"))}</span></span>'
-        "</p>\n</div>\n</header>\n"
+        "</p>\n"
+        f"{_spanish_jump()}\n"
+        "</div>\n</header>\n"
         '<main id="main" class="wrap">\n'
         f"<h1>{_esc(text('en', 'site_name'))}</h1>\n"
         f"{fixture}"

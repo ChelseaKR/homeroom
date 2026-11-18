@@ -23,12 +23,13 @@ gates compare against exactly that.
 
 from __future__ import annotations
 
+import re
 from itertools import pairwise
 from pathlib import Path
 
 import pytest
 
-from homeroom.i18n import LOCALES, text
+from homeroom.i18n import LOCALE_NAMES, LOCALES, text
 from homeroom.landing import render_landing
 from homeroom.profiles import assemble_profiles
 from homeroom.render import REPOSITORY_URL, page_name
@@ -130,6 +131,39 @@ def test_the_landing_page_carries_both_languages_each_marked(index: Path) -> Non
         status = text(locale, "landing_status").format(count=len(SCHOOLS))
         assert status in markup, locale
         assert text(locale, "landing_counties_heading") in markup, locale
+
+
+def test_the_front_door_has_a_way_to_its_spanish_half_from_the_header(
+    index: Path,
+) -> None:
+    """PROPOSED wording (2026-11-17 sweep): the word "Español" on the front door.
+
+    The Spanish half of this page starts after the whole English half: 58
+    county links, the notices and the analytics paragraphs, which is about two
+    screens down and 60 Tab stops in. Every other page offers the other
+    language from its header; this one offered nothing, because the other
+    language is the same page. The header now carries a link to the Spanish
+    section's own heading, named in Spanish and marked as Spanish, in the same
+    place the other pages put their language link.
+    """
+    markup = index.read_text(encoding="utf-8")
+    header = markup[markup.index('<header class="site">') : markup.index("</header>")]
+    links = re.findall(r"<a\b([^>]*)>(.*?)</a>", header, re.S)
+    assert len(links) == 1, links
+    attributes, label = links[0]
+    assert label == LOCALE_NAMES["es"]
+    assert 'lang="es"' in attributes
+    assert 'href="#h-es"' in attributes
+    # One in-page link is not a navigation region; the header stays as it was
+    # for a landmark list, which is also what the published tree carries.
+    assert "<nav" not in header
+    # The link lands on the Spanish section's heading, and only one thing is it.
+    assert markup.count('id="h-es"') == 1
+    section = markup[markup.index('<section lang="es"') :]
+    assert section.index('id="h-es"') < section.index("</section>")
+    # It is the first thing after the skip link, so it is two Tab presses in.
+    document = parse(index)
+    assert document.hrefs[:2] == ["#main", "#h-es"], document.hrefs[:3]
 
 
 def reachable_schools(built: Path, locale: str) -> set[str]:
