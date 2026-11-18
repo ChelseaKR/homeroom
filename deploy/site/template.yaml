@@ -11,6 +11,13 @@
 # reasoning, how each step was verified, and how to go back -- and CUTOVER.md
 # is the commands as they were run.
 #
+# ONE CHANGE BELOW IS PREPARED AND NOT APPLIED: the 404 entry of
+# CustomErrorResponses names a page (ResponseCode 404, ResponsePagePath
+# /404.html), written on 2026-11-17. The running distribution still answers a
+# missing address with S3's XML error until the owner reads and executes the
+# change set. README.md, "Prepared, not applied", has the plan to expect, the
+# checks, and the way back, and says which of the two states is current.
+#
 # Why this exists: on 2026-09-05 `site/` was 855 MB against the 1 GB GitHub
 # Pages allows a published site -- 83% of the cap, from 212 KB the same morning
 # -- and the ask layer for every school is another ~303 MB that does not fit.
@@ -364,26 +371,52 @@ Resources:
           Compress: true
           CachePolicyId: !Ref CachePolicy
           ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
-        # A missing page stays missing.
+        # A missing page stays missing, and says so in words.
         #
-        # Neither entry carries ResponseCode or ResponsePagePath, so the
-        # origin's own status is what a reader and a crawler receive: a request
-        # for a school that is not published is a 404, never a 200 carrying
-        # something else's bytes. Turning 404 into a 200 is the single most
-        # common thing done to a static site behind a CDN and it would make
-        # tools/verify_live_site.py vacuous -- that file refuses to pass
-        # against an origin that answers a guaranteed-missing path with
-        # anything but 404, because "a host that answers everything with 200
-        # makes every comparison meaningless".
+        # The 404 entry names a page and keeps the status. ResponsePagePath is
+        # /404.html -- site/404.html, the one bilingual page src/homeroom/
+        # missing.py writes -- and ResponseCode is 404, so a request for a
+        # school that is not published is still a 404 to a reader, to a crawler
+        # and to tools/verify_live_site.py. That file refuses to pass against
+        # an origin that answers a guaranteed-missing path with anything but
+        # 404, because "a host that answers everything with 200 makes every
+        # comparison meaningless". Turning 404 into a 200 is the single most
+        # common thing done to a static site behind a CDN, and ResponseCode
+        # here is the one line that would do it; tests/
+        # test_deploy_site_template.py holds it to 404.
+        #
+        # What the page replaces is only the body. S3's own answer to a missing
+        # key is an XML document, <Error><Code>NoSuchKey</Code>..., which a
+        # browser shows a parent as a tree of tags: no title, no language, no
+        # way back. Until 2026-11-17 neither entry carried a page, and that
+        # tree is what a mistyped school address returned from the day the
+        # domain moved here.
+        #
+        # The 403 entry is left exactly as it was, with no page and no status
+        # of its own, and that is deliberate. With the s3:ListBucket grant
+        # below, S3 answers 403 only when CloudFront may not read an object
+        # that is there: a bucket policy or an Origin Access Control that has
+        # stopped matching. That has to reach a reader as a 403 nobody can
+        # mistake for "this school is not published". Mapping it to the missing
+        # page would turn an outage of every real page into a site of polite
+        # 404s, with the sentinel's guaranteed-missing check still passing.
         #
         # Which is also why the bucket policy grants s3:ListBucket. Without it
         # S3 answers a GET for a key that does not exist with 403 AccessDenied
         # rather than 404 NoSuchKey -- it will not confirm absence to a caller
         # who may not list -- and CloudFront passes the 403 through. The
-        # distribution would work, every real page would be correct, and the
-        # sentinel would exit 4 saying the origin cannot discriminate.
-        # CloudFront never issues a ListBucket request; the grant changes only
-        # which of two error codes S3 returns.
+        # distribution would work, every real page would be correct, no missing
+        # address would ever show the page above, and the sentinel would exit 4
+        # saying the origin cannot discriminate. CloudFront never issues a
+        # ListBucket request; the grant changes only which of two error codes
+        # S3 returns.
+        #
+        # The page is an ordinary object: the publish workflow's *.html pass
+        # uploads it with the others, and GitHub Pages, the rollback copy,
+        # serves a root 404.html for a missing address without being asked. If
+        # CloudFront cannot fetch it, the viewer still gets an error status and
+        # never a 200, so applying this before the page is in the bucket costs
+        # a reader nothing they do not already have.
         #
         # ErrorCachingMinTTL is 10 seconds rather than the 300 default so a 404
         # cached in the seconds between a delete and an upload does not outlive
@@ -393,6 +426,8 @@ Resources:
             ErrorCachingMinTTL: 10
           - ErrorCode: 404
             ErrorCachingMinTTL: 10
+            ResponseCode: 404
+            ResponsePagePath: /404.html
         # No Logging block, and its absence is a decision.
         #
         # CloudFront standard access logs record the viewer's IP address and
