@@ -214,11 +214,70 @@ async function check(name) {
   if (document.activeElement !== document.getElementById("answer-heading")) {
     throw new Error(`${name}: focus did not move to the answer heading`);
   }
-  // Submitting an empty question sends nothing.
-  await submit("   ");
-  if (calls.length !== 1) {
-    throw new Error(`${name}: an empty question made a request`);
+  // Submitting an empty question sends nothing, and says so beside the box.
+  //
+  // Until 2026-11-17 a question of only spaces was dropped without a word, and
+  // a truly empty box got the browser's own bubble in the browser's language.
+  // The form now answers for itself (WCAG 2.2 SC 3.3.1): the approved sentence
+  // goes into the paragraph the box names in aria-describedby, the box is
+  // marked invalid, focus goes to (or stays in) the box, and nothing is sent.
+  // The sentence is announced once: when focus has to move to the box, the
+  // screen reader reads the box and its description, so the alert is told to
+  // keep quiet; when focus is already there nothing would be read, so the
+  // alert speaks.
+  const error = document.getElementById("ask-error");
+  const send = document.getElementById("ask-send");
+  if (!error || typeof strings.empty !== "string" || !strings.empty) {
+    throw new Error(`${name}: the page carries no place or no words for an empty question`);
   }
+  if (!(field.getAttribute("aria-describedby") || "").split(/\s+/).includes("ask-error")) {
+    throw new Error(`${name}: the question box does not name the error message as its description`);
+  }
+  const expectRefused = (what, { fromElsewhere }) => {
+    if (calls.length !== 1) {
+      throw new Error(`${name}: ${what} made a request`);
+    }
+    if (error.textContent !== strings.empty) {
+      throw new Error(`${name}: ${what} was not answered with ${JSON.stringify(strings.empty)}; the message reads ${JSON.stringify(error.textContent)}`);
+    }
+    if (field.getAttribute("aria-invalid") !== "true") {
+      throw new Error(`${name}: ${what} did not mark the question box invalid`);
+    }
+    if (document.activeElement !== field) {
+      throw new Error(`${name}: after ${what} focus is not in the question box`);
+    }
+    if (field.value !== "") {
+      throw new Error(`${name}: ${what} left ${JSON.stringify(field.value)} in the box`);
+    }
+    const live = error.getAttribute("aria-live");
+    if (fromElsewhere && live !== "off") {
+      throw new Error(`${name}: ${what} would be announced twice, by the alert and again as the box's description when focus reaches it (aria-live=${JSON.stringify(live)})`);
+    }
+    if (!fromElsewhere && live === "off") {
+      throw new Error(`${name}: ${what} with focus already in the box would not be announced at all`);
+    }
+    if (send.disabled) {
+      throw new Error(`${name}: ${what} left the button disabled`);
+    }
+  };
+  send.focus();
+  await submit("   ");
+  expectRefused("a question of only spaces, sent from the button", { fromElsewhere: true });
+  send.focus();
+  await submit("");
+  expectRefused("an empty question, sent from the button", { fromElsewhere: true });
+  field.focus();
+  await submit("");
+  expectRefused("an empty question, sent with focus in the box", { fromElsewhere: false });
+  // Typing takes the message away again, and so does a question that is sent.
+  field.value = "H";
+  field.dispatchEvent(new window.Event("input", { bubbles: true }));
+  if (error.textContent !== "" || field.hasAttribute("aria-invalid")) {
+    throw new Error(`${name}: the message stayed after the reader started typing`);
+  }
+  send.focus();
+  await submit("   ");
+  expectRefused("a second empty question", { fromElsewhere: true });
   // A second answer, carrying a different count: the number the reader sees is
   // read from the response, not fixed in the script or in the locale string.
   reply = { ...CANNED, withheld: SECOND_WITHHELD };
@@ -227,6 +286,9 @@ async function check(name) {
     throw new Error(`${name}: expected a second fetch on the second question, got ${JSON.stringify(calls)}`);
   }
   expectWithheld(SECOND_WITHHELD);
+  if (error.textContent !== "" || field.hasAttribute("aria-invalid")) {
+    throw new Error(`${name}: the empty-question message survived a question that was sent`);
+  }
   // An answer that withheld nothing shows no count at all, which is the one case
   // the paragraph is deliberately not rendered.
   reply = { ...CANNED, withheld: 0 };
@@ -239,7 +301,7 @@ async function check(name) {
     throw new Error(`${name}: a withheld count was shown for an answer that withheld nothing: ${JSON.stringify(stray)}`);
   }
   window.close();
-  console.log(`ok   ask/${name}  (no request on load; one POST on submit; text-only render; withheld count shown; CDE's words marked as English where the page is not)`);
+  console.log(`ok   ask/${name}  (no request on load; one POST on submit; text-only render; withheld count shown; CDE's words marked as English where the page is not; an empty question refused in words, once)`);
 }
 
 let failed = 0;

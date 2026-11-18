@@ -38,7 +38,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the analytics step write, which needs no acquired file
   (`uv run python -m homeroom.missing site`). GitHub Pages, the rollback copy,
   serves it for a missing address as soon as it is deployed there.
-  The words are a heading and two sentences in each language (238 keys per
+  The words are a heading and two sentences in each language (240 keys per
   locale), approved on 2026-11-17.
 - **Applied 2026-11-17: the distribution answers a missing address with
   that page, and the status stays 404.** `deploy/site/template.yaml` gives the
@@ -79,7 +79,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   description names its county, the year, and what each school page carries.
   The district page's list heading "Schools published so far" is now "Public
   schools" ("Escuelas públicas"). Spanish drafted to match and approved by the
-  owner. Five new keys (238 keys per locale).
+  owner. Five new keys (240 keys per locale).
   `test_the_landing_page_publishes_no_figure` now allows exactly the count
   sentence. Served since the 2026-11-17 publish (under Changed, below).
 
@@ -90,7 +90,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the year and what the page carries, and still ends "No score, no ranking."
   Spanish follows the same shape. A directory row with no city or county keeps
   the earlier wording, so two keys were added rather than two reworded
-  (238 keys per locale). A hosted build's hreflang links on school, county and district
+  (240 keys per locale). A hosted build's hreflang links on school, county and district
   pages are now absolute, with an `x-default` naming the English page; Google
   ignores relative hreflang, so it could not pair the English and Spanish pages
   before. A build given no origin is unchanged. `tests/test_search_head.py`
@@ -206,7 +206,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with the button rendered, and negative controls that remove the GPC and host
   guards and require the harness to see GA load. `tests/test_published_site.py`
   holds every published page to exactly that one pinned script and the note. Nine
-  interface keys (238 keys per locale). AGENTS.md rule 7, the README, the roadmap,
+  interface keys (240 keys per locale). AGENTS.md rule 7, the README, the roadmap,
   ADR 0001 and the privacy audit (with a Google subprocessor record) say what runs.
   The published tree is 877.2 MB, 22.8 MB under the 90% budget.
 
@@ -530,6 +530,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   default until the owner changes it at the redeploy.
 
 ### Fixed
+
+- **The ask form says its limit, and answers an empty question in words**
+  (2026-11-17 accessibility sweep; both strings approved by the owner that
+  day). Under the label the form now reads "Up to 600 characters." / "Hasta 600
+  caracteres.", tied to the box, which has always stopped at 600 without
+  saying so. A question that is empty or only spaces is answered beside the box
+  with "Type a question first." / "Escriba primero una pregunta.": the box is
+  marked invalid, focus goes to it or stays in it, nothing is sent, and the
+  message is announced once. Before, spaces were dropped without a word and an
+  empty box got the browser's own bubble in the browser's language. The
+  published ask pages carry this after the next `make publish`; `site/` is not
+  changed here. Two new keys (240 keys per locale).
 
 - **Five things a keyboard, a screen reader, zoom and widened text found that
   the gates could not** (2026-11-17 accessibility sweep, in Chromium and WebKit
@@ -1080,7 +1092,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   across 6 rule sets and 17 pages, 0 html-validate errors, byte-identical across
   two builds. `make data`, `make site` and `make publish` are given the acquired
   file, because an artifact that omitted a figure the pages carry would be two
-  answers to one question. 19 new bilingual strings (238 keys per locale).
+  answers to one question. 19 new bilingual strings (240 keys per locale).
 
   What did not change: the ask layer. `homeroom.ask` answers from an evidence
   bundle that carries enrollment and chronic absenteeism, and widening it means
@@ -2061,7 +2073,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed -- the refusals legitimately ship inside the JSON the script reads,
   and the question is only ever whether one is *displayed* unearned -- and
   asserts no refusal appears in what a reader sees. Found by looking at a
-  screenshot of the live page. One more bilingual string (238 keys per locale).
+  screenshot of the live page. One more bilingual string (240 keys per locale).
 - **The deployed ask page could not reach its service from a browser, and said
   so in the one string that hides why.** Both the Lambda Function URL's `Cors`
   configuration and the handler set `access-control-allow-origin`, so the
@@ -2113,7 +2125,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for, so a build without `--landing` is byte-identical to one from before it
   existed, which `tests/test_landing.py` asserts by diffing the two builds.
   html-validate and axe-core cover it in `make pages` (zero violations). Two
-  more bilingual strings (238 keys per locale).
+  more bilingual strings (240 keys per locale).
 - `homeroom.ask.http`: the HTTP edge of the ask service, a stdlib
   `ThreadingHTTPServer` for local use (`make ask-serve`) and an AWS Lambda
   Function URL handler, both thin over `AskService`: JSON in, the public JSON
@@ -2143,7 +2155,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requests on load and exactly one POST on submit, rendered as text; it runs
   in `make pages` beside html-validate and axe-core, which now cover the ask
   pages too (zero violations, both languages). Seventeen more fixed
-  bilingual strings (238 keys per locale).
+  bilingual strings (240 keys per locale).
 - `evals/`: the evaluation harness (`homeroom.ask.evalharness`) and five
   suites over real schools from the acquired files, with deterministic
   scorers that read the displayed answer and the bundle rather than the
@@ -2350,7 +2362,7 @@ The ask service was deployed later, on 2026-08-22 (ADR 0003, `deploy/ask/`).
   many active schools publish that figure, withhold it, and publish nothing,
   counted across all 10,534 active schools on the acquired build (9,860 publish a
   total enrollment figure, 674 publish none).
-- English and Spanish as peers (`src/homeroom/i18n.py`): 238 keys per locale, 476
+- English and Spanish as peers (`src/homeroom/i18n.py`): 240 keys per locale, 480
   strings total (122 keys at M4, before D3 added its own 25-code category catalog
   and 10 interface strings at M3, and before the ask layer added 33 fixed
   interface strings under ADR 0003), covering every reporting category, grade span,

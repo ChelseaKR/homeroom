@@ -501,6 +501,13 @@ UI: dict[Locale, dict[str, str]] = {
             "is stored."
         ),
         "ask_page_label_question": "Your question",
+        # The two form messages (2026-11-17 accessibility sweep; words approved
+        # by the owner that day). The hint sits under the label and states the
+        # limit the box enforces; the number here and `maxlength` on the box
+        # are held to each other in tests/test_askpage.py. The error is what an
+        # empty question is answered with, beside the box.
+        "ask_page_hint_length": "Up to 600 characters.",
+        "ask_page_error_empty": "Type a question first.",
         "ask_page_button": "Ask",
         "ask_page_noscript": (
             "Sending a question needs JavaScript, which this browser has turned "
@@ -961,6 +968,8 @@ UI: dict[Locale, dict[str, str]] = {
             "que escriba se guarda."
         ),
         "ask_page_label_question": "Su pregunta",
+        "ask_page_hint_length": "Hasta 600 caracteres.",
+        "ask_page_error_empty": "Escriba primero una pregunta.",
         "ask_page_button": "Preguntar",
         "ask_page_noscript": (
             "Para enviar una pregunta se necesita JavaScript, que este navegador "

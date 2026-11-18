@@ -32,9 +32,18 @@ from homeroom.render import STYLESHEET, _cde, _esc, language_switch, page_name
 
 ASK_DIR = "ask"
 
+QUESTION_MAX_LENGTH = 600
+"""How long a question may be, in characters. The box enforces it
+(``maxlength``) and the hint under the label says it in words
+(``ask_page_hint_length``); ``tests/test_askpage.py`` holds the number in the
+words to this one."""
+
 ASK_STYLE = """
 .ask-form { max-width: 44rem; margin: 1rem 0 2rem; }
 .ask-form label { display: block; font-weight: 600; margin-bottom: .4rem; }
+.ask-form .ask-hint { color: var(--ink-2); font-size: .9rem; margin: 0 0 .4rem; }
+.ask-form .ask-error { font-weight: 600; margin: .4rem 0 0; }
+.ask-form .ask-error:empty { margin: 0; }
 .ask-form textarea {
   width: 100%; min-height: 6rem; font: inherit; padding: .6rem .7rem;
   border: 1px solid var(--ink-3); border-radius: 3px;
@@ -63,7 +72,8 @@ SCRIPT = """
   var button = document.getElementById("ask-send");
   var answer = document.getElementById("answer");
   var heading = document.getElementById("answer-heading");
-  if (!form || !field || !button || !answer) { return; }
+  var error = document.getElementById("ask-error");
+  if (!form || !field || !button || !answer || !error) { return; }
   form.hidden = false;
 
   function el(tag, className, textContent) {
@@ -137,10 +147,30 @@ SCRIPT = """
     heading.hidden = false;
     heading.focus();
   }
+  // An empty question is answered in words, beside the box, and nothing is
+  // sent. The message is the box's description (aria-describedby), so it is
+  // announced once: when focus has to move to the box, the screen reader reads
+  // the box and its description, and the alert is told to stay quiet; when
+  // focus is already in the box nothing would be read, so the alert speaks.
+  function refuse() {
+    var here = document.activeElement === field;
+    if (here) { error.removeAttribute("aria-live"); }
+    else { error.setAttribute("aria-live", "off"); }
+    error.textContent = strings.empty;
+    field.value = "";
+    field.setAttribute("aria-invalid", "true");
+    if (!here) { field.focus(); }
+  }
+  function accept() {
+    if (error.textContent) { error.textContent = ""; }
+    field.removeAttribute("aria-invalid");
+  }
+  field.addEventListener("input", accept);
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     var question = field.value.trim();
-    if (!question) { field.focus(); return; }
+    if (!question) { refuse(); return; }
+    accept();
     button.disabled = true;
     clear(answer);
     answer.appendChild(el("p", "label", strings.sending));
@@ -193,6 +223,7 @@ def _strings(profile: SchoolProfile, locale: Locale, endpoint: str) -> str:
         "locale": locale,
         "school_page": f"../{page_name(profile.school.cds_code, locale)}",
         "sending": text(locale, "ask_page_sending"),
+        "empty": text(locale, "ask_page_error_empty"),
         "unavailable": text(locale, "ask_refusal_unavailable"),
         "withheld": text(locale, "ask_withheld_count"),
         "citations": text(locale, "ask_page_citations"),
@@ -249,10 +280,15 @@ def render_ask_page(
             "</div>",
             f"<p>{_esc(text(locale, 'ask_page_intro'))}</p>",
             f"<p>{_esc(text(locale, 'ask_page_examples'))}</p>",
-            '<form id="ask-form" class="ask-form" hidden>',
+            # `novalidate`: the script answers an empty question itself, in the
+            # page's language and beside the box; the browser's own bubble is in
+            # the browser's language and reaches a question of only spaces never.
+            '<form id="ask-form" class="ask-form" hidden novalidate>',
             f'<label for="ask-question">{_esc(text(locale, "ask_page_label_question"))}</label>',
-            '<textarea id="ask-question" name="question" maxlength="600" required '
-            'autocomplete="off"></textarea>',
+            f'<p id="ask-hint" class="ask-hint">{_esc(text(locale, "ask_page_hint_length"))}</p>',
+            f'<textarea id="ask-question" name="question" maxlength="{QUESTION_MAX_LENGTH}" '
+            'required autocomplete="off" aria-describedby="ask-hint ask-error"></textarea>',
+            '<p id="ask-error" class="ask-error" role="alert"></p>',
             f'<button id="ask-send" type="submit">{_esc(text(locale, "ask_page_button"))}</button>',
             "</form>",
             f'<noscript><p class="note">{_esc(text(locale, "ask_page_noscript"))}</p></noscript>',
