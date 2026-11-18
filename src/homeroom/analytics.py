@@ -28,6 +28,11 @@ What it adds, and nothing else:
   closes on its notices instead (county and district pages).
 * On the landing page, the full disclosure in each language section
   (``#privacy-en``, ``#privacy-es``), with the button.
+* On the missing page (``404.html``, `homeroom.missing`), the short note at the
+  end of each language half, and every address from the site root
+  (``/analytics.js``, ``/index.html#privacy-en``): that page is served at
+  whatever address was missing, so a relative path would be asked for beside a
+  page that is not there.
 
 The loader itself refuses to do anything unless the page is served from
 ``homeroom.chelseakr.com``, the browser sends neither Global Privacy Control nor
@@ -52,6 +57,7 @@ import re
 from pathlib import Path
 
 from homeroom.i18n import LOCALES, Locale, text
+from homeroom.missing import MISSING_PAGE_NAME
 
 GA4_MEASUREMENT_ID = "G-PMC113MW2C"
 """The web stream of GA4 property 554882251 (14-month retention, Google signals
@@ -338,20 +344,31 @@ def add_to_page(source: str, relative: Path, pinned: str) -> str:
     where = str(relative)
     if MARKER in source:
         raise ValueError(f"{where}: already carries Google Analytics")
-    prefix = "../" * (len(relative.parts) - 1)
+    missing = relative.as_posix() == MISSING_PAGE_NAME
+    # The missing page is served at whatever address was missing, at any depth,
+    # so its loader and its link to the disclosure start at the site root.
+    prefix = "/" if missing else "../" * (len(relative.parts) - 1)
     script = (
         f'<script src="{prefix}{SCRIPT_NAME}" defer integrity="{pinned}" '
         f"{MARKER}></script>\n"
     )
     page = _replace_once(source, _HEAD_CLOSE, script + _HEAD_CLOSE, where)
-    if relative.as_posix() == "index.html":
+    if missing or relative.as_posix() == "index.html":
+        # The two pages that carry both languages: each half gets its own
+        # addition, in its own language -- the full disclosure on the landing
+        # page, the short note (which links it) on the missing page.
         for section_locale in LOCALES:
             opening = f'<section lang="{section_locale}"'
             start = page.find(opening)
             end = page.find(_LANDING_SECTION_END, start)
             if start < 0 or end < 0 or page.count(opening) != 1:
                 raise ValueError(f"{where}: no single {opening!r} section")
-            page = page[:end] + _disclosure(section_locale) + page[end:]
+            addition = (
+                _note(section_locale, prefix)
+                if missing
+                else _disclosure(section_locale)
+            )
+            page = page[:end] + addition + page[end:]
         return page
     match = _HTML_LANG.search(page)
     if match is None:
