@@ -38,7 +38,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the analytics step write, which needs no acquired file
   (`uv run python -m homeroom.missing site`). GitHub Pages, the rollback copy,
   serves it for a missing address as soon as it is deployed there.
-  The words are a heading and two sentences in each language (238 keys per
+  The words are a heading and two sentences in each language (240 keys per
   locale), approved on 2026-11-17.
 - **Applied 2026-11-17: the distribution answers a missing address with
   that page, and the status stays 404.** `deploy/site/template.yaml` gives the
@@ -530,6 +530,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   default until the owner changes it at the redeploy.
 
 ### Fixed
+
+- **The ask form says its limit, and answers an empty question in words**
+  (2026-11-17 accessibility sweep; both strings approved by the owner that
+  day). Under the label the form now reads "Up to 600 characters." / "Hasta 600
+  caracteres.", tied to the box, which has always stopped at 600 without
+  saying so. A question that is empty or only spaces is answered beside the box
+  with "Type a question first." / "Escriba primero una pregunta.": the box is
+  marked invalid, focus goes to it or stays in it, nothing is sent, and the
+  message is announced once. Before, spaces were dropped without a word and an
+  empty box got the browser's own bubble in the browser's language. The
+  published ask pages carry this after the next `make publish`; `site/` is not
+  changed here. Two new keys (240 keys per locale).
 
 - **Five things a keyboard, a screen reader, zoom and widened text found that
   the gates could not** (2026-11-17 accessibility sweep, in Chromium and WebKit
