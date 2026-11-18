@@ -24,6 +24,8 @@ from pathlib import Path
 
 import pytest
 
+from homeroom.missing import MISSING_PAGE_NAME
+
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = importlib.util.spec_from_file_location(
     "verify_live_site", ROOT / "tools" / "verify_live_site.py"
@@ -75,6 +77,26 @@ def test_what_counts_as_a_school_page() -> None:
     assert not sentinel.is_school_page("ask/57726786056246.en.html")
     assert not sentinel.is_school_page("robots.txt")
     assert not sentinel.is_school_page("social-card.en.png")
+
+
+def test_the_missing_page_is_spine_and_not_a_school_page() -> None:
+    """`404.html` sits at the root beside 21,068 school pages and is not one.
+
+    Read as a school page it would rotate, and the one file every missing
+    address answers with would be compared with the origin about once in
+    fifteen weeks. It would also be counted among the school pages in the line
+    the sentinel prints. It is one structural file, so it is compared on every
+    run, like the index.
+    """
+    assert sentinel.MISSING_PAGE == MISSING_PAGE_NAME
+    assert not sentinel.is_school_page(sentinel.MISSING_PAGE)
+    assert not sentinel.rotates(sentinel.MISSING_PAGE)
+    relatives = sorted([*corpus(500), sentinel.MISSING_PAGE])
+    for offset in range(6):
+        selected = sentinel.comparison_set(relatives, 20, offset)
+        assert sentinel.MISSING_PAGE in selected, offset
+        assert len(schools_in(selected)) == 20, offset
+    assert (ROOT / "site" / sentinel.MISSING_PAGE).is_file()
 
 
 def test_the_browse_pages_rotate_rather_than_sitting_in_the_spine() -> None:

@@ -32,6 +32,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from homeroom.missing import MISSING_PAGE_NAME
 from homeroom.publish_limits import (
     SERVED_BY_CLOUDFRONT,
     SERVED_BY_FILE,
@@ -149,7 +150,45 @@ def test_the_default_root_object_is_the_landing_page() -> None:
     assert "DefaultRootObject: index.html" in uncommented(block("Distribution"))
 
 
-def test_a_missing_page_is_never_answered_with_a_two_hundred() -> None:
+def error_responses(distribution: str) -> dict[int, str]:
+    """Each `CustomErrorResponses` entry of the distribution, by its ErrorCode.
+
+    Read by indentation, like `block`: an entry starts at `- ErrorCode: N` and
+    runs to the next entry or to the first line indented less than the list.
+    """
+    lines = distribution.splitlines()
+    start = next(
+        (i for i, line in enumerate(lines) if line.strip() == "CustomErrorResponses:"),
+        None,
+    )
+    assert start is not None, "the distribution has no CustomErrorResponses"
+    indent = len(lines[start]) - len(lines[start].lstrip())
+    entries: dict[int, list[str]] = {}
+    current: list[str] | None = None
+    for line in lines[start + 1 :]:
+        if line.strip() and len(line) - len(line.lstrip()) <= indent:
+            break
+        opening = re.match(r"\s*- ErrorCode: (\d+)\s*$", line)
+        if opening:
+            code = int(opening.group(1))
+            assert code not in entries, f"two entries for ErrorCode {code}"
+            current = entries.setdefault(code, [])
+        elif current is not None:
+            current.append(line.strip())
+    return {code: "\n".join(body) for code, body in entries.items()}
+
+
+def rewritten_statuses(distribution: str) -> dict[int, list[str]]:
+    """Every entry that hands a reader a status other than the origin's own."""
+    return {
+        code: stated
+        for code, body in error_responses(distribution).items()
+        if (stated := re.findall(r"ResponseCode: (\S+)", body))
+        and stated != [str(code)]
+    }
+
+
+def test_a_missing_address_answers_404_never_200() -> None:
     """The single most common thing done to a static site behind a CDN.
 
     Mapping 403 or 404 to a 200 with a fallback page turns every request for a
@@ -157,14 +196,82 @@ def test_a_missing_page_is_never_answered_with_a_two_hundred() -> None:
     bytes -- handed to a crawler as well as to a reader -- and it makes
     `tools/verify_live_site.py` vacuous: that file refuses to pass against an
     origin answering a guaranteed-missing path with anything but 404.
+
+    Until 2026-11-17 this was held by forbidding `ResponseCode` and
+    `ResponsePagePath` outright, and the cost of that was the body: S3's XML
+    error document, shown to a parent as a tree of tags. A missing address now
+    answers with a page (`site/404.html`), so what is held is the thing that
+    mattered all along. Wherever an entry states a status, it states the one
+    the origin gave; no entry anywhere says 200; and the 404 entry says 404 in
+    so many words, because an entry with a page and no `ResponseCode` is not
+    deployable and one with any other number is the failure above.
     """
     distribution = uncommented(block("Distribution"))
-    assert "CustomErrorResponses:" in distribution
-    assert "ErrorCode: 404" in distribution
-    assert "ResponseCode:" not in distribution, (
-        "a CustomErrorResponse now rewrites the status a missing page returns"
+    entries = error_responses(distribution)
+    assert set(entries) == {403, 404}, sorted(entries)
+    assert not rewritten_statuses(distribution), rewritten_statuses(distribution)
+    assert "ResponseCode: 200" not in distribution
+    assert "ResponseCode: 404" in entries[404].splitlines(), entries[404]
+
+
+def test_control_a_status_rewritten_to_200_is_caught() -> None:
+    """The check above has to notice the edit it exists to stop."""
+    distribution = uncommented(block("Distribution"))
+    for wrong in ("200", "403", "302"):
+        sabotaged = distribution.replace("ResponseCode: 404", f"ResponseCode: {wrong}")
+        assert sabotaged != distribution, wrong
+        assert rewritten_statuses(sabotaged) == {404: [wrong]}, wrong
+    # And a page hung on the 403 entry with a friendlier status is one too.
+    dressed = distribution.replace(
+        "- ErrorCode: 403\n",
+        "- ErrorCode: 403\n            ResponseCode: 404\n",
+        1,
     )
-    assert "ResponsePagePath:" not in distribution
+    assert dressed != distribution
+    assert rewritten_statuses(dressed) == {403: ["404"]}
+
+
+def test_a_missing_address_answers_with_the_page_the_tree_publishes() -> None:
+    """The path the distribution names has to be a file `site/` carries.
+
+    A `ResponsePagePath` naming an object that is not in the bucket is a
+    custom error page that never arrives: the status stays right and the body
+    goes back to an error document. The publish uploads `site/` and nothing
+    else, so the name in the template is held to the name the renderer writes
+    and to the committed file, and to being an `.html` file, which is the kind
+    the publish gives `text/html`.
+    """
+    entries = error_responses(uncommented(block("Distribution")))
+    paths = re.findall(r"ResponsePagePath: (\S+)", entries[404])
+    assert paths == [f"/{MISSING_PAGE_NAME}"], paths
+    assert (SITE / MISSING_PAGE_NAME).is_file(), (
+        f"the distribution answers a missing address with /{MISSING_PAGE_NAME} "
+        "and the published tree does not carry it"
+    )
+    assert MISSING_PAGE_NAME.endswith(".html")
+    assert "--include '*.html'" in workflow_source()
+
+
+def test_a_refused_read_is_not_dressed_as_a_missing_page() -> None:
+    """403 keeps S3's own answer: no page, no status of its own.
+
+    With `s3:ListBucket` granted, S3 answers 403 only when CloudFront may not
+    read an object that exists -- a bucket policy or an Origin Access Control
+    that stopped matching. Sending that to the missing page would show every
+    family "page not found" for a school that is published, and would leave
+    the sentinel's guaranteed-missing check passing through the outage.
+    """
+    forbidden = error_responses(uncommented(block("Distribution")))[403]
+    assert "ResponseCode" not in forbidden, forbidden
+    assert "ResponsePagePath" not in forbidden, forbidden
+
+
+def test_an_error_is_cached_for_seconds_not_minutes() -> None:
+    """CloudFront's default is 300 seconds, which outlives the publish that caused it."""
+    for code, body in error_responses(uncommented(block("Distribution"))).items():
+        ttl = re.findall(r"ErrorCachingMinTTL: (\d+)", body)
+        assert len(ttl) == 1, (code, body)
+        assert int(ttl[0]) <= 60, (code, ttl)
 
 
 def test_the_bucket_policy_lists_so_a_missing_key_is_a_404_and_not_a_403() -> None:
@@ -710,6 +817,45 @@ def test_the_site_record_says_what_is_applied_and_which_origin_serves() -> None:
         assert f"`{name}`" in record, (
             f"deploy/site/README.md does not state {name} as applied"
         )
+
+
+MISSING_PAGE_PREPARED = "**The missing-page response is prepared and not applied.**"
+MISSING_PAGE_APPLIED = re.compile(
+    r"\*\*The missing-page response was applied on \d{4}-\d{2}-\d{2}\.\*\*"
+)
+
+
+def test_the_record_says_whether_the_missing_page_response_is_running() -> None:
+    """One sentence or the other, never neither and never both.
+
+    The template carries a custom error response that was written on
+    2026-11-17 and applied by nobody that day. A template in this directory is
+    read as what the stack is -- the record says so in its first line -- so the
+    one part of it that is not yet running has to be named as such, and has to
+    go on being named until somebody applies it and writes down when. This
+    cannot check which is true; it can make the record say one of them, in the
+    words that tell a reader which to go and verify, and keep the plan they
+    need beside it.
+    """
+    record = record_source()
+    prepared = MISSING_PAGE_PREPARED in record
+    applied = MISSING_PAGE_APPLIED.search(record) is not None
+    assert prepared != applied, (
+        "deploy/site/README.md has to say either that the missing-page response "
+        "is prepared and not applied, or the date it was applied -- exactly one"
+    )
+    assert "## Prepared, not applied: a page for a missing address" in record
+    for needed in (
+        "ResponseCode: 404",
+        f"ResponsePagePath: /{MISSING_PAGE_NAME}",
+        "UsePreviousValue=true",
+        "`Replacement` `False`",
+        "tools/verify_live_site.py",
+    ):
+        assert needed in record, needed
+    # The plan in the record keeps every parameter, so it names every one.
+    for name in template_parameters():
+        assert f"ParameterKey={name},UsePreviousValue=true" in record, name
 
 
 def test_the_site_record_carries_nothing_that_holds_the_account_id() -> None:

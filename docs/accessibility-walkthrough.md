@@ -55,7 +55,7 @@ not happen.
 
 ## What the site publishes
 
-The walkthrough covers 5 page types in 2 languages: 10 rows, every one of them
+The walkthrough covers 6 page types in 2 languages: 12 rows, every one of them
 unwalked. The page types are derived from the published tree rather than
 remembered, and `tests/test_accessibility_review.py` re-derives them, so a page
 type added later and not walked fails the suite instead of being quietly
@@ -68,6 +68,7 @@ skipped.
 | District page | The 2,118 pages naming the schools in one district | `site/district/0110017.en.html`, `site/district/0110017.es.html` |
 | School page | The product: identity, ten data tables in scrolling regions, coverage, sources | `site/57726786056246.en.html`, `site/57726786056246.es.html` |
 | Ask page | The only page on the site that carries a script (ADR 0003): a form, a polite live region, and citations | `site/ask/57726786056246.en.html`, `site/ask/57726786056246.es.html` |
+| Missing page | What any address with no page answers with, status 404. One document holding both languages, like the landing page, and the only page whose links and stylesheet all start at the site root | `site/404.html` |
 
 The county and district pages were added on 2026-09-05 with the browse
 hierarchy and have never been in front of a person either.
@@ -218,10 +219,11 @@ English half and the Spanish half sit in the same page as two sections, with
      it by heading navigation.
    - Failure: the Spanish reader has to hear the entire English list of 58
      counties before reaching anything in Spanish. Record this even though no
-     success criterion is failed by it: this is now the only page type on the
-     site with no language link -- the school, ask, county and district pages
-     all carry one -- and whether holding both languages in one document
-     instead is usable is a judgment this walkthrough is here to make.
+     success criterion is failed by it: this and the missing page are the only
+     page types on the site with no language link -- the school, ask, county
+     and district pages all carry one -- and whether holding both languages in
+     one document instead is usable is a judgment this walkthrough is here to
+     make.
 
 3. **The county lists by heading and by link (SC 1.3.1, 2.4.6).** Pull up the
    screen reader's heading list, then its links list.
@@ -446,6 +448,54 @@ comment recording it says so itself.
      scrolling.
    - Failure: any of those is not true.
 
+## Missing page
+
+`site/404.html`, added 2026-11-17 and never in front of a person. It is what
+any address with no page answers with, so do not walk it at
+`https://homeroom.chelseakr.com/404.html`: walk it where a reader meets it, at
+an address that is not there and that is deep, such as
+`https://homeroom.chelseakr.com/county/no-such-county.en.html`. One document,
+both languages, like the landing page: `<html lang="en">`, an English section
+and a `lang="es"` section under it. It is short, so the Spanish half is on the
+first screen of a laptop.
+
+1. **It is a page at all, with its styles (SC 1.3.1, 1.4.10).** Load the deep
+   address above, then one at the root (`/no-such-page`).
+   - Pass: the same styled page both times, the site's header above a heading
+     and two short blocks of text; the browser's own tools show status 404.
+   - Failure: unstyled markup at the deep address and a styled page at the
+     root (the stylesheet was asked for beside the missing page), a tree of
+     XML tags (the distribution's error response is not applied), or status
+     200.
+
+2. **The language of the parts (SC 3.1.1, 3.1.2).** With the screen reader on,
+   read from the top through the English block and into the Spanish one.
+   - Pass: "Page not found" and its two sentences in an English voice,
+     "Página no encontrada" and its two sentences in a Spanish one, and the
+     title announced when the page loads says both.
+   - Failure: the Spanish block read with English phonemes, or a title that
+     gives a Spanish reader no sign that the page speaks Spanish.
+
+3. **The way back, by keyboard and by voice (SC 2.4.4, 2.4.7, 2.5.3).** Tab
+   through the page from the top, then pull up the screen reader's links list.
+   - Pass: the skip link first; then one link in each block, "Find a school by
+     county" and "Busque una escuela por condado", each with a visible focus
+     ring; the English one opens the front door at its top and the Spanish one
+     opens it at its Spanish half, with the next Tab inside that half.
+   - Failure: a link that leads to another missing page (a relative address
+     resolved beside the missing one), the Spanish link landing at the top of
+     an English page, or a links list in which the two cannot be told apart.
+
+4. **The analytics note and its button, in each block.** Tab to the end of
+   each block.
+   - Pass: the note "This site uses Google Analytics..." in English and in
+     Spanish, each with its own "Opt out of analytics" / "Desactivar las
+     analíticas" button, and "Privacy and analytics" opening the front door's
+     disclosure in that language.
+   - Failure: no button (the loader was asked for beside the missing page and
+     did not arrive), one button for two languages, or a privacy link that
+     leads to another missing page.
+
 ## The record
 
 Nothing below has been walked. Every cell is UNMET, no row carries a date, and
@@ -469,6 +519,8 @@ and 1.4.10 at 320 CSS pixels and 400% zoom.
 | School page | Spanish (`es`) | UNMET | UNMET | UNMET | — | — | — |
 | Ask page | English (`en`) | UNMET | UNMET | UNMET | — | — | — |
 | Ask page | Spanish (`es`) | UNMET | UNMET | UNMET | — | — | — |
+| Missing page | English (`en`) | UNMET | UNMET | UNMET | — | — | — |
+| Missing page | Spanish (`es`) | UNMET | UNMET | UNMET | — | — | — |
 
 ## The print record
 

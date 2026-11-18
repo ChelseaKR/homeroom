@@ -31,6 +31,10 @@ Pages ceiling after ci succeeds on main, beside
 `.github/workflows/site-publish.yml`, which syncs the same commit to the
 bucket. Going back is one DNS record ("Rolling back", below).
 
+One change to the template is written and not yet running: a real page for a
+missing address ("Prepared, not applied", below). Everything else in
+`template.yaml` is what the stack is.
+
 ## As applied
 
 | | |
@@ -127,6 +131,135 @@ has and a reader would otherwise assume:
 - `site/` was not re-rendered for the move. The bytes served are the bytes
   that were committed before it.
 
+## Prepared, not applied: a page for a missing address
+
+**The missing-page response is prepared and not applied.** The template and
+the page are in the repository; the running distribution has not been changed.
+When it is, replace that sentence with the date, in the form
+`**The missing-page response was applied on YYYY-MM-DD.**`, and
+`tests/test_deploy_site_template.py` holds this file to saying one or the
+other.
+
+**What a reader gets today.** Any address with no page answers `404` with
+`content-type: application/xml` and S3's error document. Seen on 2026-11-17,
+minutes after the domain moved: no title, no language, no heading, no link.
+
+**What the change is.** Two lines on the 404 entry of the distribution's
+`CustomErrorResponses`, `ResponseCode: 404` and `ResponsePagePath: /404.html`.
+Nothing else in the template differs from what is applied.
+
+- The status stays 404. It is never 200: `tools/verify_live_site.py` needs a
+  guaranteed-missing path to answer 404, a crawler must not be handed a page
+  for an address that has none, and
+  `test_a_missing_address_answers_404_never_200` holds the template to it.
+- The 403 entry is not touched. With `s3:ListBucket` granted, S3 answers a
+  missing key with 404, and answers 403 only when CloudFront may not read an
+  object that exists. That is a broken bucket policy or Origin Access Control,
+  and it has to keep looking like one rather than like "this school is not
+  published".
+- Errors are still cached for 10 seconds.
+
+**How the page gets into the bucket.** It is `site/404.html`, committed like
+every other published file. `src/homeroom/missing.py` writes it and
+`homeroom.analytics` adds the loader and the note, both addressed from the site
+root because the page is served at whatever address was missing;
+`tests/test_published_site.py` holds the committed file to those bytes.
+`site-publish.yml` needs no change: its `*.html` pass uploads the file as
+`text/html; charset=utf-8` with the same `Cache-Control` as every page, its
+inventory comparison counts it, and its invalidation of `/*` covers it.
+`pages.yml` deploys the same tree, and GitHub Pages serves a root `404.html`
+for a missing address with no setting, so the rollback copy behaves the same
+way without anything being applied there.
+
+**The order.**
+
+1. Merge. ci runs, then `site-publish.yml` puts `404.html` in the bucket and
+   `pages.yml` puts it on GitHub Pages.
+2. Check the page is there. Missing addresses still answer with XML at this
+   point, which is expected.
+
+   ```sh
+   curl -sI https://homeroom.chelseakr.com/404.html | grep -i -E '^(HTTP|content-type)'
+   # HTTP/2 200
+   # content-type: text/html; charset=utf-8
+   ```
+
+3. Plan it. Every parameter keeps its applied value, so no ARN is typed:
+
+   ```sh
+   STACK=homeroom-site; export AWS_REGION=us-west-2
+   aws cloudformation create-change-set --stack-name "$STACK" \
+     --change-set-name missing-page --change-set-type UPDATE \
+     --template-body file://deploy/site/template.yaml \
+     --capabilities CAPABILITY_NAMED_IAM \
+     --parameters \
+       ParameterKey=SiteDomain,UsePreviousValue=true \
+       ParameterKey=AttachDomain,UsePreviousValue=true \
+       ParameterKey=CertificateArn,UsePreviousValue=true \
+       ParameterKey=GitHubRepository,UsePreviousValue=true \
+       ParameterKey=GitHubOidcSubjectRepository,UsePreviousValue=true \
+       ParameterKey=GitHubBranch,UsePreviousValue=true \
+       ParameterKey=CreateOidcProvider,UsePreviousValue=true \
+       ParameterKey=HstsMaxAgeSeconds,UsePreviousValue=true \
+       ParameterKey=PriceClass,UsePreviousValue=true \
+       ParameterKey=NoncurrentVersionDays,UsePreviousValue=true
+   aws cloudformation wait change-set-create-complete \
+     --stack-name "$STACK" --change-set-name missing-page
+   aws cloudformation describe-change-set --stack-name "$STACK" \
+     --change-set-name missing-page \
+     --query 'Changes[].ResourceChange.[Action,LogicalResourceId,ResourceType,Replacement]' \
+     --output table
+   ```
+
+   Expected plan: **one row.** `Modify`, `Distribution`,
+   `AWS::CloudFront::Distribution`, `Replacement` `False`. A second row means
+   stop: a `SiteBucketPolicy` or `PublishRole` row says a parameter did not
+   keep its value, and `Add`, `Remove` or `True` anywhere says this is not the
+   change described here.
+
+4. Apply it. CloudFront takes a few minutes to carry a change to every edge.
+
+   ```sh
+   aws cloudformation execute-change-set --stack-name "$STACK" --change-set-name missing-page
+   aws cloudformation wait stack-update-complete --stack-name "$STACK"
+   ```
+
+5. Check it, from outside.
+
+   ```sh
+   D=https://homeroom.chelseakr.com
+   # A missing address, at the root and three levels down: 404, and a page.
+   for p in /no-such-page /county/no-such-county.en.html /a/b/c; do
+     curl -s -o /tmp/missing.html -w "$p %{http_code} %{content_type}\n" "$D$p"
+     grep -c -E '<section lang="(en|es)"' /tmp/missing.html     # 2
+     grep -c -E 'Page not found|Página no encontrada' /tmp/missing.html   # 3 or more
+   done
+   # Real pages and the plain-text file are untouched.
+   curl -s -o /dev/null -w "%{http_code} %{content_type}\n" "$D/"             # 200 text/html; charset=utf-8
+   curl -s -o /dev/null -w "%{http_code} %{content_type}\n" "$D/57726786056246.en.html"   # 200 text/html; charset=utf-8
+   curl -s -o /dev/null -w "%{http_code} %{content_type}\n" "$D/robots.txt"   # 200 text/plain; charset=utf-8
+   curl -s -o /dev/null -w "%{http_code}\n" "$D/homeroom.css"                 # 200: the page's stylesheet, from the root
+   # And the sentinel, which requires the guaranteed-missing path to be a 404.
+   uv run python tools/verify_live_site.py
+   ```
+
+   Each missing address prints `404 text/html; charset=utf-8`. A `200` on any
+   of them is the failure this section exists to prevent: roll back.
+
+6. Record it: the sentence at the top of this section, and the paragraphs in
+   "The shape" and "Headers" that say "as applied".
+
+**The way back.** Check out the template as it was before this change and run
+steps 3 and 4 again; the plan is the same single `Modify` row. Missing
+addresses answer with S3's XML again within minutes. `site/404.html` can stay
+where it is: with no error response naming it, it is an ordinary page nobody
+links to, and it is what keeps GitHub Pages' copy answering the same way.
+
+**If the change is applied before the page is in the bucket**, nothing a
+reader sees gets worse: CloudFront cannot fetch the page it was told to send,
+and by AWS's documentation returns the error status it has. That was not
+tested here. Publishing first (step 1) means it never comes up.
+
 ## The shape
 
 One S3 bucket, one CloudFront distribution, one publish role.
@@ -163,14 +296,20 @@ TLS 1.2 (2021 policy) once the domain is attached. `DefaultRootObject` is
 compress about fivefold, so it is a fivefold cut in the only line of the bill
 that can grow.
 
-A missing page stays missing. The two `CustomErrorResponses` entries set only
-`ErrorCachingMinTTL: 10`; neither carries `ResponseCode` or `ResponsePagePath`,
-so a request for a school that is not published gets the origin's own 404, not
-a 200 carrying something else's bytes. Turning 404 into 200 is the most common
-thing done to a static site behind a CDN and it would make the live sentinel
-vacuous. Ten seconds rather than the 300-second default so that a 404 cached in
-the gap between a delete and an upload does not outlive the publish that caused
-it.
+A missing page stays missing. As applied, the two `CustomErrorResponses`
+entries set only `ErrorCachingMinTTL: 10`; neither carries `ResponseCode` or
+`ResponsePagePath`, so a request for a school that is not published gets the
+origin's own 404, not a 200 carrying something else's bytes. Turning 404 into
+200 is the most common thing done to a static site behind a CDN and it would
+make the live sentinel vacuous. Ten seconds rather than the 300-second default
+so that a 404 cached in the gap between a delete and an upload does not outlive
+the publish that caused it.
+
+The origin's own 404 has a body, though, and it is S3's: an XML document that
+begins `<Error><Code>NoSuchKey</Code>`, which a browser shows as a tree of
+tags. The template now gives the 404 entry a page and keeps its status
+(`ResponseCode: 404`, `ResponsePagePath: /404.html`); the 403 entry is
+unchanged. That is the prepared change in the section above this one.
 
 Caching is split between the two caches on purpose. Objects are published with
 `Cache-Control: public, max-age=300, s-maxage=86400`: a day at the edge, five
@@ -324,9 +463,13 @@ allowlist a CSP would need is in "Before changing any of this" below.
 Two behaviors differ that no header shows. GitHub Pages answers an
 extensionless path (`/57726786056246.en`) with the `.html` page; S3 answers
 404. Nothing this site links, lists in its sitemap or names as canonical is
-extensionless. And a missing page on GitHub Pages is its own 404 page, where
-here it is S3's short XML error body with the same 404 status, which is what
-`tools/verify_live_site.py` requires.
+extensionless. And a missing page on GitHub Pages was GitHub's own stock 404
+page, where here it has been S3's short XML error body with the same 404
+status, which is what `tools/verify_live_site.py` requires. Since 2026-11-17
+the tree carries its own `404.html`: GitHub Pages serves it for a missing
+address as soon as it is deployed there, and this distribution does once the
+prepared change is applied ("Prepared, not applied", above), so the two
+origins then answer a missing address with the same page and the same status.
 
 ## The cutover, in the order it was made, with what was checked after each step
 
@@ -562,7 +705,7 @@ Four things it needs, and where each comes from:
 
 | What it requires | Why it holds here |
 |---|---|
-| A guaranteed-missing path answers **404**, never 200 or anything else (`prove_the_origin_discriminates`) | The `s3:ListBucket` grant in the bucket policy, plus `CustomErrorResponses` that pass the origin status through. This is the reason that grant exists |
+| A guaranteed-missing path answers **404**, never 200 or anything else (`prove_the_origin_discriminates`) | The `s3:ListBucket` grant in the bucket policy, plus `CustomErrorResponses` that never change the status: as applied they pass it through, and the prepared 404 entry names a page and states `ResponseCode: 404`. The sentinel reads the status and not the body, so it passes either way. This is the reason that grant exists |
 | `/` serves `index.html` byte-for-byte | `DefaultRootObject: index.html`, which applies to the root regardless of the query string it appends |
 | A response that is not `Content-Encoding`-transformed — it sends `Accept-Encoding: identity` and refuses anything but `identity` | CloudFront compresses only when the viewer asks for a compressed encoding. Objects are stored uncompressed, so the identity response is the committed bytes |
 | Every file under `site/` is fetchable, `CNAME` included (`NOT_PUBLISHED` is empty) | Every file is synced, and `CNAME` is an ordinary object to this origin exactly as it is to GitHub Pages |
@@ -603,10 +746,10 @@ prices are not.
 
 | | Measured | At list price |
 |---|---|---|
-| Objects | 23,312 | — |
-| Bytes of content | 953,659,316 (0.888 GiB) | **$0.022/month** S3 Standard @ $0.023/GB-month |
+| Objects | 23,313 | — |
+| Bytes of content | 953,662,280 (0.888 GiB) | **$0.022/month** S3 Standard @ $0.023/GB-month |
 | Superseded versions, worst case | one full generation for 30 days | +$0.022/month |
-| A full republish | 23,312 PUTs | **$0.117** @ $0.005/1,000 |
+| A full republish | 23,313 PUTs | **$0.117** @ $0.005/1,000 |
 | An invalidation | 1 path (`/*`) | **$0.000** — 1,000 paths/month are free |
 | Origin fetches (S3 → CloudFront) | cache misses only | **$0.000** — AWS does not charge for this transfer |
 | Daily live sentinel | 9.37 MB, 210 requests | within the free tier |
@@ -625,15 +768,17 @@ republish: twelve cents, and one more superseded generation kept for 30 days.
 The workflow's header says as much. It has not been measured on a second run;
 the first publish after this record is where to read it.
 
-`du -sm site` says 955 and the table says 953,659,316 bytes, and both are
-right: `du` counts 4 KiB filesystem blocks, and 23,312 small files carry about
+`du -sm site` says 955 and the table says 953,662,280 bytes, and both are
+right: `du` counts 4 KiB filesystem blocks, and 23,313 small files carry about
 45 MiB of block slack that does not exist in a bucket. S3 bills content.
 (Re-measured 2026-09-17, after Google Analytics added a script tag and a note to
 every page and `analytics.js` to the root, and again on 2026-09-18 after the front
 door gained its two-line link to the source, 436 bytes. The two tables' counts
 and this paragraph were re-measured on 2026-11-17, after the publish that put
 the teaching-assignment section and the search titles on every school page and
-moved the stylesheet into `homeroom.css`; the traffic paragraph below was not.)
+moved the stylesheet into `homeroom.css`, and once more the same day when the
+missing page, `404.html`, added one file of 2,964 bytes; the traffic paragraph
+below was not.)
 
 **What the traffic actually is: unknown, and unmeasurable from here.** GitHub
 Pages gave the owner no access log, and this stack turns CloudFront logging
@@ -660,7 +805,7 @@ limits, and the site is nowhere near any of them:
 
 | Limit | Value | This site |
 |---|---|---|
-| S3 total bucket size, object count | none | 954 MB, 23,312 objects |
+| S3 total bucket size, object count | none | 954 MB, 23,313 objects |
 | S3 maximum object size | 5 TiB | 1,821,378 bytes (`sitemap.xml`, the largest file) |
 | S3 single-PUT size (the CLI multiparts above 8 MiB) | 5 GiB | as above |
 | CloudFront maximum object size for a GET | 30 GB | as above |
@@ -675,8 +820,8 @@ does not fit today — would take the origin to 1.09 GiB and about $0.027 a
 month.
 
 **Cloudflare Pages was not an option** on its free plan, and not marginally:
-the free plan caps a site at **20,000 files**, and `site/` is **23,312**. The
-site is over that limit by 3,312 files, was over it before this question was
+the free plan caps a site at **20,000 files**, and `site/` is **23,313**. The
+site is over that limit by 3,313 files, was over it before this question was
 asked, and the county and district pages that made the site navigable are
 2,234 of them.
 Its 25 MiB per-file limit would have been fine; the file count is what rules it

@@ -31,6 +31,7 @@ import pytest
 
 from homeroom.i18n import LOCALE_NAMES, LOCALES, text
 from homeroom.landing import render_landing
+from homeroom.missing import MISSING_PAGE_NAME
 from homeroom.profiles import assemble_profiles
 from homeroom.render import REPOSITORY_URL, page_name
 from homeroom.site import build_site
@@ -341,7 +342,11 @@ def test_no_school_page_gained_the_repository_link(built: Path) -> None:
     link is ever wanted on every page, that is a size decision and this test is
     where it is recorded as having been taken.
     """
-    school_pages = [p for p in built.glob("*.html") if p.name != "index.html"]
+    school_pages = [
+        p
+        for p in built.glob("*.html")
+        if p.name not in ("index.html", MISSING_PAGE_NAME)
+    ]
     assert school_pages, "no school page was built, so this checked nothing"
     for page in school_pages:
         assert REPOSITORY_URL not in page.read_text(encoding="utf-8"), page.name

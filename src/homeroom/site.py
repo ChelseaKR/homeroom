@@ -63,6 +63,7 @@ from homeroom.context import (
 )
 from homeroom.i18n import LOCALES
 from homeroom.landing import LANDING_STYLE, render_landing
+from homeroom.missing import MISSING_PAGE_NAME, render_missing
 from homeroom.profiles import ProfileAssembly, SchoolProfile, assemble_profiles
 from homeroom.render import (
     ABSENTEEISM_URL,
@@ -546,6 +547,12 @@ def build_site(
         )
         pages.append(index)
         indexable.insert(0, "index.html")
+        # A site with a front door has addresses that are not there. The page
+        # for them is written beside it and is deliberately not `indexable`: it
+        # has no address of its own, so it is in no sitemap (`homeroom.missing`).
+        missing = out_dir / MISSING_PAGE_NAME
+        missing.write_text(render_missing(is_fixture=is_fixture), encoding="utf-8")
+        pages.append(missing)
     if site_url is not None:
         pages.extend(_publish_social_cards(out_dir))
         robots = out_dir / "robots.txt"

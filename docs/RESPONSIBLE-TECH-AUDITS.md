@@ -282,7 +282,7 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
     owner: Chelsea Kelly-Reif. Registered as RR-05 in
     `docs/audits/residual-risk-register.md`. As of 2026-09-05 the procedure is
     written down in `docs/accessibility-walkthrough.md` -- which assistive
-    technologies on which browsers, what to do on each of the five page types
+    technologies on which browsers, what to do on each of the six page types
     the site publishes, what a pass and a failure look like at each step, and a
     results row per page type per language. Every cell in that record reads
     UNMET, carries no date and carries no name, which is the true state of this

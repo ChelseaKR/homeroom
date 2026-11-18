@@ -57,6 +57,7 @@ from homeroom.directory import active_schools
 from homeroom.i18n import LOCALES, Locale, format_number, outcome_name, text
 from homeroom.landing import LANDING_STYLE
 from homeroom.measures import Measure, MeasureStatus
+from homeroom.missing import MISSING_PAGE_NAME
 from homeroom.profiles import SchoolProfile, assemble_profiles
 from homeroom.render import (
     ABSENTEEISM_URL,
@@ -1563,8 +1564,12 @@ def test_no_page_promises_a_social_image_the_site_does_not_ship(hosted: Path) ->
         document = parse(path)
         image = document.properties.get("og:image")
         if image is None:
-            # The ask pages are noindex and carry no social markup at all.
-            assert path.parent.name == "ask", path.name
+            # The ask pages are noindex and carry no social markup at all, and
+            # neither does the missing page: it is served at an address that
+            # is not its own, so it has no address to put on a card.
+            assert path.parent.name == "ask" or path.name == MISSING_PAGE_NAME, (
+                path.name
+            )
             continue
         assert image.startswith(f"{HOSTED_ORIGIN}/"), (path.name, image)
         assert image.rsplit("/", 1)[-1] in published, (path.name, image)
@@ -2125,6 +2130,7 @@ def test_the_roadmap_states_how_many_pages_the_accessibility_gate_reads() -> Non
     pages = (
         schools * len(LOCALES)  # the school pages
         + 1  # the landing page
+        + 1  # the missing page, 404.html, written beside it since 2026-11-17
         + schools * len(LOCALES)  # the ask pages
         + counties * len(LOCALES)  # one county page per language
         + districts * len(LOCALES)  # one district page per language

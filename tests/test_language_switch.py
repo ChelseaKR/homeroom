@@ -1,7 +1,7 @@
 """The language switch, heard rather than seen (WCAG 2.2 SC 3.1.2).
 
-Every page but the front door carries one link to the same page in the other
-language. Its visible text is that language's own name -- "Español" on an
+Every page but the front door and the missing page carries one link to the
+same page in the other language. Its visible text is that language's own name -- "Español" on an
 English page, "English" on a Spanish one -- and a screen reader also gets a
 hidden hint in the language of the page it is on: "Read this page in Spanish",
 "Lea esta página en inglés".
@@ -87,9 +87,17 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return out
 
 
+# The two pages that are one page in both languages, so they have no twin to
+# switch to: the front door and the missing page.
+BILINGUAL_PAGES = {"index.html", "404.html"}
+
+
 def switching_pages(built: Path) -> list[Path]:
-    """Every page that has another-language twin: all of them but the front door."""
-    pages = sorted(path for path in built.rglob("*.html") if path.name != "index.html")
+    """Every page that has another-language twin: all but the front door and
+    the missing page, which each carry both languages themselves."""
+    pages = sorted(
+        path for path in built.rglob("*.html") if path.name not in BILINGUAL_PAGES
+    )
     kinds = {path.parent.name for path in pages}
     assert {"ask", "county", "district"} <= kinds, kinds
     assert any(path.parent == built for path in pages)

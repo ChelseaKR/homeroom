@@ -43,8 +43,8 @@ every check in CI. **No test can find that. A person listening can find it in
 about a minute.**
 
 The procedure and the empty record are committed at
-[`docs/accessibility-walkthrough.md`](accessibility-walkthrough.md). Ten rows:
-five page types in two languages. Every cell reads UNMET. The gap is tracked at
+[`docs/accessibility-walkthrough.md`](accessibility-walkthrough.md). Twelve rows:
+six page types in two languages. Every cell reads UNMET. The gap is tracked at
 [issue #6](https://github.com/ChelseaKR/homeroom/issues/6) and as RR-05 in the
 residual-risk register, and `tests/test_accessibility_review.py` holds the
 README, the roadmap and the audit document to saying it is open for as long as
@@ -56,7 +56,7 @@ any cell is UNMET. The gap cannot quietly close, and it also cannot open itself.
 
 The procedure says it in terms: *"Leave every row you did not walk at UNMET. A
 partial walkthrough recorded as a partial walkthrough is the point."* You are
-not signing up for ten rows, and nobody will ask you for the other nine.
+not signing up for twelve rows, and nobody will ask you for the other eleven.
 
 Honest costs, so you can pick one that fits the time you actually have:
 

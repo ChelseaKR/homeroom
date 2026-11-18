@@ -370,6 +370,19 @@ UI: dict[Locale, dict[str, str]] = {
         ),
         "landing_source_link": "Read the source on GitHub",
         "landing_counties_heading": "Find a school by county",
+        # The missing page (`homeroom.missing`): what a reader sees at an address
+        # with no page. PROPOSED 2026-11-17, not yet approved by the owner. Three
+        # sentences and nothing about any school; the link under them reuses
+        # `landing_counties_heading`, and the notices are the two every page has.
+        "missing_heading": "Page not found",
+        "missing_body": (
+            "There is no page at this address. The address may be mistyped, or "
+            "the page may no longer exist."
+        ),
+        "missing_where": (
+            "Every school on Homeroom can be found by county, starting from the "
+            "first page."
+        ),
         "browse_county_heading": "{county} County",
         "browse_districts_label": "School districts",
         "browse_schools_label": "Public schools",
@@ -815,6 +828,15 @@ UI: dict[Locale, dict[str, str]] = {
         ),
         "landing_source_link": "Lea el código en GitHub",
         "landing_counties_heading": "Busque una escuela por condado",
+        "missing_heading": "Página no encontrada",
+        "missing_body": (
+            "No hay ninguna página en esta dirección. Puede que la dirección esté "
+            "mal escrita o que la página ya no exista."
+        ),
+        "missing_where": (
+            "Todas las escuelas de Homeroom se pueden encontrar por condado, "
+            "empezando por la primera página."
+        ),
         "browse_county_heading": "Condado de {county}",
         "browse_districts_label": "Distritos escolares",
         "browse_schools_label": "Escuelas públicas",
