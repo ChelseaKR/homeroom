@@ -26,9 +26,9 @@ from __future__ import annotations
 
 import json
 
-from homeroom.i18n import LOCALE_NAMES, OTHER_LOCALE, Locale, text
+from homeroom.i18n import OTHER_LOCALE, Locale, text
 from homeroom.profiles import SchoolProfile
-from homeroom.render import STYLESHEET, _cde, _esc, page_name
+from homeroom.render import STYLESHEET, _cde, _esc, language_switch, page_name
 
 ASK_DIR = "ask"
 
@@ -220,11 +220,7 @@ def render_ask_page(
             '<p class="brand">'
             f'<span class="brand-name">{_esc(text(locale, "site_name"))}</span>'
             f'<span class="brand-tag">{_esc(text(locale, "site_tagline"))}</span></p>\n'
-            f'<nav aria-label="{_esc(text(locale, "language_nav"))}">\n'
-            f'<a lang="{other}" hreflang="{other}" rel="alternate" href="{_esc(switch)}">'
-            f"{_esc(LOCALE_NAMES[other])}"
-            f'<span class="vh"> {_esc(text(locale, "switch_language_hint"))}</span></a>\n'
-            "</nav>\n</div>\n</header>",
+            f"{language_switch(locale, switch)}\n</div>\n</header>",
             '<main id="main" class="wrap">',
             f'<p class="eyebrow">{_esc(text(locale, "ask_page_eyebrow"))}</p>',
             f"<h1>{_esc(text(locale, 'ask_page_heading'))} {_cde(school.name, locale)}</h1>",

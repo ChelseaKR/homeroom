@@ -29,7 +29,7 @@ unstyled, which is what `tests/test_browse.py` resolves rather than matches.
 
 from __future__ import annotations
 
-from homeroom.i18n import LOCALE_NAMES, OTHER_LOCALE, Locale, text
+from homeroom.i18n import OTHER_LOCALE, Locale, text
 from homeroom.profiles import SchoolProfile
 from homeroom.render import (
     _cde,
@@ -37,6 +37,7 @@ from homeroom.render import (
     _social_meta,
     canonical_url,
     hreflang_links,
+    language_switch,
     page_name,
     social_card_name,
     stylesheet_link,
@@ -207,11 +208,7 @@ def _shell(
         f'<span class="brand-name">{_esc(text(locale, "site_name"))}</span>'
         f'<span class="brand-tag">{_esc(text(locale, "site_tagline"))}</span>'
         "</p>\n"
-        f'<nav aria-label="{_esc(text(locale, "language_nav"))}">\n'
-        f'<a lang="{other}" hreflang="{other}" rel="alternate" href="{_esc(alternate)}">'
-        f"{_esc(LOCALE_NAMES[other])}"
-        f'<span class="vh"> {_esc(text(locale, "switch_language_hint"))}</span></a>\n'
-        "</nav>\n"
+        f"{language_switch(locale, alternate)}\n"
         "</div>\n</header>\n"
         '<main id="main" class="wrap">\n'
         f"{_fixture_note(locale, is_fixture)}"

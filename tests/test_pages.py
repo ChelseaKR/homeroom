@@ -1448,14 +1448,24 @@ def test_each_page_links_to_its_counterpart_in_the_other_language(
 def test_spanish_pages_mark_cde_english_text_and_english_pages_do_not(
     built: Path,
 ) -> None:
-    """WCAG 2.2 SC 3.1.2. CDE publishes school and district names in English only."""
+    """WCAG 2.2 SC 3.1.2. CDE publishes school and district names in English only.
+
+    An English page marks no CDE text, because the attribute would be redundant
+    there. The one span it does mark is the language switch's hidden hint, which
+    is not redundant: it sits inside a link marked Spanish for the word
+    "Español", and without its own ``lang`` the English hint is read with
+    Spanish phonemes (``tests/test_language_switch.py``). So the rule held here
+    is that exact one: nothing else on an English page carries a language.
+    """
     for cds, locale, path in every_page(built):
         document = parse(path)
         marked = [value for lang, value in document.lang_spans if lang == "en"]
+        hint = text(locale, "switch_language_hint")
         if locale == "es":
             assert "Davis Joint Unified" in marked, cds
+            assert hint not in marked, cds
         else:
-            assert not document.lang_spans, cds
+            assert document.lang_spans == [("en", hint)], (cds, document.lang_spans)
 
 
 def test_the_two_languages_are_different_documents(built: Path) -> None:
