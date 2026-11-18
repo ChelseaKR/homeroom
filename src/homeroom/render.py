@@ -225,7 +225,10 @@ p { margin: 0 0 1rem; max-width: 44rem; }
 .states dd { margin: 0; color: var(--ink-2); }
 .scroll { overflow-x: auto; margin: 0 0 .6rem; }
 table { border-collapse: collapse; width: 100%; min-width: 32rem; }
-caption { text-align: left; color: var(--ink-2); font-size: .95rem; padding: 0 0 .6rem; }
+caption {
+  text-align: left; color: var(--ink-2); font-size: .95rem; padding: 0 0 .6rem;
+  position: sticky; left: 0; max-width: calc(100vw - 2.5rem);
+}
 th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--rule); vertical-align: baseline; }
 thead th { border-bottom: 2px solid var(--rule-strong); font-size: .85rem; color: var(--ink-2); font-weight: 600; }
 tbody th { font-weight: 400; }
@@ -258,6 +261,7 @@ footer { border-top: 1px solid var(--rule); background: var(--raised); padding: 
 footer p { color: var(--ink-2); font-size: .92rem; }
 @media (max-width: 34rem) {
   .identity, .states { grid-template-columns: 1fr; gap: .15rem; }
+  .states dt { white-space: normal; }
   .states dd { margin-bottom: .6rem; }
 }
 """
@@ -283,6 +287,7 @@ PRINT_STYLE = (
   .eyebrow { margin-top: 0; }
   .scroll { overflow: visible; }
   table { min-width: 0; }
+  caption { max-width: none; }
   tr, .note, .identity, .states, .sources dd { break-inside: avoid; }
   a { text-decoration: none; }
   .sources a[href]::after { content: " (" attr(href) ")"; word-break: break-all; }
@@ -1174,6 +1179,31 @@ def _head(
     )
 
 
+def language_switch(locale: Locale, href: str) -> str:
+    """The one link to this page in the other language, as a named ``nav``.
+
+    Two phrases, in two languages, inside one link. The visible one is the other
+    language's own name ("Español", "English"), which is how a reader who cannot
+    read this page finds the way out of it, so the link carries that language.
+    The hidden one tells a screen reader what the link does, in the language of
+    the page it is on, so it is marked back: without its own ``lang`` it
+    inherits the link's, and "Read this page in Spanish" is pronounced with
+    Spanish phonemes (WCAG 2.2 SC 3.1.2). The name comes first, so the
+    accessible name still starts with the words a sighted reader sees (SC
+    2.5.3). ``tests/test_language_switch.py`` reads which words each ``lang``
+    covers, on every page kind that carries this.
+    """
+    other = OTHER_LOCALE[locale]
+    return (
+        f'<nav aria-label="{_esc(text(locale, "language_nav"))}">\n'
+        f'<a lang="{other}" hreflang="{other}" rel="alternate" href="{_esc(href)}">'
+        f"{_esc(LOCALE_NAMES[other])}"
+        f'<span class="vh" lang="{locale}"> '
+        f"{_esc(text(locale, 'switch_language_hint'))}</span></a>\n"
+        "</nav>"
+    )
+
+
 def _header(profile: SchoolProfile, locale: Locale) -> str:
     other = OTHER_LOCALE[locale]
     href = page_name(profile.school.cds_code, other)
@@ -1184,11 +1214,7 @@ def _header(profile: SchoolProfile, locale: Locale) -> str:
         f'<span class="brand-name">{_esc(text(locale, "site_name"))}</span>'
         f'<span class="brand-tag">{_esc(text(locale, "site_tagline"))}</span>'
         "</p>\n"
-        f'<nav aria-label="{_esc(text(locale, "language_nav"))}">\n'
-        f'<a lang="{other}" hreflang="{other}" rel="alternate" href="{_esc(href)}">'
-        f"{_esc(LOCALE_NAMES[other])}"
-        f'<span class="vh"> {_esc(text(locale, "switch_language_hint"))}</span></a>\n'
-        "</nav>\n"
+        f"{language_switch(locale, href)}\n"
         "</div>\n"
         "</header>"
     )

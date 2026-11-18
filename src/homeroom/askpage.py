@@ -26,9 +26,9 @@ from __future__ import annotations
 
 import json
 
-from homeroom.i18n import LOCALE_NAMES, OTHER_LOCALE, Locale, text
+from homeroom.i18n import OTHER_LOCALE, Locale, cde_text_lang, text
 from homeroom.profiles import SchoolProfile
-from homeroom.render import STYLESHEET, _cde, _esc, page_name
+from homeroom.render import STYLESHEET, _cde, _esc, language_switch, page_name
 
 ASK_DIR = "ask"
 
@@ -37,7 +37,7 @@ ASK_STYLE = """
 .ask-form label { display: block; font-weight: 600; margin-bottom: .4rem; }
 .ask-form textarea {
   width: 100%; min-height: 6rem; font: inherit; padding: .6rem .7rem;
-  border: 1px solid var(--rule-strong); border-radius: 3px;
+  border: 1px solid var(--ink-3); border-radius: 3px;
   background: var(--raised); color: var(--ink);
 }
 .ask-form button {
@@ -78,12 +78,17 @@ SCRIPT = """
     box.appendChild(el("p", null, message));
     return box;
   }
+  function cde(node) {
+    if (strings.cde_lang) { node.lang = strings.cde_lang; }
+    return node;
+  }
   function citationLink(citation) {
     var a = document.createElement("a");
     if (citation.type === "passage") {
       a.href = citation.url || strings.school_page;
       a.rel = "noopener";
-      a.textContent = strings.cde_page + ": " + (citation.title || citation.label);
+      a.textContent = strings.cde_page + ": ";
+      a.appendChild(cde(el("span", null, citation.title || citation.label)));
     } else if (citation.type === "source") {
       a.href = strings.school_page + "#sources";
       a.textContent = strings.on_page + ": " + citation.label;
@@ -105,7 +110,7 @@ SCRIPT = """
       data.claims.forEach(function (claim) {
         var item = el("li");
         item.appendChild(el("span", null, claim.text));
-        if (claim.quote) { item.appendChild(el("blockquote", null, claim.quote)); }
+        if (claim.quote) { item.appendChild(cde(el("blockquote", null, claim.quote))); }
         if (claim.citations && claim.citations.length) {
           var cites = el("span", "cites", strings.citations + ": ");
           claim.citations.forEach(function (citation, index) {
@@ -173,6 +178,14 @@ def _strings(profile: SchoolProfile, locale: Locale, endpoint: str) -> str:
 
     Serialized with ``ensure_ascii`` and ``<`` escaped, so the JSON block can
     never close its own ``<script>`` tag whatever a string contains.
+
+    ``cde_lang`` is the language of the two things in an answer that are CDE's
+    words and not Homeroom's: a passage quoted verbatim, and the title of the
+    CDE page it came from. The script marks them with it, the way ``_cde``
+    marks every CDE name on the static pages, so a Spanish screen reader does
+    not read English with Spanish phonemes (WCAG 2.2 SC 3.1.2). On an English
+    page the attribute would be redundant, so the key is absent and the page's
+    bytes are what they were.
     """
     data = {
         "endpoint": endpoint.rstrip("/") + "/ask",
@@ -191,6 +204,9 @@ def _strings(profile: SchoolProfile, locale: Locale, endpoint: str) -> str:
         "scope_district": text(locale, "col_district"),
         "scope_state": text(locale, "col_state"),
     }
+    cde_lang = cde_text_lang(locale)
+    if cde_lang is not None:
+        data["cde_lang"] = cde_lang
     return json.dumps(data, ensure_ascii=True, sort_keys=True).replace("<", "\\u003c")
 
 
@@ -220,11 +236,7 @@ def render_ask_page(
             '<p class="brand">'
             f'<span class="brand-name">{_esc(text(locale, "site_name"))}</span>'
             f'<span class="brand-tag">{_esc(text(locale, "site_tagline"))}</span></p>\n'
-            f'<nav aria-label="{_esc(text(locale, "language_nav"))}">\n'
-            f'<a lang="{other}" hreflang="{other}" rel="alternate" href="{_esc(switch)}">'
-            f"{_esc(LOCALE_NAMES[other])}"
-            f'<span class="vh"> {_esc(text(locale, "switch_language_hint"))}</span></a>\n'
-            "</nav>\n</div>\n</header>",
+            f"{language_switch(locale, switch)}\n</div>\n</header>",
             '<main id="main" class="wrap">',
             f'<p class="eyebrow">{_esc(text(locale, "ask_page_eyebrow"))}</p>',
             f"<h1>{_esc(text(locale, 'ask_page_heading'))} {_cde(school.name, locale)}</h1>",

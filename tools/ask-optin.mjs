@@ -56,6 +56,14 @@ const CANNED = {
         { id: "fsabd#4", type: "passage", label: "File Structure", url: "https://www.cde.ca.gov/ds/ad/fsabd.asp", title: "File Structure" },
       ],
     },
+    {
+      kind: "definition",
+      text: "DEFINITION-TEXT",
+      quote: "QUOTED-CDE-WORDS",
+      citations: [
+        { id: "fsabd#5", type: "passage", label: "CDE-PAGE-TITLE", url: "https://www.cde.ca.gov/ds/ad/fsabd.asp", title: "CDE-PAGE-TITLE" },
+      ],
+    },
   ],
   withheld: 2,
   labels: { ai: "LABEL-AI", language: "LABEL-LANG" },
@@ -168,6 +176,41 @@ async function check(name) {
   if (!links.some((h) => h.endsWith("#students")) || !links.includes("https://www.cde.ca.gov/ds/ad/fsabd.asp")) {
     throw new Error(`${name}: citation links missing: ${JSON.stringify(links)}`);
   }
+  // CDE's own words -- a quoted passage and the title of the CDE page it came
+  // from -- exist in English only. On a Spanish page they must say so, or a
+  // Spanish screen reader pronounces a paragraph of English with Spanish
+  // phonemes (WCAG 2.2 SC 3.1.2); on an English page the attribute would be
+  // redundant and is not written, which is the rule `render._cde` follows for
+  // every CDE name on the static pages. Homeroom's own words around them (the
+  // claim, the "CDE page:" prefix) stay in the page's language.
+  const pageLang = document.documentElement.getAttribute("lang");
+  const wanted = pageLang === "en" ? null : "en";
+  const langOf = (node) => {
+    for (let n = node; n && n.getAttribute; n = n.parentNode) {
+      if (n === answer) break;
+      if (n.getAttribute("lang")) return n.getAttribute("lang");
+    }
+    return null;
+  };
+  const quote = [...answer.querySelectorAll("blockquote")].find((q) => q.textContent === "QUOTED-CDE-WORDS");
+  if (!quote) {
+    throw new Error(`${name}: the quoted passage was not rendered`);
+  }
+  if (langOf(quote) !== wanted) {
+    throw new Error(`${name}: the quoted CDE passage is marked lang=${JSON.stringify(langOf(quote))} on a ${pageLang} page, expected ${JSON.stringify(wanted)}`);
+  }
+  const titleNode = [...answer.querySelectorAll("a *")].find((n) => n.textContent === "CDE-PAGE-TITLE");
+  const titleLink = [...answer.querySelectorAll("a")].find((a) => a.textContent.endsWith("CDE-PAGE-TITLE"));
+  if (!titleLink || !titleLink.textContent.startsWith(strings.cde_page + ": ")) {
+    throw new Error(`${name}: the CDE page citation lost its text: ${JSON.stringify(titleLink && titleLink.textContent)}`);
+  }
+  const titleLang = titleNode ? langOf(titleNode) : langOf(titleLink);
+  if (titleLang !== wanted) {
+    throw new Error(`${name}: the CDE page title is marked lang=${JSON.stringify(titleLang)} on a ${pageLang} page, expected ${JSON.stringify(wanted)}`);
+  }
+  if (langOf(titleLink) !== null) {
+    throw new Error(`${name}: the whole citation link is marked ${langOf(titleLink)}, which mislabels Homeroom's own "${strings.cde_page}:"`);
+  }
   if (document.activeElement !== document.getElementById("answer-heading")) {
     throw new Error(`${name}: focus did not move to the answer heading`);
   }
@@ -196,7 +239,7 @@ async function check(name) {
     throw new Error(`${name}: a withheld count was shown for an answer that withheld nothing: ${JSON.stringify(stray)}`);
   }
   window.close();
-  console.log(`ok   ask/${name}  (no request on load; one POST on submit; text-only render; withheld count shown)`);
+  console.log(`ok   ask/${name}  (no request on load; one POST on submit; text-only render; withheld count shown; CDE's words marked as English where the page is not)`);
 }
 
 let failed = 0;

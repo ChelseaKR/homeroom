@@ -15,6 +15,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Proposed, wording not yet approved: the front door's header links its
+  Spanish half** (2026-11-17 accessibility sweep). The front door is one page in
+  two languages, English first, and its Spanish half starts after 58 county
+  links and the analytics paragraphs with nothing above that leads to it. Every
+  other page offers the other language from its header. The header now carries
+  a link, "Español", in the same place, pointing at the Spanish section's
+  heading. It reuses the one reviewed string every other page uses for it and
+  adds no sentence; what is new is that the word is visible and announced on
+  this page.
+
 - **The hosting decision has its own record** (#82, ADR 0008). The owner chose
   on 2026-09-18 to move the domain to the S3 + CloudFront origin in
   `deploy/site/`; until now that lived only in the deploy record, the cutover
@@ -491,6 +501,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   default until the owner changes it at the redeploy.
 
 ### Fixed
+
+- **Five things a keyboard, a screen reader, zoom and widened text found that
+  the gates could not** (2026-11-17 accessibility sweep, in Chromium and WebKit
+  against the published pages; nobody ran a screen reader, and
+  `docs/accessibility-walkthrough.md` still reads UNMET). No sentence a reader
+  sees or hears changes. The pages in `site/` are not re-rendered here: these
+  reach readers with the next publish.
+  - The language switch's hidden hint is spoken in the page's language. It sat
+    inside a link marked with the other language, so "Read this page in
+    Spanish" was announced with Spanish phonemes and "Lea esta página en
+    inglés" with English ones, on every school, county, district and ask page.
+  - The ask page's question box has an edge a reader can see: its border was
+    1.7:1 against the page in the light palette and 2.1:1 in the dark one, and
+    is now 5.8:1 and 7.1:1.
+  - On a Spanish ask page, a quoted CDE definition and the CDE page's title in
+    the citation are marked as English, as CDE names already are on the static
+    pages.
+  - The legend of cell states wraps on a narrow screen. With the text spacing
+    WCAG 2.2 SC 1.4.12 names, "retenido para proteger la privacidad" made every
+    Spanish school page scroll sideways at 320 CSS pixels.
+  - A table's caption wraps inside the screen and stays put while the table
+    scrolls under it. At 320 CSS pixels, or 400% zoom, the sentence that says
+    what a table is ran off the right edge.
 
 - **The publish role could not be assumed, and the cutover's certificate step
   could not succeed** (#82, ADR 0008; found running `deploy/site/CUTOVER.md` on
