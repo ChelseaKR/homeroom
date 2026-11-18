@@ -38,16 +38,24 @@ succeeds on main rather than on the push:
 
   * `pages.yml` uploads `site/` to GitHub Pages. Its job declares
     `environment: github-pages`, so every run that publishes leaves a
-    deployment row naming the commit it published. This is what serves
-    homeroom.chelseakr.com, and this is the record read below.
-  * `site-publish.yml` syncs `site/` to S3 behind CloudFront. It declares no
-    `environment:`, so it creates no deployment row at all, and it is inert as
-    committed -- all four of its `vars.SITE_*` gates are unset, which was
-    confirmed against the repository's Actions variables (there are none). If
-    it is ever armed it will still create no deployment, so this sentinel keeps
-    measuring the Pages origin and would need extending to cover the other.
-    That is stated here rather than assumed: reading one record and calling it
-    "the deploy" is only honest while one publisher creates records.
+    deployment row naming the commit it published. This served
+    homeroom.chelseakr.com until 2026-11-17 and is the rollback copy since,
+    and this is the record read below.
+  * `site-publish.yml` syncs `site/` to S3 behind CloudFront, which is what
+    serves the domain since the DNS switch of 2026-11-17 (ADR 0008). It
+    declares no `environment:`, so it creates no deployment row at all. It was
+    inert until that day, with all four of its `vars.SITE_*` gates unset; it
+    is armed now and still creates no deployment.
+
+    **So this sentinel now measures the rollback copy, not the origin families
+    are served from, and it has not been extended to cover the other.** The
+    two publishers run from the same ci run on the same commit, so the Pages
+    record is a proxy for the served origin while both succeed, and it stops
+    being one the day `site-publish.yml` fails and `pages.yml` does not, or a
+    tree outgrows Pages and is skipped there. That is stated here rather than
+    assumed: reading one record and calling it "the deploy" was only honest
+    while that publisher was the one serving. `live-integrity.yml` is the
+    check that reads the served origin.
 
 Because neither publisher fires on `push`, a `ci` run that fails, is canceled,
 or is evicted from its concurrency group's pending slot publishes nothing and
@@ -63,8 +71,9 @@ Why the deployment record and not the run history
 A `workflow_run`-triggered workflow whose guard job decides not to publish still
 logs a *successful* run. Both publishers here are exactly that shape: `pages.yml`
 skips its only job unless the `ci` run concluded `success`, and `site-publish.yml`
-skips its only job unless four repository variables are set -- which none of them
-is, so every single one of its runs is a green run that published nothing.
+skips its only job unless four repository variables are set -- which, until
+2026-11-17, none of them was, so every one of its runs was a green run that
+published nothing.
 Counting runs would therefore read `site-publish.yml`'s permanent skip as a fresh
 deploy forever; filtering the skips out leaves no successful run at all, which is
 a refusal dressed up as a measurement.

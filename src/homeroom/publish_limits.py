@@ -44,10 +44,13 @@ loudly, when it does not. Flipping the file is the owner's step and comes after
 the DNS change, never before; `deploy/site/CUTOVER.md` has the order.
 
 On 2026-11-17 the owner chose to publish before that move rather than after it
-(ADR 0008): the next tree is 953.7 MB, which GitHub Pages accepts and the 90%
-budget refused. `SITE_BUDGET_SHARE` is that bridge -- 96% of the ceiling for the
-tree, while ``served-by`` says ``github-pages`` and no longer -- and the flip
-takes it back out.
+(ADR 0008): the tree was 953.7 MB, which GitHub Pages accepts and the 90%
+budget refused. `SITE_BUDGET_SHARE` was that bridge -- 96% of the ceiling for
+the tree, while ``served-by`` said ``github-pages`` and no longer. The move was
+made the same day: DNS went to the CloudFront distribution at 16:38 PST
+(2026-11-18T00:38:53Z), ``served-by`` was flipped to ``cloudfront`` after it,
+and the flip took the bridge back out. `SITE_BUDGET_SHARE` is the standing 90%
+again, which is what a return to ``github-pages`` would be held to.
 """
 
 from __future__ import annotations
@@ -76,22 +79,26 @@ PAGES_SITE_LIMIT_BYTES = 1_000_000_000
 PUBLISHED_BUDGET_SHARE = 0.90
 
 #: The share of the Pages ceiling the *tree* is held to while GitHub Pages is
-#: the origin, and it is a temporary bridge, not the standing number above.
+#: the origin. It is the standing number above again, and for one day it was
+#: not.
 #:
-#: The next publish -- D5 (ADR 0005) plus the search titles of ADR 0006 and of
-#: the front-door branch behind it -- was rendered in full on 2026-11-17 at
+#: From 2026-11-17 until the `served-by` flip it was 0.96, a temporary bridge.
+#: The publish that carried D5 (ADR 0005) and the search titles of ADR 0006
+#: and of the front-door branch behind it was rendered in full that day at
 #: 953,659,316 bytes in 23,312 files: 95.4% of the ceiling, inside what GitHub
-#: accepts and 53.7 MB over the 90% budget. The owner's decision that day (ADR 0008) was to publish it on
-#: Pages now and run the CloudFront cutover in `deploy/site/CUTOVER.md` after,
-#: rather than hold approved pages back until the move. 96% admits that tree
-#: with 6.3 MB to spare and still refuses 40 MB short of the ceiling.
+#: accepts and 53.7 MB over the 90% budget. The owner's decision (ADR 0008) was
+#: to publish it on Pages and run the CloudFront cutover in
+#: `deploy/site/CUTOVER.md` after, rather than hold approved pages back until
+#: the move. 96% admitted that tree with 6.3 MB to spare and still refused
+#: 40 MB short of the ceiling.
 #:
-#: It spends the margin the 90% was there to keep, which is why it ends at the
-#: `served-by` flip: once that file says ``cloudfront`` no total-size budget is
-#: applied at all, and the pull request that flips it sets this back to
-#: `PUBLISHED_BUDGET_SHARE`. `tests/test_hosting_decision.py` fails the flip
-#: until it does. The sitemap budgets below never moved; they stay at 90%.
-SITE_BUDGET_SHARE = 0.96
+#: It spent the margin the 90% is there to keep, which is why it ended at the
+#: flip: while that file says ``cloudfront`` no total-size budget is applied
+#: at all, and the pull request that flipped it set this back to
+#: `PUBLISHED_BUDGET_SHARE`. `tests/test_hosting_decision.py` holds the two
+#: together in both directions. The sitemap budgets below never moved; they
+#: stayed at 90% throughout.
+SITE_BUDGET_SHARE = PUBLISHED_BUDGET_SHARE
 PUBLISHED_BUDGET_BYTES = int(PAGES_SITE_LIMIT_BYTES * SITE_BUDGET_SHARE)
 
 #: <https://www.sitemaps.org/protocol.html>: one sitemap file carries "no more
@@ -338,13 +345,17 @@ def refusals(root: Path, served_by: str = SERVED_BY_PAGES) -> list[str]:
 #: a build step that picked one would be making a hosting or a scope decision by
 #: exiting non-zero at the wrong moment.
 WHAT_TO_DO = """
-This is not a budget to raise again. It was raised once, from 90% to 96% of
-the ceiling, as a temporary bridge until the CloudFront cutover (ADR 0008), and
-what is left above it is the margin that keeps GitHub from refusing a deploy.
-The tree is committed HTML with no compression step to add and nothing to prune
-that is not a page somebody can reach, so the question is which pages exist, or
-which origin serves them. The record is in issue #82 and `deploy/site/README.md`,
-and the commands that end the bridge are in `deploy/site/CUTOVER.md`; they are
+This is not a budget to raise. The tree's was raised once, from 90% to 96% of
+the Pages ceiling, as a temporary bridge until the CloudFront cutover
+(ADR 0008). That cutover was made on 2026-11-17 and the bridge ended with it.
+While `deploy/site/served-by` says `cloudfront` the tree has no total-size
+budget at all, and only the per-file and sitemap limits can refuse it; if it
+ever says `github-pages` again the tree is held to 90%, and what is left above
+that is the margin that keeps GitHub from refusing a deploy. The tree is committed HTML
+with no compression step to add and nothing to prune that is not a page
+somebody can reach, so the question is which pages exist, or which origin
+serves them. The record is in issue #82 and `deploy/site/README.md`, and the
+commands that moved the origin are in `deploy/site/CUTOVER.md`; they are
 decisions rather than steps, and nothing in this repository takes one.
 
 `site/` has not been touched. The rendered tree is left where it is so it can be

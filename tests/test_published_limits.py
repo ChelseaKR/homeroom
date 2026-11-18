@@ -81,13 +81,14 @@ SITE = ROOT / "site"
 # catch, not one to introduce. What stays local is the per-file budget, which is
 # derived from `tools/verify_live_site.py` rather than from a documented limit.
 
-# `SITE_BUDGET_SHARE`, the share the tree is held to, is 96% of the Pages
-# ceiling since 2026-11-17 and is a temporary bridge: the owner chose to publish
-# the 953.7 MB D5 tree on Pages before the CloudFront cutover rather than after
-# it (ADR 0008), and the share returns to 90% in the pull request that flips
+# `SITE_BUDGET_SHARE`, the share the tree is held to while GitHub Pages is the
+# origin, was 96% of the Pages ceiling for one day, 2026-11-17, as a temporary
+# bridge: the owner chose to publish the 953.7 MB D5 tree on Pages before the
+# CloudFront cutover rather than after it (ADR 0008). The cutover was made the
+# same day, and the share returned to 90% in the pull request that flipped
 # `deploy/site/served-by`. `tests/test_hosting_decision.py` holds that. What
-# follows is the reasoning for the standing number, which is where it goes back
-# to and what the sitemap budgets still use.
+# follows is the reasoning for the standing number, which is what it went back
+# to and what the sitemap budgets used throughout.
 #
 # `PUBLISHED_BUDGET_SHARE` is 90% of the Pages ceiling. 10% of the cap is
 # ~100 MB, which is about 2,500 school pages at what they currently weigh: room
@@ -222,11 +223,11 @@ def test_the_published_tree_stays_inside_the_size_a_deploy_will_accept() -> None
     at the ceiling itself would only ever fire on a tree that was already
     undeployable.
 
-    Since 2026-11-17 the tree is held to 96% instead, as a temporary bridge
+    On 2026-11-17 the tree was held to 96% instead, as a temporary bridge
     (ADR 0008): the D5 tree is 953.7 MB, GitHub Pages accepts it, and the owner
-    chose to publish it there before the CloudFront cutover. That spends most of
+    chose to publish it there before the CloudFront cutover. That spent most of
     the margin on purpose, for a stated reason, until a stated event -- the
-    `served-by` flip, where the share goes back to 90%.
+    `served-by` flip, made the same day, where the share went back to 90%.
 
     **When this trips**, the answer is not a bigger budget. The tree is
     committed HTML with no compression step to add and nothing to prune that is
@@ -241,11 +242,11 @@ def test_the_published_tree_stays_inside_the_size_a_deploy_will_accept() -> None
 
     **Which ceiling** follows `deploy/site/served-by` (owner decision
     2026-09-18, #82). While it says ``github-pages`` this is the gate described
-    above, unchanged. Once the owner has moved DNS to CloudFront and flipped it
-    to ``cloudfront``, the origin is an S3 bucket with no total-size ceiling and
-    there is nothing for this budget to protect -- `pages.yml` then treats Pages
-    as the rollback copy and skips it, with a warning, when the tree outgrows
-    it. The decision is `homeroom.publish_limits._size_refusal`'s, the same
+    above, unchanged. The owner moved DNS to CloudFront on 2026-11-17 and
+    flipped it to ``cloudfront``: the origin is an S3 bucket with no total-size
+    ceiling and there is nothing for this budget to protect -- `pages.yml`
+    treats Pages as the rollback copy and skips it, with a warning, when the
+    tree outgrows it. The decision is `homeroom.publish_limits._size_refusal`'s, the same
     function `make publish` calls, so the two cannot disagree.
     """
     served_by = read_served_by(ROOT / SERVED_BY_FILE)
@@ -266,9 +267,10 @@ def test_the_published_tree_stays_inside_the_size_a_deploy_will_accept() -> None
         "github-pages-limits). "
         f"Where the bytes are: {where_the_bytes_are(published_files())}. "
         f"The budget is {SITE_BUDGET_SHARE:.0%} of the ceiling so that "
-        "this fails while the site is still deployable. It was already raised "
-        "once, as a bridge until the CloudFront cutover (ADR 0008); raising it "
-        "again spends the last of the margin rather than the problem. Run "
+        "this fails while the site is still deployable. It was raised once, to "
+        "96%, as a bridge until the CloudFront cutover (ADR 0008), and went "
+        "back when the cutover was made; raising it again spends the margin "
+        "rather than the problem. If GitHub Pages is the origin again, see "
         "deploy/site/CUTOVER.md, publish fewer pages, or decide what comes off "
         "before deciding what goes on."
     )

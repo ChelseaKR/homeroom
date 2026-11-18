@@ -139,6 +139,38 @@ family-facing exposure, per the deployment runbook (`deploy/ask/README.md`).
   2026-08-22 (deployment authorization, relayed with the site origin
   decision).
 
+### Hosting record (the static pages)
+
+Not a new kind of exposure, and recorded because the party changed. A host
+receives every request made to it. Until 2026-11-17 that host was GitHub
+Pages; since the DNS switch that day (ADR 0008) it is Amazon Web Services.
+This record was written with the pull request that followed the switch, not
+before it, which is later than `AGENTS.md` asks of a subprocessor record.
+
+- **Host:** Amazon Web Services: Amazon CloudFront in front of a private
+  Amazon S3 bucket in `us-west-2`, stack `homeroom-site`
+  (`deploy/site/README.md`). AWS was already this project's subprocessor for
+  the ask service, above.
+- **What the host receives, per request:** what any web host receives: the
+  reader's IP address, the path requested, and the request headers the
+  browser sends, which include the Google Analytics cookies where a reader
+  has them. CloudFront forwards no cookie, header or query string to the
+  bucket, and the cache key is the path alone.
+- **What this project keeps:** nothing. CloudFront standard access logging is
+  off, there is no real-time log, no WAF and no S3 server access log, so the
+  owner holds no record of which address asked for which school's page.
+  `tests/test_deploy_site_template.py` fails if a `Logging:` block is added to
+  the distribution. GitHub Pages gave the owner no such log either.
+- **What changes for a reader:** nothing they can see. The address, the pages
+  and their bytes are the same. The response now carries
+  `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options` and
+  `Referrer-Policy: same-origin`, none of which GitHub Pages sent.
+- **The old host:** GitHub Pages still receives every tree that fits under
+  its ceiling, as the rollback copy. No reader is sent there while the
+  domain's DNS record points at CloudFront.
+- **Recorded:** 2026-11-17. **Owner decision:** Chelsea Kelly-Reif, 2026-09-18
+  (the move, issue #82) and 2026-11-17 (the switch).
+
 ### Subprocessor record (Google Analytics 4)
 
 - **Subprocessor:** Google LLC, Google Analytics 4, property 554882251, web
@@ -291,7 +323,9 @@ Applies as of M4 (2026-08-07). The pages exist, so the deferral has ended.
 ## F. Security
 
 - Surface: a local pipeline over locally acquired public files, plus two hosted
-  things. The static pages are served by GitHub Pages; the ask service (ADR
+  things. The static pages are served by CloudFront from a private S3 bucket
+  since 2026-11-17 (ADR 0008; GitHub Pages before that, and still the rollback
+  copy; the hosting record is under C. Privacy); the ask service (ADR
   0003) has been deployed since 2026-08-22 as an AWS Lambda behind an
   unauthenticated Function URL in `us-west-2`, which is a real inbound surface
   and is modeled in `docs/audits/threat-model.md` boundary 5. This bullet read

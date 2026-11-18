@@ -1,8 +1,8 @@
 # 0008. Serve the published site from S3 behind CloudFront, and keep GitHub Pages as the way back
 
-Status: Accepted (owner decision, 2026-09-18, issue #82 option 1; bridge added by owner decision 2026-11-17). Not applied: `deploy/site/served-by` says `github-pages` and DNS has not moved. The cutover began on 2026-11-17; `deploy/site/CUTOVER.md`, "Where this stands", records which of its steps have been run. Until it is applied, a temporary bridge holds the tree to 96% of the Pages ceiling instead of 90%.
+Status: Accepted (owner decision, 2026-09-18, issue #82 option 1; bridge added by owner decision 2026-11-17). Applied 2026-11-17: DNS moved to the CloudFront distribution at 16:38 PST (2026-11-18T00:38:53Z), and `deploy/site/served-by` says `cloudfront`. GitHub Pages is the rollback copy. The temporary bridge that held the tree to 96% of the Pages ceiling ended with the flip, and the budget is 90% again.
 Date: 2026-11-17
-Deciders: Chelsea Kelly-Reif (move decided 2026-09-18; bridge decided and both recorded here 2026-11-17)
+Deciders: Chelsea Kelly-Reif (move decided 2026-09-18; bridge decided and both recorded here 2026-11-17; DNS switched 2026-11-17)
 Relates to: ADR 0001, which is not amended: the pages stay static and
 rendered by the same renderer, and the bytes committed under `site/` are the
 bytes served. ADR 0005, whose teacher-assignment section is the growth that
@@ -76,6 +76,33 @@ moved and the live sentinel has passed against the new origin, and only then
 total-size budget under the Pages ceiling holds. Once it says `cloudfront`,
 `make publish` and the suite hold the tree to no total-size budget, because S3
 has none; the 100 MiB per-file limit still binds, because `site/` is committed.
+
+### Applied (2026-11-17)
+
+The move was made the same day as the bridge publish. The owner chose to switch
+that day rather than a day after the TTL was lowered.
+
+- **DNS.** The `homeroom.chelseakr.com` CNAME went from `chelseakr.github.io`
+  to the distribution's `*.cloudfront.net` name at 16:38:53 PST
+  (2026-11-18T00:38:53Z), with a TTL of 60 seconds. Both public resolvers
+  checked returned the new name about 70 seconds later.
+- **Before the switch**, `tools/verify_live_site.py --sample 0` compared all
+  23,312 files on the `*.cloudfront.net` name with the committed tree, byte
+  for byte, and they matched.
+- **After it**, the domain answers from the new origin: 200 over HTTPS with
+  the headers `deploy/site/README.md` lists, 301 from plain HTTP, 404 for a
+  page that does not exist, and the sentinel run against the domain compared
+  410 files and found no difference.
+- **The switch file** says `cloudfront`, in the pull request that followed.
+  The bridge ended there: `SITE_BUDGET_SHARE` is `PUBLISHED_BUDGET_SHARE`
+  again.
+- **What is still at its cautious setting:** `Strict-Transport-Security` is
+  300 seconds and the record's TTL is 60, so that a rollback is quick. Both
+  go up once the daily sentinel has been green for a few days
+  (`deploy/site/CUTOVER.md`, "Rollback").
+
+The sections below are the decision as it was written before the move, and
+they are left in its tense.
 
 ### Two things the cutover found (2026-11-17)
 

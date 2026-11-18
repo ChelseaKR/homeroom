@@ -14,10 +14,13 @@ the next morning. A gate that reports a finding nobody connects back to the
 change that caused it is a gate at half strength.
 
 `site-publish.yml` is the same condition in its quieter form. It needs four
-variables, none of them set, and it is written to *skip* rather than fail when
-they are missing -- deliberately, and the comment there argues it well: an
-unarmed deploy is not a broken build. The cost is that being unarmed looks
-exactly like having nothing to do. Every run of it has skipped.
+variables, and it is written to *skip* rather than fail when they are missing
+-- deliberately, and the comment there argues it well: an unarmed deploy is not
+a broken build. The cost is that being unarmed looks exactly like having
+nothing to do. Until 2026-11-17 none of the four was set and every run of it
+skipped. They are set now and that workflow publishes the site families read
+(ADR 0008), so one of them going missing would stop the deploy without a
+single red run -- which is the case the reconciliation below reports.
 
 So there are two shapes of the same fact in this repository, one shouting nightly
 and one silent, and no single place that says which repository variables the
@@ -262,9 +265,10 @@ def main(argv: list[str]) -> int:
     #
     # The obvious version of this check fails on any unset variable, and it would
     # be wrong here for a reason worth writing down: four of the five are
-    # site-publish.yml's, deliberately unset, behind an `if:` that skips because
-    # an unarmed deploy is not a broken build. Failing on those makes this check
-    # red on a state nobody intends to change, which is a check that cannot pass
+    # site-publish.yml's, behind an `if:` that skips because an unarmed deploy
+    # is not a broken build, and until 2026-11-17 they were deliberately unset.
+    # Failing on those made this check red on a state nobody intended to
+    # change, which is a check that cannot pass
     # -- and a permanently red workflow is read exactly as often as a silent one,
     # which is the failure the alarm relay's own comments describe when they
     # refuse to file a duplicate issue every night.

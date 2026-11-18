@@ -1,15 +1,16 @@
 """The site origin: the template, the publish path, and the record of both.
 
-`deploy/site/` is prepared and not applied, which is a state a directory can
-drift out of in two directions. It can drift toward a template that would
-deploy green and serve the site wrongly -- which is what
-`tests/test_deploy_template.py` was written for, over the ask stack, and every
-check there names a symptom that reached a reader. And it can drift toward a
-document that says "nothing is applied" after something is, which is the
-failure the comment above `DOCS_DESCRIBING_THE_SURFACE` in
+`deploy/site/` was prepared and not applied until 2026-11-17, and has been
+applied since, and either is a state a directory can drift out of in two
+directions. It can drift toward a template that would deploy green and serve
+the site wrongly -- which is what `tests/test_deploy_template.py` was written
+for, over the ask stack, and every check there names a symptom that reached a
+reader. And it can drift toward a document that does not say what is running,
+which is the failure the comment above `DOCS_DESCRIBING_THE_SURFACE` in
 `tests/test_published_site.py` records: four documents denied a running service
 for a week, two of them edited during that week without the denial being
-noticed.
+noticed. While this stack was only prepared, the record was held to saying
+so; now it is held to saying what is applied, and to `deploy/site/served-by`.
 
 So this file checks three artifacts against each other and against the
 published tree: `deploy/site/template.yaml`, `.github/workflows/site-publish.yml`,
@@ -30,6 +31,12 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 from pathlib import Path
+
+from homeroom.publish_limits import (
+    SERVED_BY_CLOUDFRONT,
+    SERVED_BY_FILE,
+    read_served_by,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE = ROOT / "deploy" / "site" / "template.yaml"
@@ -625,65 +632,116 @@ def test_the_publish_workflow_publishes_the_commit_ci_verified() -> None:
 #
 # `tests/test_published_site.py` derives whether the ask service is deployed from
 # the published bytes and holds six documents to it, after four of them spent a
-# week denying a running service. This is the same check pointed the other way:
-# `deploy/site/README.md` says nothing is applied, and the thing that could make
-# that a lie is somebody applying it and editing around the claim.
+# week denying a running service. This is the same check for the site's origin.
+# Until 2026-11-17 `deploy/site/README.md` said nothing was applied, and this
+# held it to carrying no identifier an applied stack would leave. The stack was
+# applied that day and DNS moved, so the check turned over, as its docstring
+# said it would: the record now has to say what is applied, and which origin
+# it says serves the domain has to be the one `deploy/site/served-by` names.
 # ----------------------------------------------------------------------------------
 
-# What an applied record carries and a prepared one cannot: the identifiers that
-# only exist once AWS has created something. `deploy/ask/README.md` is the shape
-# being contrasted with -- it carries a stack ARN, a Function URL and an account
-# id in its first table.
-APPLIED_IDENTIFIERS = {
-    "a CloudFront distribution id": re.compile(r"\bE[A-Z0-9]{12,13}\b"),
-    "a CloudFront distribution hostname": re.compile(
-        r"\b[a-z0-9]{12,14}\.cloudfront\.net\b"
-    ),
+# What the record must not carry even now that it is an applied one: anything
+# that holds the AWS account id. `deploy/ask/README.md` carried a stack ARN and
+# the id itself until 2026-10-17. The template keeps the account out of the
+# committed bytes with `${AWS::AccountId}`, `params.json` is ignored for the
+# same reason, and a record that spelled the bucket's name or the role's ARN
+# would undo both in one paragraph.
+ACCOUNT_BEARING_IDENTIFIERS = {
     "a CloudFormation stack ARN": re.compile(
         r"arn:aws:cloudformation:[a-z0-9-]+:\d{12}:"
     ),
     "an ACM certificate ARN": re.compile(r"arn:aws:acm:[a-z0-9-]+:\d{12}:certificate/"),
     "an IAM role ARN": re.compile(r"arn:aws:iam::\d{12}:role/"),
     "a named origin bucket": re.compile(r"homeroom-site-\d{12}"),
+    "a bare AWS account id": re.compile(r"(?<![\d,.@])\d{12}(?![\d,])"),
 }
 
+# What an applied record carries and a prepared one could not: the name AWS
+# gave the distribution, which is also what the domain's DNS record points at.
+DISTRIBUTION_HOSTNAME = re.compile(r"\b[a-z0-9]{12,14}\.cloudfront\.net\b")
 
-def test_the_site_record_claims_nothing_is_applied_and_carries_no_proof_of_one() -> (
-    None
-):
-    """Both halves, because either alone can drift into a false document.
 
-    The prose has to say it, so a reader is told; and the record has to be free
-    of the identifiers an applied stack would put in it, so the prose cannot be
-    left standing over a deploy that happened. If this stack is ever applied,
-    this test fails first and the record gets rewritten the way
-    `deploy/ask/README.md` was -- with the stack, the region, the ARN and the
-    parameters as applied.
+def template_parameters() -> list[str]:
+    """Every name declared under `Parameters:`, in the template's order."""
+    lines = template_source().splitlines()
+    start = lines.index("Parameters:")
+    names = []
+    for line in lines[start + 1 :]:
+        if line and not line.startswith(" ") and not line.startswith("#"):
+            break
+        found = re.fullmatch(r"  ([A-Za-z][A-Za-z0-9]*):", line)
+        if found:
+            names.append(found.group(1))
+    return names
+
+
+def test_the_site_record_says_what_is_applied_and_which_origin_serves() -> None:
+    """The record follows `deploy/site/served-by`, in both directions.
+
+    While the switch says `cloudfront` the stack is what families are served
+    from, and a record that still said "prepared" would be the document
+    denying a running service that this file exists to prevent. So it has to
+    say it is applied and give what an applied record gives: the stack, the
+    region, the distribution's name, and every parameter as applied. If the
+    switch is ever pointed back at `github-pages`, the record has to say the
+    move was rolled back rather than go on describing CloudFront as the
+    origin.
     """
     record = record_source()
-    assert "Nothing here has been applied." in record
-    assert "## What is NOT applied" in record
-    for what, pattern in APPLIED_IDENTIFIERS.items():
-        found = pattern.search(record)
-        assert found is None, (
-            f"deploy/site/README.md says nothing is applied and carries {what}: "
-            f"{found.group(0)!r}. If it was applied, rewrite the record."
+    served_by = read_served_by(ROOT / SERVED_BY_FILE)
+    assert "Nothing here has been applied" not in record
+    if served_by != SERVED_BY_CLOUDFRONT:
+        assert "rolled back" in record.lower(), (
+            f"{SERVED_BY_FILE} says {served_by!r}; deploy/site/README.md has to "
+            "say the move was rolled back and when"
+        )
+        return
+    assert "**This is applied.**" in record
+    assert "## As applied" in record
+    assert "`homeroom-site`" in record
+    assert "`us-west-2`" in record
+    assert DISTRIBUTION_HOSTNAME.search(record), (
+        "deploy/site/README.md says it is applied and does not name the "
+        "distribution the domain points at"
+    )
+    parameters = template_parameters()
+    assert len(parameters) >= 10, parameters
+    for name in parameters:
+        assert f"`{name}`" in record, (
+            f"deploy/site/README.md does not state {name} as applied"
         )
 
 
-def test_the_record_may_only_say_pages_is_the_live_deploy_while_pages_yml_is() -> None:
+def test_the_site_record_carries_nothing_that_holds_the_account_id() -> None:
+    """Applied is not a reason to print the account.
+
+    The record names the stack, the region and the distribution. It does not
+    name the bucket, whose name ends in the account id, or give any ARN, each
+    of which carries it. Those are read from the stack's outputs when they are
+    needed.
+    """
+    record = record_source()
+    for what, pattern in ACCOUNT_BEARING_IDENTIFIERS.items():
+        found = pattern.search(record)
+        assert found is None, (
+            f"deploy/site/README.md carries {what}: {found.group(0)!r}. Name "
+            "the stack output it is read from instead."
+        )
+
+
+def test_the_record_may_only_call_pages_the_rollback_while_pages_yml_deploys() -> None:
     """The claim is derived from the workflow that would have to change first.
 
-    Cutting over means DNS, and DNS is not in this repository -- but leaving
-    `pages.yml` publishing is what makes the rollback a single record, and the
-    record says so. If somebody removes or disables that workflow, this fails
-    and the document has to be re-argued rather than quietly becoming wrong.
+    The rollback is one DNS record because `pages.yml` keeps publishing every
+    tree that fits, and the record says so. If somebody removes or disables
+    that workflow, this fails and the document has to be re-argued rather than
+    quietly becoming wrong about what a rollback would serve.
     """
     pages = PAGES_WORKFLOW.read_text(encoding="utf-8")
     assert "actions/deploy-pages@" in pages
     assert "path: site" in pages
     record = record_source()
-    assert "GitHub Pages serves every family reading these pages today" in record
+    assert "GitHub Pages no longer serves families. It is the rollback copy" in record
     assert "pages.yml" in record
 
 

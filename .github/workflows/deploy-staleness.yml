@@ -11,7 +11,10 @@
 #
 # This reads the github-pages deployment record instead, compares the whole
 # `site/` tree by its git object id, and dates the drift. It fetches nothing
-# from the live origin.
+# from the live origin. Since the DNS switch of 2026-11-17 that record is the
+# rollback copy's, not the served origin's: site-publish.yml, which syncs the
+# origin families read, creates no deployment record. tools/deploy_staleness.py
+# says what that leaves unmeasured.
 #
 # It publishes NOTHING and cannot: no `pages: write`, no `id-token: write`, no
 # deploy credential, no `workflow_dispatch` of anything, and it neither reads
