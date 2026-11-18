@@ -9,6 +9,7 @@ language, and the build is deterministic.
 
 from __future__ import annotations
 
+import json
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -350,3 +351,104 @@ def test_the_script_is_told_which_language_the_states_own_words_are_in(
         spanish = (with_ask / ask_page_name(cds, "es")).read_text(encoding="utf-8")
         assert '"cde_lang": "en"' in spanish, cds
         assert '"cde_lang"' not in english, cds
+
+
+APPROVED_FORM_MESSAGES = {
+    "ask_page_hint_length": ("Up to 600 characters.", "Hasta 600 caracteres."),
+    "ask_page_error_empty": ("Type a question first.", "Escriba primero una pregunta."),
+}
+"""The two form messages, word for word as the owner approved them on 2026-11-17."""
+
+
+def test_the_form_messages_are_the_approved_words() -> None:
+    for key, (english, spanish) in APPROVED_FORM_MESSAGES.items():
+        assert text("en", key) == english, key
+        assert text("es", key) == spanish, key
+
+
+def test_the_box_the_hint_and_the_service_agree_on_the_limit() -> None:
+    """One number in three places: the box, the words, and what the service accepts."""
+    from homeroom.ask.structuring import MAX_QUESTION_CHARS
+    from homeroom.askpage import QUESTION_MAX_LENGTH
+
+    assert QUESTION_MAX_LENGTH == MAX_QUESTION_CHARS == 600
+    for locale in LOCALES:
+        assert f" {QUESTION_MAX_LENGTH} " in text(locale, "ask_page_hint_length")
+
+
+def _element(source: str, element_id: str) -> tuple[str, dict[str, str | None], str]:
+    """One element of a page by its id: its tag, its attributes and its text."""
+    found = re.findall(
+        rf'<(\w+)\b([^>]*\bid="{re.escape(element_id)}"[^>]*)>(.*?)</\1>',
+        source,
+        re.S,
+    )
+    assert len(found) == 1, (element_id, len(found))
+    tag, raw, inner = found[0]
+    parser = Tags()
+    parser.feed(f"<{tag}{raw}>")
+    return tag, parser.elements[0][1], inner
+
+
+def test_the_question_box_says_how_long_a_question_may_be(with_ask: Path) -> None:
+    """SC 3.3.2: the box stops at 600 characters, so the page says so first.
+
+    `maxlength="600"` was on the textarea from the start and nothing on the
+    page mentioned it: a reader typing a long question found the keys stop
+    working mid-sentence. The hint sits between the label and the box, always
+    visible, and the box names it in `aria-describedby`, so a screen reader
+    reads it with the box and not only when the cursor happens to pass it.
+    The number in the words and the number on the box are held to each other.
+    """
+    for cds in SCHOOLS:
+        for locale in LOCALES:
+            source = (with_ask / ask_page_name(cds, locale)).read_text(encoding="utf-8")
+            tag, _, inner = _element(source, "ask-hint")
+            assert tag == "p"
+            assert inner == text(locale, "ask_page_hint_length"), (locale, inner)
+            _, box, _ = _element(source, "ask-question")
+            assert box["maxlength"] == "600"
+            assert f"{box['maxlength']} " in inner
+            assert "ask-hint" in (box.get("aria-describedby") or "").split()
+            form = source[source.index('<form id="ask-form"') :].split("</form>")[0]
+            assert (
+                form.index("<label")
+                < form.index('id="ask-hint"')
+                < form.index("<textarea")
+            )
+
+
+def test_an_empty_question_has_somewhere_to_be_told_so(with_ask: Path) -> None:
+    """SC 3.3.1: an error is identified in text, beside the box, in the page's language.
+
+    Until 2026-11-17 a question of only spaces was dropped without a word, and
+    a truly empty box got the browser's own bubble, in the browser's language
+    and not the page's. The form now checks for itself (`novalidate`) and the
+    page carries the place the message goes: an empty paragraph after the box,
+    which the box names in `aria-describedby` so the message is read with it,
+    and which is an alert so it can be announced when focus is already in the
+    box. The message itself reaches the script with the other fixed strings;
+    `tools/ask-optin.mjs` presses the button and reads what happens.
+    """
+    for cds in SCHOOLS:
+        for locale in LOCALES:
+            source = (with_ask / ask_page_name(cds, locale)).read_text(encoding="utf-8")
+            tag, attrs, inner = _element(source, "ask-error")
+            assert tag == "p" and inner == "", (tag, inner)
+            assert attrs.get("role") == "alert"
+            _, box, _ = _element(source, "ask-question")
+            described = (box.get("aria-describedby") or "").split()
+            assert described == ["ask-hint", "ask-error"], described
+            assert "required" in box
+            form = source[source.index('<form id="ask-form"') :].split("</form>")[0]
+            assert "novalidate" in form.split(">", 1)[0]
+            assert form.index("</textarea>") < form.index('id="ask-error"')
+            assert form.index('id="ask-error"') < form.index("<button")
+            blob = re.search(
+                r'<script type="application/json" id="ask-strings">(.*?)</script>',
+                source,
+                re.S,
+            )
+            assert blob
+            strings = json.loads(blob.group(1))
+            assert strings["empty"] == text(locale, "ask_page_error_empty")
