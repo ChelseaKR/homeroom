@@ -258,6 +258,7 @@ footer { border-top: 1px solid var(--rule); background: var(--raised); padding: 
 footer p { color: var(--ink-2); font-size: .92rem; }
 @media (max-width: 34rem) {
   .identity, .states { grid-template-columns: 1fr; gap: .15rem; }
+  .states dt { white-space: normal; }
   .states dd { margin-bottom: .6rem; }
 }
 """
