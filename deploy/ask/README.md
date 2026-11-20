@@ -13,7 +13,7 @@ and this directory is what was applied.
 | Model | Bedrock `global.anthropic.claude-sonnet-4-6` |
 | Site origin | `https://homeroom.chelseakr.com` |
 | Alarm topic | `arn:aws:sns:us-west-2:<account-id>:homeroom-ask-alarms` (**still no subscriber**, re-measured 2026-09-12) |
-| Alarm relay | `.github/workflows/ask-alarm-relay.yml` -> a GitHub issue (needs the `ASK_ALARM_RELAY_ROLE_ARN` repository variable; see below) |
+| Alarm relay | `.github/workflows/ask-alarm-relay.yml` -> a GitHub issue. **Off**: the `ASK_ALARM_RELAY_ROLE_ARN` repository variable is unset, so each daily run is green with a notice that the relay is off (see below) |
 
 `<account-id>` stands for the AWS account the stack is in. Like
 `deploy/site/CUTOVER.md`, this file keeps account ids, and so every full ARN,
@@ -324,8 +324,11 @@ S3 and read one school per request -- a small change to
   accident. It reports the missing subscriber as a finding in its own right, so
   this bullet stops depending on somebody remembering to re-check it.
 
-  Two owner steps switch it on, and until both are done the workflow fails
-  loudly every day rather than skipping quietly:
+  Until it is switched on, the workflow skips: the run is green and carries
+  a notice, "The ask alarm relay is off", and `required configuration`
+  reports the unset variable the same way. Until 2026-11-19 both runs failed
+  instead, every day from 2026-09-12, and a red run that nobody acts on for
+  two months hides the red runs that matter. Two owner steps switch it on:
 
   1. Add one parameter to your local `params.json` (it is gitignored, so it is
      not in this diff) and redeploy:
@@ -350,6 +353,10 @@ S3 and read one school per request -- a small change to
      `AlarmRelayRoleArn` output (Settings > Secrets and variables > Actions >
      Variables). It is a variable, not a secret: a role ARN is not a
      credential, and OIDC means there is no long-lived key to store.
+
+  Once it is on, the relay fails red whenever it has a finding, and a topic
+  with no confirmed subscriber is one. So switching it on without also
+  subscribing an address to the topic turns the daily run red, on purpose.
 
   No GitHub token grant is needed. The workflow files the issue with the
   built-in `GITHUB_TOKEN` under `issues: write`.

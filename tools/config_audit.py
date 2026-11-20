@@ -42,6 +42,14 @@ under `toJSON(vars)`, and like the live-integrity sentinel, the source-freshness
 check and the alarm relay it is NOT a required check and `make verify` does not
 call it -- the same reason those three give: a stage that reads outside the
 repository cannot be part of a gate that claims to be reproducible offline.
+
+2026-11-19: the relay now skips, with a notice, while its variable is unset.
+It had failed every night for over two months for the one known reason above,
+and so had the reconciliation, and two red runs a day that nobody acts on hide
+the red runs that matter. Both runs are green now and both say the relay is
+off: the relay in its own notice, this file in a `::notice::` per unset
+variable. "fails" stays a value this file understands, for the next workflow
+that has a real reason to.
 """
 
 from __future__ import annotations
@@ -86,7 +94,7 @@ REQUIRED_VARIABLES: dict[str, Requirement] = {
             "the read-only OIDC role ask-alarm-relay.yml assumes to read the ask "
             "service's CloudWatch alarm state and its SNS topic's subscriber count"
         ),
-        when_unset="fails",
+        when_unset="skips",
         how_to_set=(
             'Add {"ParameterKey": "AlarmRelayRepository", "ParameterValue": '
             '"ChelseaKR/homeroom"} to the gitignored deploy/ask/params.json and '
@@ -204,12 +212,23 @@ def _report_unset(unset: list[str]) -> str:
         consequence = (
             "its workflow fails every run until this is set"
             if requirement.when_unset == "fails"
-            else "its workflow skips silently, so nothing reports this"
+            else "its workflow skips instead of running, and only a notice says so"
         )
         lines.append(f"  {name} -- {requirement.purpose}.")
         lines.append(f"    Unset: {consequence}.")
         lines.append(f"    To set: {requirement.how_to_set}")
     return "\n".join(lines)
+
+
+def _notices(unset: list[str]) -> str:
+    """One annotation per variable, so a green run says it on its summary page
+    and not only in a log nobody opens."""
+    return "\n".join(
+        f"::notice title={name} is unset::{REQUIRED_VARIABLES[name].purpose}; "
+        f"its workflow skips until it is set. To set: "
+        f"{REQUIRED_VARIABLES[name].how_to_set}"
+        for name in unset
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -274,8 +293,9 @@ def main(argv: list[str]) -> int:
     # refuse to file a duplicate issue every night.
     #
     # So the deliberate ones are reported and not fatal, and the ones burning a
-    # scheduled run every day are fatal. This check can go green, and the day it
-    # does will be the day the relay can reach somebody.
+    # scheduled run every day are fatal. Since 2026-11-19 the alarm relay is one
+    # of the deliberate ones too (see the module docstring), so this check is
+    # green while the relay is off, and says so in a notice.
     blocking = [n for n in unset if REQUIRED_VARIABLES[n].when_unset == "fails"]
     unarmed = [n for n in unset if n not in blocking]
 
@@ -287,6 +307,7 @@ def main(argv: list[str]) -> int:
             f"is reported here because unarmed and idle look identical from "
             f"outside:\n" + _report_unset(unarmed)
         )
+        print(_notices(unarmed))
 
     if blocking:
         print(

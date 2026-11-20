@@ -440,6 +440,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The alarm relay is off, and says so in green** (owner decision
+  2026-11-19). With `ASK_ALARM_RELAY_ROLE_ARN` unset, `ask alarm relay` and
+  `required configuration` failed every day from 2026-09-12, for the same
+  known reason, and nobody acted on either. Both now pass while the variable
+  is unset and carry a notice that the relay is off and how to switch it on
+  (`deploy/ask/README.md`, "Still open"). Nothing else changes: once the
+  variable is set the relay reads the alarm and fails on any finding as
+  before, including a topic with no confirmed subscriber.
 - **CloudFront serves the domain, and the 96% bridge is over** (#82, ADR 0008,
   owner decisions 2026-09-18 and 2026-11-17). `homeroom.chelseakr.com` has been
   a CNAME to the `homeroom-site` stack's CloudFront distribution since 16:38

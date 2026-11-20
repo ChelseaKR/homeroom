@@ -337,9 +337,10 @@ gh variable list --repo "$REPO"
 ```
 
 *Check:* all four listed. From here every commit ci passes on `main` goes to
-**both** origins. (`required configuration` stays red until
-`ASK_ALARM_RELAY_ROLE_ARN` is set too; that one is the ask stack's and is
-unrelated to this move.)
+**both** origins. (`required configuration` stayed red until
+2026-11-19 for want of `ASK_ALARM_RELAY_ROLE_ARN`, which is the ask stack's
+and unrelated to this move. Since then that variable is reported as a
+notice and the check is green.)
 
 Two things to know before setting them.
 

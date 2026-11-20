@@ -9,11 +9,14 @@ while still exiting 0.
 
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -168,17 +171,59 @@ def test_reconcile_without_the_repositorys_variables_refuses_to_pass() -> None:
     assert code == 1
 
 
-def test_reconcile_fails_on_a_variable_whose_workflow_fails_without_it() -> None:
-    """Nothing set at all -- the repository's actual state on 2026-09-13."""
+def test_nothing_set_is_green_and_says_so_variable_by_variable() -> None:
+    """Nothing set at all, the repository's state on 2026-09-13.
+
+    Since 2026-11-19 every declared variable sits behind a workflow that skips,
+    the alarm relay included, so this run is green. Green is not silent: each
+    unset variable gets its own `::notice::` annotation, and the relay's still
+    carries the owner's step.
+    """
     code, output = _run(["--reconcile"], {"REPO_VARIABLES": json.dumps({})})
-    assert code == 1
-    assert "1 of 5 required repository variables are unset behind a workflow" in output
-    assert "FAILS every run" in output
-    assert "ASK_ALARM_RELAY_ROLE_ARN" in output
-    assert "AlarmRelayRoleArn" in output, "the report must carry the owner's step"
-    # The four deliberate ones are still reported, just not fatal.
+    assert code == 0, output
+    assert "5 of 5 required repository variables are unset" in output
     assert "deliberate unarmed state" in output
-    assert "SITE_S3_BUCKET" in output
+    for name in REQUIRED_VARIABLES:
+        assert f"::notice title={name} is unset::" in output, name
+    assert "AlarmRelayRoleArn" in output, "the report must carry the owner's step"
+    assert "::error::" not in output
+
+
+def test_the_alarm_relay_is_one_that_skips() -> None:
+    """The 2026-11-19 change, held: the relay's variable no longer turns this red."""
+    assert REQUIRED_VARIABLES["ASK_ALARM_RELAY_ROLE_ARN"].when_unset == "skips"
+    relay = (ROOT / ".github" / "workflows" / "ask-alarm-relay.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "::notice title=The ask alarm relay is off::" in relay
+    assert 'echo "wired=false"' in relay
+
+
+def test_reconcile_still_fails_on_a_variable_whose_workflow_fails_without_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The red path survives the relay leaving it.
+
+    No declared variable is `fails` today, so one is made so here. Without this,
+    the blocking branch could break unnoticed until the next workflow needs it.
+    """
+    name = "ASK_ALARM_RELAY_ROLE_ARN"
+    failing = dataclasses.replace(REQUIRED_VARIABLES[name], when_unset="fails")
+    monkeypatch.setitem(config_audit.REQUIRED_VARIABLES, name, failing)
+    assert config_audit.REQUIRED_VARIABLES[name].when_unset == "fails", (
+        "the plant did not land"
+    )
+    everything_else = {n: "value" for n in REQUIRED_VARIABLES if n != name}
+    monkeypatch.setenv("REPO_VARIABLES", json.dumps(everything_else))
+
+    code = config_audit.main(["--reconcile"])
+    output = capsys.readouterr()
+    assert code == 1
+    assert (
+        "1 of 5 required repository variables are unset behind a workflow" in output.err
+    )
+    assert "FAILS every run" in output.err
+    assert name in output.err
 
 
 def test_a_deliberate_unarmed_state_is_reported_but_does_not_fail() -> None:
