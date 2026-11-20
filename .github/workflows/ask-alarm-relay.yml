@@ -29,6 +29,9 @@
 # A run that cannot read is never a run that found nothing. Every failure below
 # exits non-zero with a reason, because a relay that reports success when it
 # could not look is the same defect it exists to remove, one layer up.
+#
+# Not wired is a different state from could not read, and since 2026-11-19 it
+# is a green run with a notice rather than a red one. See the first step.
 name: ask alarm relay
 
 on:
@@ -58,33 +61,54 @@ jobs:
       id-token: write # OIDC into the stack's read-only AlarmRelayRole
       issues: write # file and update the one relay issue
     steps:
-      # Checked FIRST, and it fails rather than skipping. A notification path
-      # that quietly does nothing when its configuration is missing is the
-      # exact shape this workflow exists to remove; `if: vars.X != ''` here
-      # would rebuild it. An unset variable means the relay is not wired, and
-      # the run says so in red.
-      - name: The relay must be wired, or say that it is not
+      # Checked FIRST. Until 2026-11-19 an unset variable failed this run, on the
+      # argument that a notification path which quietly does nothing is the
+      # shape this workflow exists to remove. The red run turned out to reach
+      # nobody either: it failed every day from 2026-09-12 to 2026-11-19, in
+      # eight seconds, for the same known reason, and a daily red that nobody
+      # acts on teaches its reader to ignore the red runs that matter. So,
+      # with the owner's approval on 2026-11-19, an unwired relay is a green
+      # run that says it is off: an annotation, a job summary, and the same
+      # line in required-configuration.yml. Not silent, just not red. Wiring
+      # it is in deploy/ask/README.md, "Still open".
+      #
+      # The steps below are gated on this step's output rather than on
+      # `if: vars.X != ''` each, so the decision is made, and said, once.
+      - name: Is the relay wired?
+        id: wired
         env:
           ROLE_ARN: ${{ vars.ASK_ALARM_RELAY_ROLE_ARN }}
         run: |
           set -euo pipefail
-          if [ -z "${ROLE_ARN}" ]; then
-            echo "::error::repository variable ASK_ALARM_RELAY_ROLE_ARN is unset, so this relay cannot read the alarm and the ask alarm currently reaches nobody at all. Add AlarmRelayRepository=ChelseaKR/homeroom to params.json, redeploy deploy/ask/template.yaml, then set the variable to the stack's AlarmRelayRoleArn output. deploy/ask/README.md, 'Still open', has both steps."
-            exit 1
+          if [ -z "$(printf '%s' "${ROLE_ARN}" | tr -d '[:space:]')" ]; then
+            echo "::notice title=The ask alarm relay is off::repository variable ASK_ALARM_RELAY_ROLE_ARN is unset, so this run did not read the ask alarm. Unless the alarm's SNS topic has a subscriber (it had none on 2026-11-19), nothing tells a person when the alarm fires. deploy/ask/README.md, 'Still open', has the steps that switch the relay on."
+            {
+              echo "## The ask alarm relay is off"
+              echo
+              echo "The repository variable \`ASK_ALARM_RELAY_ROLE_ARN\` is unset, so this run read nothing and skipped the rest."
+              echo "Unless the alarm's SNS topic has a confirmed subscriber (it had none on 2026-11-19), nothing tells a person when the ask alarm fires."
+              echo "\`deploy/ask/README.md\`, \"Still open\", has the steps that switch it on."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            echo "wired=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "wired=true" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Checkout main
+        if: steps.wired.outputs.wired == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           persist-credentials: false
 
       - name: Set up Python
+        if: steps.wired.outputs.wired == 'true'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
       - name: Assume the read-only relay role
+        if: steps.wired.outputs.wired == 'true'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.ASK_ALARM_RELAY_ROLE_ARN }}
@@ -94,6 +118,7 @@ jobs:
       # repository, and it is used only to address the API call: the report
       # builder takes the topic NAME and drops the ARN.
       - name: Read the alarm state and the topic's subscriber count
+        if: steps.wired.outputs.wired == 'true'
         run: |
           set -euo pipefail
           aws cloudwatch describe-alarms --region us-west-2 \
@@ -105,6 +130,7 @@ jobs:
             --output json > "${RUNNER_TEMP}/topic.json"
 
       - name: Build the redacted report
+        if: steps.wired.outputs.wired == 'true'
         id: report
         run: |
           set -uo pipefail
@@ -119,6 +145,7 @@ jobs:
       # crash would assert a finding on no evidence at all. The report has to
       # carry the verdict, and the two have to agree.
       - name: Decide what the exit code and the report actually say
+        if: steps.wired.outputs.wired == 'true'
         id: verdict
         env:
           RC: ${{ steps.report.outputs.rc }}

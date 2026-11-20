@@ -6,6 +6,9 @@
 # merge could not perform, so the workflow shipped unable to run and has failed
 # every night since in an eight-second run. It failed correctly and said exactly
 # what was missing. Nothing connected that to the merge that caused it.
+# (Since 2026-11-19 the relay skips with a notice while the variable is unset,
+# so this check reports it as a notice too and stays green; see
+# tools/config_audit.py.)
 #
 # `site-publish.yml` is the same fact with the sound turned off: four variables
 # behind an `if:` that skips rather than fails -- deliberately, and the comment
